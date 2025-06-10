@@ -1,9 +1,9 @@
-"""Import the necessary modules
+"""Importa las librerias y modulos necesarios
 """
 import vision.camera_interface as camIn
 # import config.settings as sett
 
 if __name__ == '__main__':
-    # Get a frame ang get the 2d plane coordinates
+    # Obtiene la imagen de la camara
     frame = camIn.take_frame()
     camIn.get_coordinates(frame)

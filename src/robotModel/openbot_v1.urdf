@@ -1,0 +1,311 @@
+<?xml version="1.0" ?>
+<robot name="openbot_v1">
+  <material name="silver">
+    <color rgba="0.700 0.700 0.700 1.000"/>
+  </material>
+  <material name="black">
+    <color rgba="0 0 0 1.000"/>
+  </material>
+  <transmission name="clamp1_clamp2_joint_tran">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="clamp1_clamp2_joint">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="clamp1_clamp2_joint_actr">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+  <transmission name="arm2_arm3_joint_tran">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="arm2_arm3_joint">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="arm2_arm3_joint_actr">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+  <transmission name="arm1_arm2_joint_tran">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="arm1_arm2_joint">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="arm1_arm2_joint_actr">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+  <transmission name="base_arm1_joint_tran">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="base_arm1_joint">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="base_arm1_joint_actr">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+  <transmission name="arm4_clamp1_joint_tran">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="arm4_clamp1_joint">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="arm4_clamp1_joint_actr">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+  <transmission name="arm3_arm4_joint_tran">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="arm3_arm4_joint">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="arm3_arm4_joint_actr">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+  <gazebo>
+    <plugin filename="libgazebo_ros_control.so" name="gazebo_ros_control">
+      <robotNamespace>/openbot_v1</robotNamespace>
+      <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
+    </plugin>
+  </gazebo>
+  <gazebo reference="base_link">
+    <material>Gazebo/Silver</material>
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+    <selfCollide>true</selfCollide>
+    <gravity>true</gravity>
+  </gazebo>
+  <gazebo reference="arm2_link_1">
+    <material>Gazebo/Silver</material>
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+    <selfCollide>true</selfCollide>
+    <gravity>true</gravity>
+  </gazebo>
+  <gazebo reference="arm3_link_1">
+    <material>Gazebo/Silver</material>
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+    <selfCollide>true</selfCollide>
+    <gravity>true</gravity>
+  </gazebo>
+  <gazebo reference="arm4_link_1">
+    <material>Gazebo/Silver</material>
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+    <selfCollide>true</selfCollide>
+    <gravity>true</gravity>
+  </gazebo>
+  <gazebo reference="clamb_arm_link_1">
+    <material>Gazebo/Silver</material>
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+    <selfCollide>true</selfCollide>
+    <gravity>true</gravity>
+  </gazebo>
+  <gazebo reference="clamp2_link_1">
+    <material>Gazebo/Silver</material>
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+    <selfCollide>true</selfCollide>
+    <gravity>true</gravity>
+  </gazebo>
+  <gazebo reference="arm1_link_1">
+    <material>Gazebo/Silver</material>
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+    <selfCollide>true</selfCollide>
+    <gravity>true</gravity>
+  </gazebo>
+  <link name="world"/>
+  <joint name="world_joint" type="fixed">
+    <parent link="world"/>
+    <child link="base_link"/>
+  </joint>
+  <link name="base_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.0005943128623696434 -0.0007537461147729055 0.01585867561565245"/>
+      <mass value="8.934333178369254"/>
+      <inertia ixx="0.063131" ixy="-2e-06" ixz="-0.000496" iyy="0.061573" iyz="0.000637" izz="0.111897"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="meshes/visual/base_link.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="meshes/collision/base_link_collision.stl" scale="0.0001 0.0001 0.0001"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="clamp2_link_1">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.006996907618943539 0.012162832270244749 0.027954827886010836"/>
+      <mass value="0.13124936137262402"/>
+      <inertia ixx="0.000102" ixy="-2e-06" ixz="6e-06" iyy="8.2e-05" iyz="-3e-06" izz="4.2e-05"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="-0.021121 0.012617 -0.431403"/>
+      <geometry>
+        <mesh filename="meshes/visual/clamp2_link_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="-0.021121 0.012617 -0.431403"/>
+      <geometry>
+        <mesh filename="meshes/collision/clamp2_link_collision.stl" scale="0.0001 0.0001 0.0001"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="arm3_link_1">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.00784924020827586 0.013236163352553145 0.0429530723784384"/>
+      <mass value="0.742575093082627"/>
+      <inertia ixx="0.000706" ixy="-1e-06" ixz="-0.000143" iyy="0.000752" iyz="-3e-06" izz="0.000205"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0.000286 0.013919 -0.248787"/>
+      <geometry>
+        <mesh filename="meshes/visual/arm3_link_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0.000286 0.013919 -0.248787"/>
+      <geometry>
+        <mesh filename="meshes/collision/arm3_link_collision.stl" scale="0.0001 0.0001 0.0001"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="arm2_link_1">
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.00032496967533245276 -0.013258906328595759 0.02725537582885887"/>
+      <mass value="0.46509419336545327"/>
+      <inertia ixx="0.000404" ixy="-1e-06" ixz="-1e-06" iyy="0.000355" iyz="1.1e-05" izz="0.000107"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="-0.000333 -0.013218 -0.155124"/>
+      <geometry>
+        <mesh filename="meshes/visual/arm2_link_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="-0.000333 -0.013218 -0.155124"/>
+      <geometry>
+        <mesh filename="meshes/collision/arm2_link_collision.stl" scale="0.0001 0.0001 0.0001"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="arm1_link_1">
+    <inertial>
+      <origin rpy="0 0 0" xyz="5.465500881765363e-05 0.002431063697578837 0.017868847356696707"/>
+      <mass value="0.07581664225151134"/>
+      <inertia ixx="3.3e-05" ixy="-0.0" ixz="-0.0" iyy="1.4e-05" iyz="-3e-06" izz="2.6e-05"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="-8e-06 0.001272 -0.12251"/>
+      <geometry>
+        <mesh filename="meshes/visual/arm1_link_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="-8e-06 0.001272 -0.12251"/>
+      <geometry>
+        <mesh filename="meshes/collision/arm1_link_collision.stl" scale="0.0001 0.0001 0.0001"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="clamp_arm_link_1">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.0019227226519391428 0.013859420389252714 0.06779916452987966"/>
+      <mass value="0.5609356251649285"/>
+      <inertia ixx="0.000492" ixy="-2e-06" ixz="3.4e-05" iyy="0.000495" iyz="-9e-06" izz="0.000179"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="-0.003047 0.013326 -0.361226"/>
+      <geometry>
+        <mesh filename="meshes/visual/clamp_arm_link_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="-0.003047 0.013326 -0.361226"/>
+      <geometry>
+        <mesh filename="meshes/collision/clamp_arm_link_collision.stl" scale="0.0001 0.0001 0.0001"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="arm4_link_1">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.014590036909670668 -0.0006364769473436108 0.02514255250707237"/>
+      <mass value="0.3749522536600143"/>
+      <inertia ixx="7.2e-05" ixy="2e-06" ixz="-2e-06" iyy="0.000105" iyz="1e-06" izz="0.000104"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="-0.001767 6.1e-05 -0.333127"/>
+      <geometry>
+        <mesh filename="meshes/visual/arm4_link_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="-0.001767 6.1e-05 -0.333127"/>
+      <geometry>
+        <mesh filename="meshes/collision/arm4_link_collision.stl" scale="0.0001 0.0001 0.0001"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="clamp1_clamp2_joint" type="revolute">
+    <origin rpy="0 0 0" xyz="0.018074 0.000709 0.070177"/>
+    <parent link="clamp_arm_link_1"/>
+    <child link="clamp2_link_1"/>
+    <axis xyz="0.022552 0.999728 -0.005939"/>
+    <limit effort="10" lower="0.0" upper="1.57" velocity="3"/>
+  </joint>
+  <joint name="arm2_arm3_joint" type="revolute">
+    <origin rpy="0 0 0" xyz="-0.000619 -0.027137 0.093663"/>
+    <parent link="arm2_link_1"/>
+    <child link="arm3_link_1"/>
+    <axis xyz="0.022552 0.999728 -0.005939"/>
+    <limit effort="10" lower="-2.09" upper="2.09" velocity="3"/>
+  </joint>
+  <joint name="arm1_arm2_joint" type="revolute">
+    <origin rpy="0 0 0" xyz="0.000325 0.01449 0.032614"/>
+    <parent link="arm1_link_1"/>
+    <child link="arm2_link_1"/>
+    <axis xyz="0.022552 0.999728 -0.005939"/>
+    <limit effort="10" lower="-1.6" upper="1.6" velocity="3"/>
+  </joint>
+  <joint name="base_arm1_joint" type="revolute">
+    <origin rpy="0 0 0" xyz="8e-06 -0.001272 0.12251"/>
+    <parent link="base_link"/>
+    <child link="arm1_link_1"/>
+    <axis xyz="6.7e-05 0.005939 0.999982"/>
+    <limit effort="10" lower="-2.617" upper="2.617" velocity="3"/>
+  </joint>
+  <joint name="arm4_clamp1_joint" type="revolute">
+    <origin rpy="0 0 0" xyz="0.00128 -0.013265 0.028099"/>
+    <parent link="arm4_link_1"/>
+    <child link="clamp_arm_link_1"/>
+    <axis xyz="0.022552 0.999728 -0.005939"/>
+    <limit effort="10" lower="-2.61" upper="1.57" velocity="3"/>
+  </joint>
+  <joint name="arm3_arm4_joint" type="revolute">
+    <origin rpy="0 0 0" xyz="0.002053 0.013858 0.08434"/>
+    <parent link="arm3_link_1"/>
+    <child link="arm4_link_1"/>
+    <axis xyz="0.002967 0.005874 0.999978"/>
+    <limit effort="10" lower="-2.617" upper="2.617" velocity="3"/>
+  </joint>
+</robot>

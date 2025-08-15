@@ -1,9 +1,16 @@
 """Importa las librerias y modulos necesarios
 """
-import vision.camera_interface as camIn
-# import config.settings as sett
+from PyQt6.QtWidgets import QApplication
+from interface.appInterface import main_i
+import sys
 
 if __name__ == '__main__':
     # Obtiene la imagen de la camara
-    frame = camIn.take_frame()
-    camIn.get_coordinates(frame)
+    # print("Qt: v", QT_VERSION_STR, "\tPyQt: v", PYQT_VERSION_STR)
+    app = QApplication(sys.argv)
+
+    window = main_i()
+    window.show()
+
+    (app.exec())
+    

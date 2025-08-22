@@ -1,7 +1,7 @@
 """Importa las librerias y modulos necesarios
 """
 from PyQt6.QtWidgets import QApplication
-from interface.appInterface import main_i
+from gui.app_interface import MainInterface
 import sys
 
 if __name__ == '__main__':
@@ -9,8 +9,7 @@ if __name__ == '__main__':
     # print("Qt: v", QT_VERSION_STR, "\tPyQt: v", PYQT_VERSION_STR)
     app = QApplication(sys.argv)
 
-    window = main_i()
+    window = MainInterface()
     window.show()
 
     (app.exec())
-    

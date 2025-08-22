@@ -1,49 +1,53 @@
-"""Versión optimizada de la clase Camara con mejor separación de responsabilidades"""
-import numpy as np
-import cv2
 from typing import Optional
 import math
+import numpy as np
+import cv2
 
-class camera_control:
+
+class CameraControl:
     """Clase que gestiona una cámara y sus operaciones básicas"""
-    
+
     def __init__(self, camera_index: int = 0):
         self.camera_index = camera_index
         self.cap: Optional[cv2.VideoCapture] = None
         self.camera_ready = False
-        
+
         # Configuraciones por defecto
         self.default_width = 1280
         self.default_height = 720
         self.default_fps = 30
-        
+
     def camera_on(self) -> bool:
         """Enciende la cámara con configuración optimizada"""
         try:
             self.__release_camera()
-            
+
             # Usar DirectShow en Windows para mejor performance
             self.cap = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
-            
+
             if not self.cap or not self.cap.isOpened():
-                raise Exception("No se pudo abrir la cámara")
-            
+                raise IOError("No se pudo abrir la cámara")
+
             self.__configure_camera()
-            
+
             self.camera_ready = True
             return True
-            
-        except Exception as e:
+
+        except IOError as e:
             print(f"Error al inicializar cámara: {e}")
             self.__release_camera()
             return False
-    
+        except RuntimeError as e:
+            print(f"Error durate ejecucion: {e}")
+            self.__release_camera()
+            return False
+
     def camera_off(self):
         """Apaga la cámara y libera recursos"""
         self.camera_ready = False
         self.__release_camera()
         cv2.destroyAllWindows()
-        
+
     def camera_is_on(self):
         """Verifica si la cámara está activa"""
         return self.cap is not None and self.cap.isOpened() and self.camera_ready
@@ -58,18 +62,18 @@ class camera_control:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convertir a RGB
             return frame
         return None
-    
+
     def __configure_camera(self):
         """Configura propiedades de la cámara para optimizar performance"""
         if not self.cap:
             return
-    
+
     def __release_camera(self):
         """Libera recursos de la cámara"""
         if self.cap:
             self.cap.release()
             self.cap = None
-    
+
     def toggle_camera(self):
         """Alterna el estado de la cámara"""
         if self.camera_is_on():
@@ -105,7 +109,7 @@ class camera_control:
         # Apply gamma correction
         # Normalize image to 0-1, apply power, then scale back to 0-255
         gamma_corrected_img = np.power(img / 255.0, gamma) * 255.0
-        gamma_corrected_img = np.clip(gamma_corrected_img, 0, 255).astype(np.uint8)
+        gamma_corrected_img = np.clip(
+            gamma_corrected_img, 0, 255).astype(np.uint8)
 
         return gamma_corrected_img
-

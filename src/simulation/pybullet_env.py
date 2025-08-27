@@ -14,7 +14,10 @@ class SimulationEnv:
         # Singleton: garantiza que solo se cree una vez
         if cls._instance is None:
             cls._instance = super(SimulationEnv, cls).__new__(cls)
-            cls._instance.cid = p.connect(p.DIRECT)
+        if not p.getConnectionInfo()["isConnected"]:
+            cls._instance.cid = p.connect(
+                p.GUI, options="--width=1 --height=1")
+
         return cls._instance
 
     def reset(self):

@@ -75,10 +75,10 @@
       <item row="1" column="1">
        <widget class="QSlider" name="slider2">
         <property name="minimum">
-         <number>-150</number>
+         <number>-30</number>
         </property>
         <property name="maximum">
-         <number>150</number>
+         <number>190</number>
         </property>
         <property name="orientation">
          <enum>Qt::Orientation::Horizontal</enum>
@@ -117,10 +117,10 @@
       <item row="2" column="1">
        <widget class="QSlider" name="slider3">
         <property name="minimum">
-         <number>-150</number>
+         <number>-97</number>
         </property>
         <property name="maximum">
-         <number>150</number>
+         <number>100</number>
         </property>
         <property name="orientation">
          <enum>Qt::Orientation::Horizontal</enum>
@@ -201,10 +201,10 @@
       <item row="4" column="1">
        <widget class="QSlider" name="slider5">
         <property name="minimum">
-         <number>-150</number>
+         <number>-97</number>
         </property>
         <property name="maximum">
-         <number>150</number>
+         <number>100</number>
         </property>
         <property name="orientation">
          <enum>Qt::Orientation::Horizontal</enum>
@@ -243,10 +243,10 @@
       <item row="5" column="1">
        <widget class="QSlider" name="slider6">
         <property name="minimum">
-         <number>-150</number>
+         <number>0</number>
         </property>
         <property name="maximum">
-         <number>150</number>
+         <number>142</number>
         </property>
         <property name="orientation">
          <enum>Qt::Orientation::Horizontal</enum>

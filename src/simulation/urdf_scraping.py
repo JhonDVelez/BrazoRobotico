@@ -7,10 +7,9 @@ class RobotURDF:
     """
 
     def __init__(self, robot_id):
-        # super().__init__()
         self.robot_id = robot_id
+        self.num_joints = None
         self.env = SimulationEnv()
-        self.get_initial_state()
 
     def get_initial_state(self):
         """Obtener el estado inicial del robot"""
@@ -26,11 +25,11 @@ class RobotURDF:
         dict_all = []   # Diccionario que almacena todos los links
         dict_link = {}  # Diccionario que almacena temporalmente el link
         # Información del link base
-        base_info = p.getBodyInfo(self.robot_id)
-        base_pos, base_orn = p.getBasePositionAndOrientation(self.robot_id)
-        print(f"Link base: {base_info[1].decode('utf-8')}")
-        print(f"Link base position: {base_pos}")
-        print(f"Link base orientation: {base_orn}")
+        # base_info = p.getBodyInfo(self.robot_id)
+        # base_pos, base_orn = p.getBasePositionAndOrientation(self.robot_id)
+        # print(f"Link base: {base_info[1].decode('utf-8')}")
+        # print(f"Link base position: {base_pos}")
+        # print(f"Link base orientation: {base_orn}")
 
         # Información de cada joint/link
         for i in range(self.num_joints):
@@ -40,16 +39,20 @@ class RobotURDF:
 
             # Obtener posición del link
             link_state = p.getLinkState(self.robot_id, i)
+            material = p.getVisualShapeData(self.robot_id)
 
             dict_link = {"link": link_name,
-                         "position": link_state[0],
-                         "orientation": link_state[1]
+                         "joint": joint_name,
+                         "position": link_state[4],
+                         "orientation": link_state[1],
+                         "material": material[i][7]
                          }
-            print(f"Joint {i}: {joint_name} -> Link: {link_name}")
-            print(f"  Position: {link_state[0]}")
-            print(f"  Orientation: {link_state[1]}")
-            print(f"  Frame Position: {link_state[4]}")
-            print(f"  Frame Orientation: {link_state[5]}")
+            # print(f"Joint {i}: {joint_name} -> Link: {link_name}")
+            # print(f"  Position: {link_state[0]}")
+            # print(f"  Orientation: {link_state[1]}")
+            # print(f"  Frame Position: {link_state[4]}")
+            # print(f"  Frame Orientation: {link_state[5]}")
+            # print(f"  Material: {material[i][7]}")
             dict_all.append(dict_link)
 
         return dict_all

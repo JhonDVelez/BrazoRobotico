@@ -1,10 +1,11 @@
 import os
-from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout
-from PyQt6.QtGui import QScreen
+from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QMessageBox
+from PyQt6.QtWidgets import QWidget, QHBoxLayout
+from PyQt6.QtGui import QScreen, QIcon
 from PyQt6 import uic
 from gui.camera_interface import VideoOverlayWidget
 from gui.sliders_interface import SlidersWidget
-from gui.simulation_interface import Model3D
+from gui.simulation_interface import SimInterface
 
 
 class MainInterface(QMainWindow):
@@ -16,15 +17,42 @@ class MainInterface(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        self.execution_status = False
+        self.simulation_widget = None
         self.init_main_window()
         self.init_camera()
         self.init_controls()
-        self.init_simulation()
         self.setup_connections()
 
+    def start_stop(self):
+        """ Inicia o detiene la simulacion en caso de ser la primera vez instancia la clase
+            SimInterface, tambien cambia los colores e iconos del boton.
+        """
+        if not self.execution_status:
+            if self.simulation_widget is None:
+                self.init_simulation()
+            self.video_widget.setEnabled(True)
+            self.start_stop_button.setIcon(self.stop_icon)
+            self.start_stop_button.setStyleSheet(
+                "background-color: #F74220")  # Boton color rojo
+            self.simulation_widget.start_simulation()
+            self.execution_status = True
+        else:
+            self.video_widget.setEnabled(False)
+            self.simulation_widget.stop_simulation()
+            self.start_stop_button.setIcon(self.start_icon)
+            self.start_stop_button.setStyleSheet(
+                "background-color: #3B963F")  # Boton color verde
+            self.execution_status = False
+
+    def reset(self):
+        """ Reinicia los valores de los sliders a 0
+        """
+        SlidersWidget.restart_sliders()
+
     def init_main_window(self):
-        """"" Inicializa la ventana principal de la aplicación y configura su diseño
-        """""
+        """ Inicializa la ventana principal de la aplicación y configura su diseño
+        """
         self.ui = uic.loadUi(os.path.join(
             os.path.dirname(__file__), "app_interface.ui"), self)
 
@@ -51,6 +79,7 @@ class MainInterface(QMainWindow):
 
         self.video_widget = VideoOverlayWidget(self.ui)
         self.cameraBox.layout().addWidget(self.video_widget)
+        self.video_widget.setEnabled(False)
 
     # def init_model(self):
         # self.modelBox = self.ui.modelBox
@@ -63,8 +92,34 @@ class MainInterface(QMainWindow):
             layout.setContentsMargins(0, 0, 0, 0)
             self.controlsBox.setLayout(layout)
 
-        self.controls_widget = SlidersWidget(self.ui)
-        self.controlsBox.layout().addWidget(self.controls_widget)
+        self.slider_widget = SlidersWidget(self.ui)
+        self.controlsBox.layout().addWidget(self.slider_widget)
+
+        self.control_app_widget = QWidget()
+        if not self.control_app_widget.layout():
+            layout = QHBoxLayout(self.controlsBox)
+            layout.setContentsMargins(0, 0, 0, 0)
+            self.control_app_widget.setLayout(layout)
+
+        self.start_icon = QIcon(os.path.join(os.path.dirname(__file__),
+                                             "icons", "play.png"))
+        self.stop_icon = QIcon(os.path.join(os.path.dirname(__file__),
+                                            "icons", "stop.png"))
+        self.reset_icon = QIcon(os.path.join(os.path.dirname(__file__),
+                                             "icons", "sync.png"))
+
+        self.start_stop_button.setIcon(self.start_icon)
+        self.start_stop_button.setStyleSheet(
+            "background-color: #3B963F")  # Boton color verde
+
+        self.reset_button.setIcon(self.reset_icon)
+        self.reset_button.setStyleSheet(
+            "background-color: #777777")  # Boton color verde
+
+        self.control_app_widget.layout().addWidget(self.start_stop_button)
+        self.control_app_widget.layout().addWidget(self.reset_button)
+
+        self.controlsBox.layout().addWidget(self.control_app_widget)
 
     def init_simulation(self):
         """ Inicializa la interfaz de la simulacion creando el layout y realizando ajustes para una
@@ -75,8 +130,9 @@ class MainInterface(QMainWindow):
             layout.setContentsMargins(0, 0, 0, 0)
             self.modelBox.setLayout(layout)
 
-        self.simulation_widget = Model3D()
+        self.simulation_widget = SimInterface(self.slider_widget)
         self.modelBox.layout().addWidget(self.simulation_widget)
+        self.simulation_widget.setEnabled(False)
 
     def setup_connections(self):
         """ Configura las conexiones de eventos para los botones de la interfaz
@@ -87,6 +143,10 @@ class MainInterface(QMainWindow):
         if hasattr(self.ui, 'modelButton'):
             self.ui.modelButton.clicked.connect(
                 lambda: self.toogle_visibility_model_event(self.modelBox))
+        if hasattr(self.ui, 'start_stop_button'):
+            self.start_stop_button.clicked.connect(self.start_stop)
+        if hasattr(self.ui, 'reset_button'):
+            self.reset_button.clicked.connect(self.reset)
 
     def toogle_visibility_camera_event(self, camera_box):
         """ Alterna la visibilidad del widget de la cámara y actualiza el texto del botón 
@@ -115,3 +175,20 @@ class MainInterface(QMainWindow):
         else:
             model_box.show()
             self.ui.modelButton.setText("Ocultar Modelo 3D")
+
+    def closeEvent(self, event):
+        """ Gestiona el evento de cerrado presentando una ventana para verificar la salida de 
+            la aplicacion
+        """
+        reply = QMessageBox.question(
+            self,
+            "Salir",
+            "¿Seguro que quieres cerrar la aplicación?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            event.accept()
+        else:
+            event.ignore()

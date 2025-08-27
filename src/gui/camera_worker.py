@@ -1,11 +1,13 @@
 import numpy as np
+import cv2
 from PyQt6.QtCore import QThread, pyqtSignal, QMutex, QWaitCondition
 from PyQt6.QtGui import QPixmap, QImage
 from vision.camera_chessboard import CameraChessBoard
 
 
 class VideoWorker(QThread):
-    """Worker thread para manejar la captura y procesamiento de video"""
+    """Worker thread para manejar la captura y procesamiento de video
+    """
 
     # Señales para comunicación con el hilo principal
     frame_ready = pyqtSignal(QPixmap)
@@ -22,11 +24,9 @@ class VideoWorker(QThread):
         self.mutex = QMutex()
         self.wait_condition = QWaitCondition()
 
-        # Configuración de FPS
-        self.frame_time_ms = 1000 // 30
-
     def run(self):
-        """Bucle principal del hilo de video"""
+        """Bucle principal del hilo de video
+        """
         try:
             # Inicializar cámara en el hilo de trabajo
             self.camera_chess_board = CameraChessBoard(self.camera_index)
@@ -56,20 +56,24 @@ class VideoWorker(QThread):
                         if not pixmap.isNull():
                             self.frame_ready.emit(pixmap)
 
-                    # Control de FPS - dormir por el tiempo restante
-                    self.msleep(self.frame_time_ms)
+                except (AttributeError, ValueError, TypeError) as e:
+                    # Errores típicos de conversión/validación del frame
+                    self.error_occurred.emit(f"Frame inválido: {e}")
 
-                except Exception as e:
-                    self.error_occurred.emit(
-                        f"Error procesando frame: {str(e)}")
+                except cv2.error as e:
+                    # Errores propios de OpenCV
+                    self.error_occurred.emit(f"Error de OpenCV: {e}")
 
-        except Exception as e:
-            self.error_occurred.emit(f"Error en worker thread: {str(e)}")
+        except (OSError, RuntimeError) as e:
+            # Errores al inicializar la cámara u otros recursos
+            self.error_occurred.emit(f"Error en worker thread: {e}")
+
         finally:
             self.__cleanup()
 
     def __numpy_to_qpixmap(self, frame: np.ndarray) -> QPixmap:
-        """Convierte frame numpy a QPixmap (optimizado para threading)"""
+        """ Convierte frame numpy a QPixmap
+        """
         try:
             height, width, channels = frame.shape
             bytes_per_line = channels * width
@@ -88,12 +92,18 @@ class VideoWorker(QThread):
 
             # Convertir a QPixmap
             return QPixmap.fromImage(q_image)
-        except Exception as e:
-            print(f"Error convirtiendo frame: {e}")
+
+        except (AttributeError, ValueError, TypeError) as e:
+            print(f"El frame no cuenta con el formato adecuado: {e}")
+            return QPixmap()
+
+        except cv2.error as e:
+            print(f"Error de OpenCV en conversión de frame: {e}")
             return QPixmap()
 
     def stop(self):
-        """Detiene el hilo de video"""
+        """ Detiene el hilo de video
+        """
         self.mutex.lock()
         self._running = False
         self._paused = False
@@ -107,10 +117,11 @@ class VideoWorker(QThread):
             self.wait(1000)  # Esperar 1 segundo más tras terminate
 
     def __cleanup(self):
-        """Limpia recursos al terminar"""
+        """ Limpia recursos al terminar
+        """
         if self.camera_chess_board:
             try:
                 self.camera_chess_board.camera_off()
-            except:
-                print(f"No fue posible apagar la camara")
+            except (AttributeError, TypeError) as e:
+                print(f"No fue posible apagar la camara: {e}")
             self.camera_chess_board = None

@@ -1,0 +1,51 @@
+import os
+import win32gui
+from PyQt6.QtCore import QThread, pyqtSignal, QTimer
+from simulation.simulation_controller import SimController
+
+
+class SimWorker(QThread):
+    """Worker thread para manejar gui del pybullet e incrustarla en la interfaz de pyqt
+    """
+
+    pybullet_window = pyqtSignal(int)
+
+    def __init__(self, sim_interface):
+        super().__init__()
+        self.hwnd = None
+        self.timer = None
+        self.sim_controller = None
+        self.sim_interface = sim_interface
+
+        self.robot_path = os.path.join(os.path.dirname(
+            __file__), "..", "simulation", "urdf", 'openbot_v1.urdf')
+
+        self.sim_controller = SimController(
+            self.sim_interface, self.robot_path)
+        self.sim_controller.start_simulation()
+
+    def run(self):
+        """ Define el ciclo de ejecucion del subproceso el cual se ejecuta hasta que detecta 
+            la ventana del gui de pybullet
+        """
+        self.timer = QTimer()
+        self.timer.setInterval(1)
+        self.timer.timeout.connect(self.capture_window)
+        self.timer.start()
+        self.exec()
+
+    def capture_window(self):
+        """ Captura la ventana del gui de pybullet obteniendo el numero de identificion de windows
+        """
+        if self.hwnd is None:
+            hwnd = win32gui.FindWindow(
+                "DeviceWin32",
+                "Bullet Physics ExampleBrowser using OpenGL3+ [btgl] Release build"
+            )
+            if hwnd:
+                self.hwnd = hwnd
+                print(f"Ventana encontrada: {self.hwnd}")
+                self.pybullet_window.emit(self.hwnd)
+                # 🔹 detener el timer
+                self.timer.stop()
+                self.timer.timeout.disconnect(self.capture_window)

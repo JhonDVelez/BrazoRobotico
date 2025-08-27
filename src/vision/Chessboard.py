@@ -36,13 +36,6 @@ class ChessboardDetector:
             gray, self.board_size, cv2.CALIB_CB_ADAPTIVE_THRESH)
 
         if not ret:
-            # Segundo intento con normalización
-            ret, corners = cv2.findChessboardCornersSB(
-                gray, self.board_size,
-                cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE
-            )
-
-        if not ret:
             return None
 
         # Refinar esquinas

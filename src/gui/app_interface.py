@@ -2,6 +2,7 @@ import os
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QMessageBox
 from PyQt6.QtWidgets import QWidget, QHBoxLayout
 from PyQt6.QtGui import QScreen, QIcon
+from PyQt6.QtCore import Qt
 from PyQt6 import uic
 from gui.camera_interface import VideoOverlayWidget
 from gui.sliders_interface import SlidersWidget
@@ -192,3 +193,19 @@ class MainInterface(QMainWindow):
             event.accept()
         else:
             event.ignore()
+
+    def keyPressEvent(self, event):
+        try:
+            if event.key() == Qt.Key.Key_Control and self.simulation_widget is not None:
+                self.simulation_widget.physics_worker.send_ctrl(
+                    self.simulation_widget.physics_worker.hwnd, press=True)
+        except Exception as e:
+            print(f"Error en la captura del teclado: {e}")
+
+    def keyReleaseEvent(self, event):
+        try:
+            if event.key() == Qt.Key.Key_Control and self.simulation_widget is not None:
+                self.simulation_widget.physics_worker.send_ctrl(
+                    self.simulation_widget.physics_worker.hwnd, press=False)
+        except Exception as e:
+            print(f"Error en la captura del teclado: {e}")

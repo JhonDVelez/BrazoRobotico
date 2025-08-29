@@ -67,6 +67,11 @@ class SlidersWidget(QWidget):
         self.slider6.valueChanged.connect(self.update_class_status)
         self.spinBox6.valueChanged.connect(self.update_class_status)
 
+        self.pose1Button.clicked.connect(self.set_pose_1)
+        self.pose2Button.clicked.connect(self.set_pose_2)
+        # self.pose3Button.clicked.connect(self.set_pose_3)
+        # self.pose4Button.clicked.connect(self.set_pose_4)
+
     def update_class_status(self):
         """ Actualiza los valores almacenados de los slider/spinBox (estan conectados)
         """
@@ -76,7 +81,7 @@ class SlidersWidget(QWidget):
             self.slider3.value(),
             self.slider4.value(),
             self.slider5.value(),
-            self.slider6.value()
+            self.slider6.value(),
         ]
 
     def reset_values(self):
@@ -98,9 +103,24 @@ class SlidersWidget(QWidget):
             cls.instance.reset_values()
 
     @classmethod
-    def get_sliders_state(cls):
+    def get_sliders_state(cls) -> list[int]:
         """ Metodo de clase que no requiere instancia de la clase para su ejecucion, 
             encargada de obtener los valores almacenados de los sliders
         """
-        print(cls.sliders_status)
         return cls.sliders_status
+
+    def set_pose_1(self):
+        self.spinBox1.setValue(-70)
+        self.spinBox2.setValue(80)
+        self.spinBox3.setValue(40)
+        self.spinBox4.setValue(-120)
+        self.spinBox5.setValue(-60)
+        self.spinBox6.setValue(50)
+
+    def set_pose_2(self):
+        self.spinBox1.setValue(-70)
+        self.spinBox2.setValue(60)
+        self.spinBox3.setValue(-10)
+        self.spinBox4.setValue(0)
+        self.spinBox5.setValue(-20)
+        self.spinBox6.setValue(20)

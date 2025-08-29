@@ -288,30 +288,30 @@
      </property>
      <layout class="QGridLayout" name="gridLayout">
       <item row="1" column="0">
-       <widget class="QPushButton" name="pose2Button">
+       <widget class="QPushButton" name="pose3Button">
         <property name="text">
-         <string>Pose 2</string>
+         <string>Pose 3</string>
         </property>
        </widget>
       </item>
       <item row="0" column="0">
-       <widget class="QPushButton" name="InitialPoseButton">
-        <property name="text">
-         <string>Pose Inicial</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
        <widget class="QPushButton" name="pose1Button">
         <property name="text">
          <string>Pose 1</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="1">
-       <widget class="QPushButton" name="pose3Button">
+      <item row="0" column="1">
+       <widget class="QPushButton" name="pose2Button">
         <property name="text">
-         <string>Pose 3</string>
+         <string>Pose 2</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QPushButton" name="pose4Button">
+        <property name="text">
+         <string>Pose 4</string>
         </property>
        </widget>
       </item>

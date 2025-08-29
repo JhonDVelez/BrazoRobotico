@@ -1,4 +1,3 @@
-# from simulation.model_pyqtgraph import OpenGLRobot
 from simulation.physics_worker import PhysicsWorker
 from simulation.urdf_scraping import RobotURDF
 
@@ -7,11 +6,12 @@ class SimController:
     """ Clase que actua como controlador de la simulacion facilitando la instanciacion de las clases
     """
 
-    def __init__(self, sim_interface, robot_path) -> None:
+    def __init__(self, sim_interface, robot_path):
         self.sim_interface = sim_interface
         self.worker = PhysicsWorker(self, robot_path)
         self.urdf = RobotURDF(self.worker.get_robot_id())
         initial_states = self.urdf.get_initial_state()
+        self.worker.set_max_velocity(1.2)
         self.worker.set_initial_states(initial_states)
 
     def start_simulation(self):

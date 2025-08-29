@@ -1,5 +1,7 @@
 import os
 import win32gui
+import win32api
+import win32con
 from PyQt6.QtCore import QThread, pyqtSignal, QTimer
 from simulation.simulation_controller import SimController
 
@@ -49,3 +51,12 @@ class SimWorker(QThread):
                 # 🔹 detener el timer
                 self.timer.stop()
                 self.timer.timeout.disconnect(self.capture_window)
+
+    def send_ctrl(self, hwnd, press=True):
+        """Simula la tecla Ctrl hacia la ventana hwnd"""
+        if press:
+            win32api.SendMessage(hwnd, win32con.WM_KEYDOWN,
+                                 win32con.VK_CONTROL, 0)
+        else:
+            win32api.SendMessage(hwnd, win32con.WM_KEYUP,
+                                 win32con.VK_CONTROL, 0)

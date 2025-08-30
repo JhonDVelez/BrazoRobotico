@@ -1,6 +1,5 @@
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 from PyQt6.QtGui import QWindow
-from PyQt6.QtCore import QTimer
 from gui.simulation_worker import SimWorker
 
 
@@ -21,7 +20,7 @@ class SimInterface(QWidget):
         self.physics_worker.start()
         self.simulation_running = True
 
-        QTimer.singleShot(0, self.start_simulation)
+        self.start_simulation()
 
         if not self.layout():
             layout = QVBoxLayout(self)
@@ -36,7 +35,6 @@ class SimInterface(QWidget):
         """
         self.qwindow = QWindow.fromWinId(hwnd)
         if self.qwindow is not None:
-            print(f"ventana recibida: {hwnd}, {self.qwindow}")
             self.window_container = QWidget.createWindowContainer(
                 self.qwindow, self)
             self.layout().addWidget(self.window_container)
@@ -55,9 +53,18 @@ class SimInterface(QWidget):
         """ Asegurar limpieza cuando se cierra el widget
         """
         self.stop_simulation()
+
+        if self.qwindow is not None:
+            self.qwindow = None
+        if self.window_container is not None:
+            self.window_container.setParent(None)
+            self.window_container = None
+
         super().closeEvent(event)
 
     def __del__(self):
         """ Destructor para limpieza final
         """
-        self.stop_simulation()
+        if self.physics_worker is not None:
+            self.physics_worker.quit()
+            self.physics_worker.wait()

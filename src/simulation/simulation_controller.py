@@ -6,9 +6,9 @@ class SimController:
     """ Clase que actua como controlador de la simulacion facilitando la instanciacion de las clases
     """
 
-    def __init__(self, sim_interface, robot_path):
+    def __init__(self, sim_interface):
         self.sim_interface = sim_interface
-        self.worker = PhysicsWorker(self, robot_path)
+        self.worker = PhysicsWorker(self)
         self.urdf = RobotURDF(self.worker.get_robot_id())
         initial_states = self.urdf.get_initial_state()
         self.worker.set_max_velocity(1.2)

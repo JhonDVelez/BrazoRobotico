@@ -19,21 +19,15 @@ class SimWorker(QThread):
         self.sim_controller = None
         self.sim_interface = sim_interface
 
-        self.robot_path = os.path.join(os.path.dirname(
-            __file__), "..", "simulation", "urdf", 'openbot_v1.urdf')
-
         self.sim_controller = SimController(
-            self.sim_interface, self.robot_path)
+            self.sim_interface)
         self.sim_controller.start_simulation()
 
     def run(self):
         """ Define el ciclo de ejecucion del subproceso el cual se ejecuta hasta que detecta 
             la ventana del gui de pybullet
         """
-        self.timer = QTimer()
-        self.timer.setInterval(1)
-        self.timer.timeout.connect(self.capture_window)
-        self.timer.start()
+        self.capture_window()
         self.exec()
 
     def capture_window(self):
@@ -46,11 +40,9 @@ class SimWorker(QThread):
             )
             if hwnd:
                 self.hwnd = hwnd
-                print(f"Ventana encontrada: {self.hwnd}")
                 self.pybullet_window.emit(self.hwnd)
-                # 🔹 detener el timer
-                self.timer.stop()
-                self.timer.timeout.disconnect(self.capture_window)
+
+        QTimer.singleShot(4, self.capture_window)
 
     def send_key(self, hwnd, vk_code, press=True):
         """ Simula una tecla hacia la ventana hwnd (al interactuar con la interfaz la ventana de

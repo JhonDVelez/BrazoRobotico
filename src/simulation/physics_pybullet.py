@@ -9,11 +9,10 @@ class RobotArmPhysics:
         opengl y los datos obtenidos del urdf.
     """
 
-    def __init__(self, urdf_path):
+    def __init__(self):
         """ Inicializa la clase RobotArmPhysics definiendo variables e iniciando el env de pybullet
 
         Args:
-            urdf_path (str): Direccion absoluta del archivo urdf
             gui (bool, optional): Define si se muestra la gui de pybullet. Defaults to False.
         """
 
@@ -23,7 +22,8 @@ class RobotArmPhysics:
         self.joint_velocities = []
         self.initial_states = []
 
-        self.urdf_path = urdf_path
+        self.urdf_path = os.path.join(os.path.dirname(
+            __file__), "urdf", 'openbot_v1.urdf')
         self.__init_pybullet()
 
     def __init_pybullet(self):
@@ -36,7 +36,7 @@ class RobotArmPhysics:
         p.setTimeStep(1./240.)  # 240 Hz
         p.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0)
         p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 1)
-        p.configureDebugVisualizer(p.COV_ENABLE_WIREFRAME, 0)
+        p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 1)
         p.configureDebugVisualizer(
             p.COV_ENABLE_GUI, 0, lightPosition=[-10, 10, 10])
 

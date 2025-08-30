@@ -89,17 +89,12 @@ class MainInterface(QMainWindow):
         """ Inicializa la interfaz de controladores con sliders que indica el  
            angulo objetivo de cada motor del robot
         """
-        if not self.controlsBox.layout():
-            layout = QVBoxLayout(self.controlsBox)
-            layout.setContentsMargins(0, 0, 0, 0)
-            self.controlsBox.setLayout(layout)
-
         self.slider_widget = SlidersWidget(self.ui)
         self.controlsBox.layout().addWidget(self.slider_widget)
 
         self.control_app_widget = QWidget()
         if not self.control_app_widget.layout():
-            layout = QHBoxLayout(self.controlsBox)
+            layout = QHBoxLayout(self.control_app_widget)
             layout.setContentsMargins(0, 0, 0, 0)
             self.control_app_widget.setLayout(layout)
 

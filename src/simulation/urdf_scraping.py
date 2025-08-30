@@ -16,11 +16,11 @@ class RobotURDF:
 
         # Número total de cuerpos en la simulación (incluye suelo, robot, etc.)
         total_bodies = p.getNumBodies()
-        print(f"Número total de cuerpos en la simulación: {total_bodies}")
+        # print(f"Número total de cuerpos en la simulación: {total_bodies}")
 
         self.num_joints = p.getNumJoints(self.robot_id)
         num_links = self.num_joints + 1  # +1 para el link base
-        print(f"Robot tiene {num_links} links (incluyendo link base)")
+        # print(f"Robot tiene {num_links} links (incluyendo link base)")
 
         dict_all = []   # Diccionario que almacena todos los links
         dict_link = {}  # Diccionario que almacena temporalmente el link

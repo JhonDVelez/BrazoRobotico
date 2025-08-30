@@ -8,12 +8,12 @@ from gui.sliders_interface import SlidersWidget
 class PhysicsWorker(QThread):
     """ Worker encargado de actualizar la simulacion de pybullet """
 
-    def __init__(self, controller, robot_path) -> None:
+    def __init__(self, controller) -> None:
         super().__init__()
         self.controller = controller
         self.target_position_prev = [1, 0, 0, 0, 0, 0]
         self.model_ogl = None
-        self.physic = RobotArmPhysics(robot_path)
+        self.physic = RobotArmPhysics()
         self.timer = None
         self.max_velocity = None
 
@@ -42,10 +42,7 @@ class PhysicsWorker(QThread):
     def run(self):
         """ Ciclo principal del subproceso el cual actualiza el robot cada n milisegundos
         """
-        self.timer = QTimer()
-        self.timer.setInterval(4)  # 4ms 250 Hz
-        self.timer.timeout.connect(self.update_simulation)
-        self.timer.start()
+        self.update_simulation()
         self.exec()
 
     def update_simulation(self):
@@ -61,6 +58,7 @@ class PhysicsWorker(QThread):
                 self.target_position_prev = target_positions
             if not all(abs(x - y) < 0.01 for x, y in zip(target_positions, actual_positions)):
                 self.physic.step_simulation()
+        QTimer.singleShot(4, self.update_simulation)
 
     def get_position_rad(self) -> NDArray:
         """ Obtiene los valores objetivos de los slider/spinBox y los convierte a radianes

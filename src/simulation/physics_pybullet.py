@@ -75,6 +75,10 @@ class RobotArmPhysics:
                 self.joint_indices.append(i)
                 self.joint_names.append(joint_name)
 
+        texture = p.loadTexture(os.path.join(os.path.dirname(
+            __file__), "meshes", "visual", "texture", "base_link.png"))
+        p.changeVisualShape(self.robot_id, 0, textureUniqueId=texture)
+
     def get_robot_id(self) -> int:
         """ Obtiene el id del robot del motor de fisicas de pybullet
         """

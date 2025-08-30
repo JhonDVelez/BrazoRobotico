@@ -1,4 +1,5 @@
 import os
+import win32con
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QMessageBox
 from PyQt6.QtWidgets import QWidget, QHBoxLayout
 from PyQt6.QtGui import QScreen, QIcon
@@ -196,16 +197,40 @@ class MainInterface(QMainWindow):
 
     def keyPressEvent(self, event):
         try:
-            if event.key() == Qt.Key.Key_Control and self.simulation_widget is not None:
-                self.simulation_widget.physics_worker.send_ctrl(
-                    self.simulation_widget.physics_worker.hwnd, press=True)
+            if self.simulation_widget is not None:
+                # 🔹 Ctrl
+                if event.key() == Qt.Key.Key_Control:
+                    self.simulation_widget.physics_worker.send_key(
+                        self.simulation_widget.physics_worker.hwnd,
+                        win32con.VK_CONTROL,
+                        press=True
+                    )
+                # 🔹 S
+                if event.key() == Qt.Key.Key_S:
+                    self.simulation_widget.physics_worker.send_key(
+                        self.simulation_widget.physics_worker.hwnd,
+                        ord('S'),
+                        press=True
+                    )
         except Exception as e:
             print(f"Error en la captura del teclado: {e}")
 
     def keyReleaseEvent(self, event):
         try:
-            if event.key() == Qt.Key.Key_Control and self.simulation_widget is not None:
-                self.simulation_widget.physics_worker.send_ctrl(
-                    self.simulation_widget.physics_worker.hwnd, press=False)
+            if self.simulation_widget is not None:
+                # 🔹 Ctrl
+                if event.key() == Qt.Key.Key_Control:
+                    self.simulation_widget.physics_worker.send_key(
+                        self.simulation_widget.physics_worker.hwnd,
+                        win32con.VK_CONTROL,
+                        press=False
+                    )
+                # 🔹 S
+                if event.key() == Qt.Key.Key_S:
+                    self.simulation_widget.physics_worker.send_key(
+                        self.simulation_widget.physics_worker.hwnd,
+                        ord('S'),
+                        press=False
+                    )
         except Exception as e:
             print(f"Error en la captura del teclado: {e}")

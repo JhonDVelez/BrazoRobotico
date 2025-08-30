@@ -52,11 +52,12 @@ class SimWorker(QThread):
                 self.timer.stop()
                 self.timer.timeout.disconnect(self.capture_window)
 
-    def send_ctrl(self, hwnd, press=True):
-        """Simula la tecla Ctrl hacia la ventana hwnd"""
+    def send_key(self, hwnd, vk_code, press=True):
+        """ Simula una tecla hacia la ventana hwnd (al interactuar con la interfaz la ventana de
+            pybullet deja de estar en foco por lo que no detecta el teclado por ello se deben emular
+            las pulsaciones de este)
+        """
         if press:
-            win32api.SendMessage(hwnd, win32con.WM_KEYDOWN,
-                                 win32con.VK_CONTROL, 0)
+            win32api.SendMessage(hwnd, win32con.WM_KEYDOWN, vk_code, 0)
         else:
-            win32api.SendMessage(hwnd, win32con.WM_KEYUP,
-                                 win32con.VK_CONTROL, 0)
+            win32api.SendMessage(hwnd, win32con.WM_KEYUP, vk_code, 0)

@@ -28,7 +28,6 @@ class SimWorker(QThread):
             la ventana del gui de pybullet
         """
         self.capture_window()
-        self.exec()
 
     def capture_window(self):
         """ Captura la ventana del gui de pybullet obteniendo el numero de identificion de windows

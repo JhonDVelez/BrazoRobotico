@@ -3,9 +3,17 @@ import math
 import numpy as np
 import cv2
 
+# Intentar habilitar OpenCL (UMat) si está disponible
+try:
+    cv2.ocl.setUseOpenCL(True)
+except Exception:
+    pass
+
 
 class CameraControl:
-    """Clase que gestiona una cámara y sus operaciones básicas"""
+    """Clase que gestiona una cámara y sus operaciones básicas
+       Optimizada para usar UMat (OpenCL) en preprocesado.
+    """
 
     def __init__(self, camera_index: int = 0):
         self.camera_index = camera_index
@@ -13,9 +21,10 @@ class CameraControl:
         self.camera_ready = False
 
         # Configuraciones por defecto
-        self.default_width = 1280
-        self.default_height = 720
+        self.default_width = 640
+        self.default_height = 360
         self.default_fps = 30
+        self.prev_gamma = 0.5
 
     def camera_on(self) -> bool:
         """Enciende la cámara con configuración optimizada"""
@@ -38,7 +47,7 @@ class CameraControl:
             self.__release_camera()
             return False
         except RuntimeError as e:
-            print(f"Error durate ejecucion: {e}")
+            print(f"Error durante ejecucion: {e}")
             self.__release_camera()
             return False
 
@@ -53,25 +62,37 @@ class CameraControl:
         return self.cap is not None and self.cap.isOpened() and self.camera_ready
 
     def take_frame(self):
-        """Captura un frame de la cámara"""
+        """Captura un frame de la cámara (BGR). Reducimos resolución para aliviar CPU/GPU."""
         if not self.camera_ready or not self.cap:
             return None
 
         ret, frame = self.cap.read()
         if ret:
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convertir a RGB
-            return frame
+            # Redimensionamos a 640x360 para análisis más rápido (puedes cambiar)
+            # frame = cv2.resize(frame, (640, 360),
+            #                    interpolation=cv2.INTER_LINEAR)
+            return frame  # BGR numpy array
         return None
 
     def __configure_camera(self):
         """Configura propiedades de la cámara para optimizar performance"""
         if not self.cap:
             return
+        # Aquí puedes setear width/height/fps si tu cámara lo soporta:
+        try:
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.default_width)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.default_height)
+            self.cap.set(cv2.CAP_PROP_FPS, self.default_fps)
+        except Exception:
+            pass
 
     def __release_camera(self):
         """Libera recursos de la cámara"""
         if self.cap:
-            self.cap.release()
+            try:
+                self.cap.release()
+            except Exception:
+                pass
             self.cap = None
 
     def toggle_camera(self):
@@ -81,35 +102,65 @@ class CameraControl:
         else:
             self.camera_on()
 
-    @staticmethod
-    def auto_gamma_correction(img, mid_gray=0.5):
+    def auto_gamma_correction(self, img, mid_gray=0.6):
         """
-        Performs automatic gamma correction on an image.
-
-        Args:
-            image_path (str): Path to the input image.
-            mid_gray (float): Desired mid-gray value (0.0 to 1.0).
-
-        Returns:
-            numpy.ndarray: The gamma-corrected image.
+        Versión que intenta aplicar la corrección gamma usando UMat (OpenCL) cuando sea posible.
+        Si no hay OpenCL disponible, cae a la versión CPU (numpy).
+        Recibe BGR uint8 y devuelve BGR uint8.
         """
 
-        # Convert to grayscale for mean intensity calculation
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        if img is None:
+            return img
 
-        # Calculate mean intensity (normalized to 0-1 range)
-        mean_intensity = np.mean(gray) / 255.0
+        # Intentar versión con UMat/OpenCL
+        try:
+            # Subir a UMat (posible ejecución en OpenCL)
+            u = cv2.UMat(img)
 
-        # Calculate gamma
-        if mean_intensity > 0:  # Avoid division by zero
+            # Convertir a gris para calcular intensidad media
+            u_gray = cv2.cvtColor(u, cv2.COLOR_BGR2GRAY)  # UMat
+            mean_val = cv2.mean(u_gray)[0]  # retorna (mean, ...)
+            mean_intensity = float(mean_val) / 255.0
+
+            if mean_intensity == 0:
+                # Evitar división por cero, devolver original
+                return img.astype(np.uint8)
+
             gamma = math.log(mid_gray) / math.log(mean_intensity)
-        else:
-            gamma = 1.0  # Default to no correction if mean is zero
 
-        # Apply gamma correction
-        # Normalize image to 0-1, apply power, then scale back to 0-255
-        gamma_corrected_img = np.power(img / 255.0, gamma) * 255.0
-        gamma_corrected_img = np.clip(
-            gamma_corrected_img, 0, 255).astype(np.uint8)
+            # Si gamma cercano a 1 o mayor que un umbral, no aplicar para ahorrar tiempo
+            if gamma >= 0.6:
+                return img.astype(np.uint8)
 
-        return gamma_corrected_img
+            # Normalizar a 0-1 en float
+            u_norm = cv2.normalize(
+                u, None, 0.0, 1.0, cv2.NORM_MINMAX, cv2.CV_32F)
+
+            # Aplicar potencia en GPU
+            u_pow = cv2.pow(u_norm, gamma)
+
+            # Escalar a 0-255 y convertir a uint8
+            u_out = cv2.convertScaleAbs(u_pow, alpha=255.0)
+
+            return u_out.get()
+
+        except Exception as e:
+            print(f"Fallo al aplicar cambio de gamma con OpenCL: {e}")
+            # Fallback CPU (como en tu versión original)
+            try:
+                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                mean_intensity = np.mean(gray) / 255.0
+                if not mean_intensity:
+                    return img.astype(np.uint8)
+                else:
+                    gamma = math.log(mid_gray) / math.log(mean_intensity)
+                if gamma >= 0.6:
+                    return img.astype(np.uint8)
+                gamma_corrected_img = np.power(img / 255.0, gamma) * 255.0
+                gamma_corrected_img = np.clip(
+                    gamma_corrected_img, 0, 255).astype(np.uint8)
+                return gamma_corrected_img
+            except Exception as ee:
+                # si todo falla, devolver original
+                print(f"Error al aplicar correccion de gamma por CPU: {ee}")
+                return img.astype(np.uint8)

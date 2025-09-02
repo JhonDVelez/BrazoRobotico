@@ -5,63 +5,66 @@ from vision.camera import CameraControl
 
 
 class CameraChessBoard():
-    """Cámara especializada para detección de tableros de ajedrez - Versión optimizada"""
+    """Cámara especializada para detección de tableros de ajedrez usando preprocesado con UMat"""
 
     def __init__(self, camera_index: int = 0, board_size: Tuple[int, int] = (7, 7)):
         self.detector = ChessboardDetector(board_size)
         self.camera = CameraControl(camera_index)
 
         # Cache para optimización
-        self._last_detection_result = None
+        self.corners = None
         self._detection_cache_frames = 0
-        self._detection_interval = 3  # Detectar tablero cada 3 frames para mejor performance
-
-        # Configuración optimizada para threading
-        self.processing_enabled = True
+        self._detection_interval = 3  # Detectar tablero cada N frames para mejor performance
 
     def camera_on(self):
-        """ Enciende la camara
-
-        Returns:
-            bool: le indica a la clase la camara fue encendida
-        """
+        """ Enciende la camara"""
         return self.camera.camera_on()
 
     def camera_off(self):
-        """ Detiene la ejecucion de la camara
-        """
+        """ Apaga la camara"""
         self.camera.camera_off()
 
     def get_coordinates(self, frame: np.ndarray) -> Optional[np.ndarray]:
-        """ Obtiene coordenadas del tablero
+        """ Obtiene coordenadas del tablero.
+            Aplica preprocesado acelerado (UMat) para la corrección gamma y luego realiza
+            la detección cada N frames. La detección de esquinas se hace en CPU.
         """
-        if not self.processing_enabled:
-            return frame
+        if frame is None:
+            return None
+        try:
+            pre = self.camera.auto_gamma_correction(frame)
+        except Exception:
+            pre = frame
 
-        corners = self.detector.detect_corners(
-            self.camera.auto_gamma_correction(frame))
-        self._last_detection_result = corners
-        self._detection_cache_frames = 0
+        # Detección cada N frames
+        self._detection_cache_frames += 1
+        if self._detection_cache_frames >= self._detection_interval:
+            try:
+                self.corners = self.detector.detect_corners(pre)
+            except Exception as e:
+                print(f"Error detectando esquinas: {e}")
+                self.corners = None
+            self._detection_cache_frames = 0
 
         # Dibujar grid si se detectó tablero
-        if corners is not None:
-            frame_copy = frame.copy()
-            self.detector.draw_grid(frame_copy, corners, False, False)
-            return frame_copy
+        out_frame = frame.copy()
+        if self.corners is not None:
+            try:
+                self.detector.draw_grid(out_frame, self.corners, False, False)
+            except Exception as e:
+                print(f"Error dibujando grid: {e}")
 
-        return frame
+        return out_frame
 
     def get_video_frame(self):
-        """Obtiene un frame procesado de la cámara - Versión optimizada"""
+        """Obtiene un frame procesado de la cámara"""
         frame = self.camera.take_frame()
         if frame is None:
             raise IOError("No se pudo obtener frame de la cámara")
 
-        # Procesar frame de forma optimizada
         try:
             frame_processed = self.get_coordinates(frame)
             return frame_processed if frame_processed is not None else frame
         except RuntimeError as e:
-            # En caso de error en procesamiento, devolver frame original
             print(f"Error procesando frame: {e}")
             return frame

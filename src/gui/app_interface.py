@@ -42,6 +42,7 @@ class MainInterface(QMainWindow):
         else:
             self.video_widget.setEnabled(False)
             self.simulation_widget.stop_simulation()
+            self.video_widget.stop_video()
             self.start_stop_button.setIcon(self.start_icon)
             self.start_stop_button.setStyleSheet(
                 "background-color: #3B963F")  # Boton color verde

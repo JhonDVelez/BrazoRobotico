@@ -25,7 +25,7 @@ class VideoWorker(QThread):
         self.wait_condition = QWaitCondition()
 
     def run(self):
-        """Bucle principal del hilo de video
+        """ Bucle principal del hilo de video
         """
         try:
             # Inicializar cámara en el hilo de trabajo
@@ -72,26 +72,35 @@ class VideoWorker(QThread):
             self.__cleanup()
 
     def __numpy_to_qpixmap(self, frame: np.ndarray) -> QPixmap:
-        """ Convierte frame numpy a QPixmap
+        """ Convierte frame numpy BGR a QPixmap
         """
         try:
+            # Asegurarse de uint8 contiguous
+            frame = np.ascontiguousarray(frame, dtype=np.uint8)
+
+            # frame shape
+            if frame.ndim == 2:
+                height, width = frame.shape
+                bytes_per_line = width
+                q_image = QImage(frame.data, width, height,
+                                 bytes_per_line, QImage.Format.Format_Grayscale8)
+                return QPixmap.fromImage(q_image)
+
             height, width, channels = frame.shape
-            bytes_per_line = channels * width
-
-            # Asegurarse de que los datos están en formato continuo
-            frame = np.ascontiguousarray(frame)
-
-            # Crear QImage
-            q_image = QImage(
-                frame.data,
-                width,
-                height,
-                bytes_per_line,
-                QImage.Format.Format_RGB888
-            )
-
-            # Convertir a QPixmap
-            return QPixmap.fromImage(q_image)
+            if channels == 3:
+                bytes_per_line = channels * width
+                q_image = QImage(frame.data, width, height,
+                                 bytes_per_line, QImage.Format.Format_BGR888)
+                return QPixmap.fromImage(q_image)
+            else:
+                # si no es 3 canales, intentar convertir a BGR
+                bgr = cv2.cvtColor(
+                    frame, cv2.COLOR_RGBA2BGR) if channels == 4 else frame
+                bgr = np.ascontiguousarray(bgr)
+                bytes_per_line = 3 * width
+                q_image = QImage(bgr.data, width, height,
+                                 bytes_per_line, QImage.Format.Format_BGR888)
+                return QPixmap.fromImage(q_image)
 
         except (AttributeError, ValueError, TypeError) as e:
             print(f"El frame no cuenta con el formato adecuado: {e}")
@@ -102,8 +111,7 @@ class VideoWorker(QThread):
             return QPixmap()
 
     def stop(self):
-        """ Detiene el hilo de video
-        """
+        """ Detiene el hilo de video"""
         self.mutex.lock()
         self._running = False
         self._paused = False
@@ -111,14 +119,13 @@ class VideoWorker(QThread):
         self.mutex.unlock()
 
         # Esperar a que termine el hilo
-        if not self.wait(2000):  # Reducido a 2 segundos
+        if not self.wait(2000):  # 2 segundos
             print("Warning: Video thread no terminó correctamente, forzando terminación")
             self.terminate()
-            self.wait(1000)  # Esperar 1 segundo más tras terminate
+            self.wait(1000)  # Esperar 1 segundo tras terminate
 
     def __cleanup(self):
-        """ Limpia recursos al terminar
-        """
+        """ Limpia recursos al terminar"""
         if self.camera_chess_board:
             try:
                 self.camera_chess_board.camera_off()

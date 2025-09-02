@@ -13,7 +13,7 @@ class PhysicsWorker(QThread):
         self.controller = controller
         self.target_position_prev = [1, 0, 0, 0, 0, 0]
         self.model_ogl = None
-        self.physic = RobotArmPhysics()
+        self.physic = RobotArmPhysics(1)
         self.timer = None
         self.max_velocity = None
 
@@ -24,12 +24,6 @@ class PhysicsWorker(QThread):
             : _description_
         """
         return self.physic.get_robot_id()
-
-    def set_model_instance(self, model_ogl):
-        self.model_ogl = model_ogl
-
-    def set_initial_states(self, initial_states):
-        self.physic.set_initial_states(initial_states)
 
     def set_max_velocity(self, max_vel):
         if max_vel > 0:
@@ -42,23 +36,33 @@ class PhysicsWorker(QThread):
     def run(self):
         """ Ciclo principal del subproceso el cual actualiza el robot cada n milisegundos
         """
+        self._running = True
         self.update_simulation()
-        self.exec()
+
+    def stop(self):
+        """Detener la simulación"""
+        self._running = False
 
     def update_simulation(self):
         """ Actualizacion de la posicion de los motores del robot
         """
         target_positions = self.get_position_rad()
-        # print(target_positions)
-        if len(target_positions) <= len(self.physic.joint_indices):
+        # Compara si la cantidad de posiciones ingresadas es igual a la cantidad de uniones del
+        # robot
+        if len(target_positions) == len(self.physic.joint_indices):
             actual_positions = self.physic.get_joint_positions()
+            # Relaciona las posiciones de los array y los compara entre si en caso de que sean
+            # diferentes actualiza las posiciones objetivo
             if not all(x == y for x, y in zip(target_positions, self.target_position_prev)):
                 self.physic.set_joint_positions(
                     target_positions, self.max_velocity)
                 self.target_position_prev = target_positions
-            if not all(abs(x - y) < 0.01 for x, y in zip(target_positions, actual_positions)):
+            # Actualiza la simulacion si la diferencia entre los angulos objetivos y los angulos
+            # actuales es mayor o igual a 0.01 rad o 0.573°
+            if any(abs(x - y) >= 0.01 for x, y in zip(target_positions, actual_positions)):
                 self.physic.step_simulation()
-        QTimer.singleShot(4, self.update_simulation)
+        if self._running:
+            QTimer.singleShot(4, self.update_simulation)
 
     def get_position_rad(self) -> NDArray:
         """ Obtiene los valores objetivos de los slider/spinBox y los convierte a radianes

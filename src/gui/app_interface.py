@@ -31,9 +31,10 @@ class MainInterface(QMainWindow):
             SimInterface, tambien cambia los colores e iconos del boton.
         """
         if not self.execution_status:
-            if self.simulation_widget is None:
+            if self.simulation_widget is None and self.habSimulationCheck.isChecked():
                 self.init_simulation()
             self.video_widget.setEnabled(True)
+            self.habSimulationCheck.setEnabled(False)
             self.start_stop_button.setIcon(self.stop_icon)
             self.start_stop_button.setStyleSheet(
                 "background-color: #F74220")  # Boton color rojo
@@ -41,6 +42,7 @@ class MainInterface(QMainWindow):
             self.execution_status = True
         else:
             self.video_widget.setEnabled(False)
+            self.habSimulationCheck.setEnabled(True)
             self.simulation_widget.stop_simulation()
             self.video_widget.stop_video()
             self.start_stop_button.setIcon(self.start_icon)

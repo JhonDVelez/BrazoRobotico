@@ -1,9 +1,10 @@
 import os
 import win32con
+from pynput.keyboard import Controller
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QMessageBox
-from PyQt6.QtWidgets import QWidget, QHBoxLayout
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QFormLayout, QSizePolicy
 from PyQt6.QtGui import QScreen, QIcon
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSize
 from PyQt6 import uic
 from gui.camera_interface import VideoOverlayWidget
 from gui.sliders_interface import SlidersWidget
@@ -19,41 +20,14 @@ class MainInterface(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.execution_status = False
         self.simulation_widget = None
+        self.simulation_hidden = False
+        self.video_paused = False
+        self.keyboard = Controller()
         self.init_main_window()
         self.init_camera()
         self.init_controls()
         self.setup_connections()
-
-    def start_stop(self):
-        """ Inicia o detiene la simulacion en caso de ser la primera vez instancia la clase
-            SimInterface, tambien cambia los colores e iconos del boton.
-        """
-        if not self.execution_status:
-            if self.simulation_widget is None and self.habSimulationCheck.isChecked():
-                self.init_simulation()
-            self.video_widget.setEnabled(True)
-            self.habSimulationCheck.setEnabled(False)
-            self.start_stop_button.setIcon(self.stop_icon)
-            self.start_stop_button.setStyleSheet(
-                "background-color: #F74220")  # Boton color rojo
-            self.simulation_widget.start_simulation()
-            self.execution_status = True
-        else:
-            self.video_widget.setEnabled(False)
-            self.habSimulationCheck.setEnabled(True)
-            self.simulation_widget.stop_simulation()
-            self.video_widget.stop_video()
-            self.start_stop_button.setIcon(self.start_icon)
-            self.start_stop_button.setStyleSheet(
-                "background-color: #3B963F")  # Boton color verde
-            self.execution_status = False
-
-    def reset(self):
-        """ Reinicia los valores de los sliders a 0
-        """
-        SlidersWidget.restart_sliders()
 
     def init_main_window(self):
         """ Inicializa la ventana principal de la aplicación y configura su diseño
@@ -84,12 +58,13 @@ class MainInterface(QMainWindow):
 
         self.video_widget = VideoOverlayWidget(self.ui)
         self.cameraBox.layout().addWidget(self.video_widget)
-        self.video_widget.setEnabled(False)
+        self.video_widget.videoLabel.setEnabled(False)
+        # self.video_widget.pause_video()
 
     # def init_model(self):
         # self.modelBox = self.ui.modelBox
     def init_controls(self):
-        """ Inicializa la interfaz de controladores con sliders que indica el  
+        """ Inicializa la interfaz de controladores con sliders que indica el
            angulo objetivo de cada motor del robot
         """
         self.slider_widget = SlidersWidget(self.ui)
@@ -103,36 +78,116 @@ class MainInterface(QMainWindow):
 
         self.start_icon = QIcon(os.path.join(os.path.dirname(__file__),
                                              "icons", "play.png"))
+        self.pause_icon = QIcon(os.path.join(os.path.dirname(__file__),
+                                             "icons", "pause.png"))
         self.stop_icon = QIcon(os.path.join(os.path.dirname(__file__),
                                             "icons", "stop.png"))
         self.reset_icon = QIcon(os.path.join(os.path.dirname(__file__),
-                                             "icons", "sync.png"))
+                                             "icons", "refresh.png"))
 
-        self.start_stop_button.setIcon(self.start_icon)
-        self.start_stop_button.setStyleSheet(
+        self.start_button.setIcon(self.start_icon)
+        self.start_button.setStyleSheet(
             "background-color: #3B963F")  # Boton color verde
 
         self.reset_button.setIcon(self.reset_icon)
         self.reset_button.setStyleSheet(
-            "background-color: #777777")  # Boton color verde
+            "background-color: #777777")  # Boton color gris
 
-        self.control_app_widget.layout().addWidget(self.start_stop_button)
+        self.stop_button.setIcon(self.stop_icon)
+        self.stop_button.setStyleSheet(
+            "background-color: #F74220")  # Boton color rojo
+
+        self.pause_button.setIcon(self.pause_icon)
+        self.pause_button.setStyleSheet(
+            "background-color: #777777")  # Boton color gris
+
+        self.control_app_widget.layout().addWidget(self.start_button)
+        self.control_app_widget.layout().addWidget(self.pause_button)
+        self.control_app_widget.layout().addWidget(self.stop_button)
         self.control_app_widget.layout().addWidget(self.reset_button)
 
         self.controlsBox.layout().addWidget(self.control_app_widget)
+
+        self.pause_button.hide()
+        self.stop_button.hide()
 
     def init_simulation(self):
         """ Inicializa la interfaz de la simulacion creando el layout y realizando ajustes para una
             correcta adicion a esta.
         """
         if not self.modelBox.layout():
-            layout = QVBoxLayout(self.modelBox)
-            layout.setContentsMargins(0, 0, 0, 0)
-            self.modelBox.setLayout(layout)
+            self.sim_layout = QVBoxLayout(self.modelBox)
+            self.sim_layout.setContentsMargins(0, 0, 0, 0)
+            self.modelBox.setLayout(self.sim_layout)
 
-        self.simulation_widget = SimInterface(self.slider_widget)
-        self.modelBox.layout().addWidget(self.simulation_widget)
-        self.simulation_widget.setEnabled(False)
+        self.simulation_widget = SimInterface()
+        self.simulation_widget.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.simulation_widget.setMinimumSize(QSize(0, 0))
+        self.sim_layout.addWidget(self.simulation_widget)
+        self.simulation_hidden = False
+
+    def start(self):
+        """ Inicia o detiene la simulacion en caso de ser la primera vez instancia la clase
+            SimInterface, tambien cambia los colores e iconos del boton.
+        """
+        if self.habSimulationCheck.isChecked():
+            if self.simulation_widget is None:
+                self.init_simulation()
+            self.simulation_widget.start_simulation()
+            if self.simulation_hidden and self.habSimulationCheck.isChecked():
+                self.keyboard.press('v')
+                self.keyboard.release('v')
+            self.simulation_widget.show()
+            self.simulation_widget.setEnabled(True)
+
+            self.simulation_hidden = False
+        else:
+            if self.modelBox.isVisible():
+                self.toogle_visibility_model_event(self.modelBox)
+
+        self.habSimulationCheck.setEnabled(False)
+        if self.video_paused:
+            print("Continuar video")
+            self.video_widget.resume_video()
+        self.video_widget.videoLabel.setEnabled(True)
+
+        self.stop_button.show()
+        self.pause_button.show()
+        self.start_button.hide()
+
+    def pause(self):
+        if self.simulation_widget is not None:
+            self.simulation_widget.pause_simulation()
+            self.simulation_widget.setEnabled(False)
+
+        self.video_widget.videoLabel.setEnabled(False)
+        self.video_widget.pause_video()
+        self.video_paused = True
+
+        self.pause_button.hide()
+        self.start_button.show()
+
+    def stop(self):
+        if self.simulation_widget is not None:
+            self.simulation_widget.hide()
+            self.keyboard.press('v')
+            self.keyboard.release('v')
+            self.simulation_widget.stop_simulation()
+            self.simulation_hidden = True
+        self.habSimulationCheck.setEnabled(True)
+
+        self.video_widget.videoLabel.setEnabled(False)
+        self.video_widget.stop_video()
+
+        self.stop_button.hide()
+        self.pause_button.hide()
+        self.start_button.show()
+
+    def reset(self):
+        """ Reinicia los valores de los sliders a 0
+        """
+        SlidersWidget.restart_sliders()
 
     def setup_connections(self):
         """ Configura las conexiones de eventos para los botones de la interfaz
@@ -143,13 +198,17 @@ class MainInterface(QMainWindow):
         if hasattr(self.ui, 'modelButton'):
             self.ui.modelButton.clicked.connect(
                 lambda: self.toogle_visibility_model_event(self.modelBox))
-        if hasattr(self.ui, 'start_stop_button'):
-            self.start_stop_button.clicked.connect(self.start_stop)
+        if hasattr(self.ui, 'start_button'):
+            self.start_button.clicked.connect(self.start)
+        if hasattr(self.ui, 'pause_button'):
+            self.pause_button.clicked.connect(self.pause)
+        if hasattr(self.ui, 'stop_button'):
+            self.stop_button.clicked.connect(self.stop)
         if hasattr(self.ui, 'reset_button'):
             self.reset_button.clicked.connect(self.reset)
 
     def toogle_visibility_camera_event(self, camera_box):
-        """ Alterna la visibilidad del widget de la cámara y actualiza el texto del botón 
+        """ Alterna la visibilidad del widget de la cámara y actualiza el texto del botón
             correspondiente.
 
         Args:
@@ -163,7 +222,7 @@ class MainInterface(QMainWindow):
             self.ui.cameraButton.setText("Ocultar Cámara")
 
     def toogle_visibility_model_event(self, model_box):
-        """ Alterna la visibilidad del widget del modelo 3D y actualiza el texto del botón 
+        """ Alterna la visibilidad del widget del modelo 3D y actualiza el texto del botón
             correspondiente.
 
         Args:
@@ -177,7 +236,7 @@ class MainInterface(QMainWindow):
             self.ui.modelButton.setText("Ocultar Modelo 3D")
 
     def closeEvent(self, event):
-        """ Gestiona el evento de cerrado presentando una ventana para verificar la salida de 
+        """ Gestiona el evento de cerrado presentando una ventana para verificar la salida de
             la aplicacion
         """
         reply = QMessageBox.question(
@@ -196,18 +255,22 @@ class MainInterface(QMainWindow):
     def keyPressEvent(self, event):
         try:
             if self.simulation_widget is not None:
-                # 🔹 Ctrl
                 if event.key() == Qt.Key.Key_Control:
                     self.simulation_widget.physics_worker.send_key(
                         self.simulation_widget.physics_worker.hwnd,
                         win32con.VK_CONTROL,
                         press=True
                     )
-                # 🔹 S
                 if event.key() == Qt.Key.Key_S:
                     self.simulation_widget.physics_worker.send_key(
                         self.simulation_widget.physics_worker.hwnd,
                         ord('S'),
+                        press=True
+                    )
+                if event.key() == Qt.Key.Key_V:
+                    self.simulation_widget.physics_worker.send_key(
+                        self.simulation_widget.physics_worker.hwnd,
+                        ord('V'),
                         press=True
                     )
         except Exception as e:
@@ -216,18 +279,22 @@ class MainInterface(QMainWindow):
     def keyReleaseEvent(self, event):
         try:
             if self.simulation_widget is not None:
-                # 🔹 Ctrl
                 if event.key() == Qt.Key.Key_Control:
                     self.simulation_widget.physics_worker.send_key(
                         self.simulation_widget.physics_worker.hwnd,
                         win32con.VK_CONTROL,
                         press=False
                     )
-                # 🔹 S
                 if event.key() == Qt.Key.Key_S:
                     self.simulation_widget.physics_worker.send_key(
                         self.simulation_widget.physics_worker.hwnd,
                         ord('S'),
+                        press=False
+                    )
+                if event.key() == Qt.Key.Key_V:
+                    self.simulation_widget.physics_worker.send_key(
+                        self.simulation_widget.physics_worker.hwnd,
+                        ord('V'),
                         press=False
                     )
         except Exception as e:

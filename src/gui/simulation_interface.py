@@ -1,3 +1,4 @@
+from sys import exception
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 from PyQt6.QtGui import QWindow
 from gui.simulation_worker import SimWorker
@@ -7,12 +8,11 @@ class SimInterface(QWidget):
     """ Clase encargada del modelo 3d mostrado en la interfaz
     """
 
-    def __init__(self, slider_widget):
+    def __init__(self):
         super().__init__()
         self.qwindow = None
         self.window_container = None
         self.physics_worker = None
-        self.slider_widget = slider_widget
         self.simulation_running = False
 
         self.physics_worker = SimWorker(self)
@@ -23,9 +23,9 @@ class SimInterface(QWidget):
         self.start_simulation()
 
         if not self.layout():
-            layout = QVBoxLayout(self)
-            layout.setContentsMargins(0, 0, 0, 0)
-            self.setLayout(layout)
+            self.Vlayout = QVBoxLayout(self)
+            self.Vlayout.setContentsMargins(0, 0, 0, 0)
+            self.setLayout(self.Vlayout)
 
     def capture_window(self, hwnd):
         """ Captura la ventana del GUI de pybullet y la incrusta en la interfaz
@@ -38,21 +38,29 @@ class SimInterface(QWidget):
             self.window_container = QWidget.createWindowContainer(
                 self.qwindow, self)
             self.layout().addWidget(self.window_container)
+            self.window_container.update()
 
     def start_simulation(self):
         """ Inicia la simulacion dando inicio al proceso de ejecucion
         """
-        self.physics_worker.sim_controller.start_simulation()
+        self.physics_worker.start_simulation()
+
+    def pause_simulation(self):
+        """ Pausa la simulación
+        """
+        self.physics_worker.pause_simulation()
 
     def stop_simulation(self):
         """ Pausa la simulación
         """
-        self.physics_worker.sim_controller.stop_simulation()
+        self.physics_worker.exit()
+        self.physics_worker.wait()
+        self.physics_worker.stop_simulation()
 
     def closeEvent(self, event):
         """ Asegurar limpieza cuando se cierra el widget
         """
-        self.stop_simulation()
+        # self.pause_simulation()
 
         if self.qwindow is not None:
             self.qwindow = None

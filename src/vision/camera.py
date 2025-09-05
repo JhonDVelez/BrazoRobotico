@@ -24,7 +24,6 @@ class CameraControl:
         self.default_width = 640
         self.default_height = 360
         self.default_fps = 30
-        self.prev_gamma = 0.5
 
     def camera_on(self) -> bool:
         """Enciende la cámara con configuración optimizada"""

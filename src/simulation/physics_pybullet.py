@@ -1,7 +1,7 @@
 import os
+import time
 import pybullet as p
 import pybullet_data
-from simulation.pybullet_env import SimulationEnv
 
 
 class RobotArmPhysics:
@@ -29,8 +29,7 @@ class RobotArmPhysics:
 
     def __init_pybullet(self):
         """Inicializar PyBullet y cargar el URDF del robot"""
-        self.env = SimulationEnv()
-        self.env.reset()
+        self.env = p.connect(p.GUI, options="--width=1 --height=1")
 
         # Configurar la simulación
         p.setGravity(0, 0, -9.81)
@@ -67,18 +66,11 @@ class RobotArmPhysics:
         num_joints = p.getNumJoints(self.robot_id)
 
         for i in range(num_joints):
-            joint_info = p.getJointInfo(self.robot_id, i)
-            joint_name = joint_info[1].decode('utf-8')
-            joint_type = joint_info[2]
+            joint_type = p.getJointInfo(self.robot_id, i)[2]
 
             # Solo considerar articulaciones móviles (revolute o prismatic)
             if joint_type in [p.JOINT_REVOLUTE, p.JOINT_PRISMATIC]:
                 self.joint_indices.append(i)
-                self.joint_names.append(joint_name)
-
-        texture = p.loadTexture(os.path.join(os.path.dirname(
-            __file__), "meshes", "visual", "texture", "base_link.png"))
-        p.changeVisualShape(self.robot_id, 0, textureUniqueId=texture)
 
     def get_robot_id(self) -> int:
         """ Obtiene el id del robot del motor de fisicas de pybullet
@@ -95,6 +87,16 @@ class RobotArmPhysics:
                 p.getJointState(self.robot_id, 4)[0],
                 p.getJointState(self.robot_id, 5)[0],
                 p.getJointState(self.robot_id, 6)[0]]
+
+    def reset_joint_positions(self):
+        """Obtiene el estado actual de todas las articulaciones"""
+
+        p.resetJointState(self.robot_id, 1, 0)
+        p.resetJointState(self.robot_id, 2, 0)
+        p.resetJointState(self.robot_id, 3, 0)
+        p.resetJointState(self.robot_id, 4, 0)
+        p.resetJointState(self.robot_id, 5, 0)
+        p.resetJointState(self.robot_id, 6, 0)
 
     def set_initial_states(self, initital_states):
         self.initial_states = initital_states

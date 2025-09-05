@@ -40,7 +40,6 @@ class VideoOverlayWidget(QWidget):
         self.videoButton.raise_()
         self.image_path = os.path.join(os.path.dirname(
             __file__), "..", "img", 'camera.png')
-        self.load_image(self.image_path)
 
     def __setup_connections(self):
         """Configura las conexiones de eventos
@@ -112,6 +111,7 @@ class VideoOverlayWidget(QWidget):
             self.stop_video()
 
         try:
+            print("Video iniciado")
             self.video_worker = VideoWorker(camera_index=0)
 
             # Conectar señales
@@ -146,6 +146,18 @@ class VideoOverlayWidget(QWidget):
 
         self.load_image(self.image_path)
 
+    def pause_video(self):
+        print("Video pausado")
+
+        if self.video_worker is not None:
+            self.video_worker.pause()
+
+    def resume_video(self):
+        print("Video activo")
+
+        if self.video_worker is not None:
+            self.video_worker.resume()
+
     def resizeEvent(self, event: QResizeEvent):
         """ Maneja el evento de redimensionamiento del widget.
 
@@ -163,6 +175,11 @@ class VideoOverlayWidget(QWidget):
                     Qt.TransformationMode.FastTransformation
                 )
                 self.videoLabel.setPixmap(scaled_pixmap)
+
+    def showEvent(self, event):
+        """Se ejecuta cuando el widget se vuelve visible"""
+        super().showEvent(event)
+        self.load_image(self.image_path)
 
     def toggle_video(self):
         """ Alterna el estado de la captura de video.

@@ -20,8 +20,6 @@ class SimInterface(QWidget):
         self.physics_worker.start()
         self.simulation_running = True
 
-        self.start_simulation()
-
         if not self.layout():
             self.Vlayout = QVBoxLayout(self)
             self.Vlayout.setContentsMargins(0, 0, 0, 0)
@@ -39,6 +37,7 @@ class SimInterface(QWidget):
                 self.qwindow, self)
             self.layout().addWidget(self.window_container)
             self.window_container.update()
+            self.activateWindow()
 
     def start_simulation(self):
         """ Inicia la simulacion dando inicio al proceso de ejecucion
@@ -69,10 +68,3 @@ class SimInterface(QWidget):
             self.window_container = None
 
         super().closeEvent(event)
-
-    def __del__(self):
-        """ Destructor para limpieza final
-        """
-        if self.physics_worker is not None:
-            self.physics_worker.quit()
-            self.physics_worker.wait()

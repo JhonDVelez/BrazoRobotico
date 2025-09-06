@@ -2,12 +2,15 @@ import os
 import time
 import pybullet as p
 import pybullet_data
+from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtWidgets import QWidget
 
 
-class RobotArmPhysics:
+class RobotArmPhysics(QWidget):
     """ Establece las fisicas del modelo 3D asi como la comunicacion con el environment de pybullet,
         opengl y los datos obtenidos del urdf.
     """
+    robot_loaded = pyqtSignal()
 
     def __init__(self, enable_shadows=1):
         """ Inicializa la clase RobotArmPhysics definiendo variables e iniciando el env de pybullet
@@ -15,7 +18,7 @@ class RobotArmPhysics:
         Args:
             gui (bool, optional): Define si se muestra la gui de pybullet. Defaults to False.
         """
-
+        super().__init__()
         self.joint_indices = []
         self.joint_names = []
         self.joint_positions = []
@@ -35,10 +38,15 @@ class RobotArmPhysics:
         p.setGravity(0, 0, -9.81)
         p.setTimeStep(1./240.)  # 240 Hz
         p.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0)
-        p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 1)
+        p.configureDebugVisualizer(p.COV_ENABLE_WIREFRAME, 0)
+        p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 0)
+        p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 0)
+        p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 0)
         p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, self.enable_shadows)
-        p.configureDebugVisualizer(
-            p.COV_ENABLE_GUI, 0, lightPosition=[-10, 10, 10])
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
+        p.configureDebugVisualizer(lightPosition=[-10, 10, 10],
+                                   shadowMapResolution=1024,
+                                   shadowMapWorldSize=1)
 
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
 
@@ -48,29 +56,6 @@ class RobotArmPhysics:
             cameraPitch=-40,
             cameraTargetPosition=[0.2, 0., 0.1]
         )
-
-        # Crear el suelo
-        self.plane_id = p.createCollisionShape(p.GEOM_PLANE)
-        self.ground_id = p.createMultiBody(0, self.plane_id)
-
-        # Carga el modelo del robot
-        self.robot_id = p.loadURDF(
-            self.urdf_path,
-            basePosition=[0, 0, 0],
-            baseOrientation=p.getQuaternionFromEuler([0, 0, 0]),
-            useFixedBase=True,  # o False si el robot es móvil
-            flags=p.URDF_USE_INERTIA_FROM_FILE | p.URDF_USE_SELF_COLLISION
-        )
-
-        # Obtener información de las articulaciones
-        num_joints = p.getNumJoints(self.robot_id)
-
-        for i in range(num_joints):
-            joint_type = p.getJointInfo(self.robot_id, i)[2]
-
-            # Solo considerar articulaciones móviles (revolute o prismatic)
-            if joint_type in [p.JOINT_REVOLUTE, p.JOINT_PRISMATIC]:
-                self.joint_indices.append(i)
 
     def get_robot_id(self) -> int:
         """ Obtiene el id del robot del motor de fisicas de pybullet
@@ -87,16 +72,6 @@ class RobotArmPhysics:
                 p.getJointState(self.robot_id, 4)[0],
                 p.getJointState(self.robot_id, 5)[0],
                 p.getJointState(self.robot_id, 6)[0]]
-
-    def reset_joint_positions(self):
-        """Obtiene el estado actual de todas las articulaciones"""
-
-        p.resetJointState(self.robot_id, 1, 0)
-        p.resetJointState(self.robot_id, 2, 0)
-        p.resetJointState(self.robot_id, 3, 0)
-        p.resetJointState(self.robot_id, 4, 0)
-        p.resetJointState(self.robot_id, 5, 0)
-        p.resetJointState(self.robot_id, 6, 0)
 
     def set_initial_states(self, initital_states):
         self.initial_states = initital_states
@@ -119,3 +94,39 @@ class RobotArmPhysics:
     def step_simulation(self):
         """Avanza un paso de la simulación"""
         p.stepSimulation()
+
+    def load_models(self):
+        # Crear el suelo
+        self.plane_id = p.createCollisionShape(p.GEOM_PLANE)
+        self.ground_id = p.createMultiBody(0, self.plane_id)
+
+        # Carga el modelo del robot
+        self.robot_id = p.loadURDF(
+            self.urdf_path,
+            basePosition=[0, 0, 0],
+            baseOrientation=p.getQuaternionFromEuler([0, 0, 0]),
+            useFixedBase=True,  # o False si el robot es móvil
+            flags=p.URDF_USE_INERTIA_FROM_FILE | p.URDF_USE_SELF_COLLISION
+        )
+
+        self.get_robot_info()
+        self.robot_loaded.emit()
+
+    def get_robot_info(self):
+        # Obtener información de las articulaciones
+        num_joints = p.getNumJoints(self.robot_id)
+
+        for i in range(num_joints):
+            joint_type = p.getJointInfo(self.robot_id, i)[2]
+
+            # Solo considerar articulaciones móviles (revolute o prismatic)
+            if joint_type in [p.JOINT_REVOLUTE, p.JOINT_PRISMATIC]:
+                self.joint_indices.append(i)
+
+    def reset_simulation(self):
+        print(f"Prev reset: {self.robot_id}")
+        p.removeBody(self.robot_id)
+        p.removeBody(self.plane_id)
+        p.resetSimulation()
+        self.joint_indices = []
+        print(f"Post reset: {self.robot_id}")

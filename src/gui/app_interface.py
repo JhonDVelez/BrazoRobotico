@@ -1,6 +1,5 @@
 import os
 import win32con
-from pynput.keyboard import Controller
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QMessageBox
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QFormLayout, QSizePolicy
 from PyQt6.QtGui import QScreen, QIcon
@@ -20,13 +19,13 @@ class MainInterface(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.simulation_widget = None
+        self.simulation_interface = None
         self.simulation_hidden = False
-        self.video_paused = False
-        self.keyboard = Controller()
+        self.camera_paused = False
         self.init_main_window()
         self.init_camera()
         self.init_controls()
+        self.init_simulation()
         self.setup_connections()
 
     def init_main_window(self):
@@ -56,9 +55,9 @@ class MainInterface(QMainWindow):
             layout.setContentsMargins(0, 0, 0, 0)
             self.cameraBox.setLayout(layout)
 
-        self.video_widget = VideoOverlayWidget(self.ui)
-        self.cameraBox.layout().addWidget(self.video_widget)
-        self.video_widget.videoLabel.setEnabled(False)
+        self.camera_interface = VideoOverlayWidget(self.ui)
+        self.cameraBox.layout().addWidget(self.camera_interface)
+        self.camera_interface.videoLabel.setEnabled(False)
         # self.video_widget.pause_video()
 
     # def init_model(self):
@@ -120,26 +119,24 @@ class MainInterface(QMainWindow):
             self.sim_layout.setContentsMargins(0, 0, 0, 0)
             self.modelBox.setLayout(self.sim_layout)
 
-        self.simulation_widget = SimInterface()
-        self.simulation_widget.setSizePolicy(
+        self.simulation_interface = SimInterface()
+        self.simulation_interface.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.simulation_widget.setMinimumSize(QSize(0, 0))
-        self.sim_layout.addWidget(self.simulation_widget)
+        self.simulation_interface.setMinimumSize(QSize(0, 0))
+        self.sim_layout.addWidget(self.simulation_interface)
         self.simulation_hidden = False
+        self.simulation_interface.hide()
 
     def start(self):
         """ Inicia o detiene la simulacion en caso de ser la primera vez instancia la clase
             SimInterface, tambien cambia los colores e iconos del boton.
         """
         if self.habSimulationCheck.isChecked():
-            if self.simulation_widget is None:
-                self.init_simulation()
-            self.simulation_widget.start_simulation()
+            self.simulation_interface.start_simulation()
             if self.simulation_hidden and self.habSimulationCheck.isChecked():
-                self.keyboard.press('v')
-                self.keyboard.release('v')
-            self.simulation_widget.show()
-            self.simulation_widget.setEnabled(True)
+                self._toggle_pybullet_visibility()
+            self.simulation_interface.show()
+            self.simulation_interface.setEnabled(True)
 
             self.simulation_hidden = False
         else:
@@ -147,38 +144,36 @@ class MainInterface(QMainWindow):
                 self.toogle_visibility_model_event(self.modelBox)
 
         self.habSimulationCheck.setEnabled(False)
-        if self.video_paused:
-            print("Continuar video")
-            self.video_widget.resume_video()
-        self.video_widget.videoLabel.setEnabled(True)
+        if self.camera_paused:
+            self.camera_interface.resume_video()
+        self.camera_interface.videoLabel.setEnabled(True)
 
         self.stop_button.show()
         self.pause_button.show()
         self.start_button.hide()
 
     def pause(self):
-        if self.simulation_widget is not None:
-            self.simulation_widget.pause_simulation()
-            self.simulation_widget.setEnabled(False)
+        if self.simulation_interface is not None:
+            self.simulation_interface.pause_simulation()
+            self.simulation_interface.setEnabled(False)
 
-        self.video_widget.videoLabel.setEnabled(False)
-        self.video_widget.pause_video()
-        self.video_paused = True
+        self.camera_interface.videoLabel.setEnabled(False)
+        self.camera_interface.pause_video()
+        self.camera_paused = True
 
         self.pause_button.hide()
         self.start_button.show()
 
     def stop(self):
-        if self.simulation_widget is not None:
-            self.simulation_widget.hide()
-            self.keyboard.press('v')
-            self.keyboard.release('v')
-            self.simulation_widget.stop_simulation()
+        if self.simulation_interface is not None:
+            self.simulation_interface.hide()
+            self._toggle_pybullet_visibility()
+            self.simulation_interface.stop_simulation()
             self.simulation_hidden = True
         self.habSimulationCheck.setEnabled(True)
 
-        self.video_widget.videoLabel.setEnabled(False)
-        self.video_widget.stop_video()
+        self.camera_interface.videoLabel.setEnabled(False)
+        self.camera_interface.stop_video()
 
         self.stop_button.hide()
         self.pause_button.hide()
@@ -252,25 +247,31 @@ class MainInterface(QMainWindow):
         else:
             event.ignore()
 
+    def _toggle_pybullet_visibility(self):
+        self.simulation_interface.physics_worker.send_key(
+            self.simulation_interface.physics_worker.hwnd,
+            ord('V'),
+            press=True
+        )
+        self.simulation_interface.physics_worker.send_key(
+            self.simulation_interface.physics_worker.hwnd,
+            ord('V'),
+            press=False
+        )
+
     def keyPressEvent(self, event):
         try:
-            if self.simulation_widget is not None:
+            if self.simulation_interface is not None:
                 if event.key() == Qt.Key.Key_Control:
-                    self.simulation_widget.physics_worker.send_key(
-                        self.simulation_widget.physics_worker.hwnd,
+                    self.simulation_interface.physics_worker.send_key(
+                        self.simulation_interface.physics_worker.hwnd,
                         win32con.VK_CONTROL,
                         press=True
                     )
                 if event.key() == Qt.Key.Key_S:
-                    self.simulation_widget.physics_worker.send_key(
-                        self.simulation_widget.physics_worker.hwnd,
+                    self.simulation_interface.physics_worker.send_key(
+                        self.simulation_interface.physics_worker.hwnd,
                         ord('S'),
-                        press=True
-                    )
-                if event.key() == Qt.Key.Key_V:
-                    self.simulation_widget.physics_worker.send_key(
-                        self.simulation_widget.physics_worker.hwnd,
-                        ord('V'),
                         press=True
                     )
         except Exception as e:
@@ -278,23 +279,17 @@ class MainInterface(QMainWindow):
 
     def keyReleaseEvent(self, event):
         try:
-            if self.simulation_widget is not None:
+            if self.simulation_interface is not None:
                 if event.key() == Qt.Key.Key_Control:
-                    self.simulation_widget.physics_worker.send_key(
-                        self.simulation_widget.physics_worker.hwnd,
+                    self.simulation_interface.physics_worker.send_key(
+                        self.simulation_interface.physics_worker.hwnd,
                         win32con.VK_CONTROL,
                         press=False
                     )
                 if event.key() == Qt.Key.Key_S:
-                    self.simulation_widget.physics_worker.send_key(
-                        self.simulation_widget.physics_worker.hwnd,
+                    self.simulation_interface.physics_worker.send_key(
+                        self.simulation_interface.physics_worker.hwnd,
                         ord('S'),
-                        press=False
-                    )
-                if event.key() == Qt.Key.Key_V:
-                    self.simulation_widget.physics_worker.send_key(
-                        self.simulation_widget.physics_worker.hwnd,
-                        ord('V'),
                         press=False
                     )
         except Exception as e:

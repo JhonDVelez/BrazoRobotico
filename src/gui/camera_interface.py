@@ -18,6 +18,7 @@ class VideoOverlayWidget(QWidget):
         self.parent = parent
         self.video_worker = None
         self.video_active = False
+        self.app_running = None
         self.original_pixmap = None
         self.__setup_ui()
         self.__setup_connections()
@@ -184,7 +185,7 @@ class VideoOverlayWidget(QWidget):
     def toggle_video(self):
         """ Alterna el estado de la captura de video.
         """
-        if not self.parent.cameraBox.isVisible():
+        if not self.parent.cameraBox.isVisible() or not self.videoLabel.isEnabled():
             return
 
         if self.video_active:

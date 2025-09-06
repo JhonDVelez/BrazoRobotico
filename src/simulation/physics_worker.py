@@ -14,15 +14,10 @@ class PhysicsWorker(QThread):
         self.model_ogl = None
         self.physic = None
         self.timer = None
+        self._running = False
         self.max_velocity = None
-
-    def get_robot_id(self):
-        """ Obtiene el numero de identificacion del robot en la simulacion de pybullet.
-
-        Returns:
-            : _description_
-        """
-        return self.physic.get_robot_id()
+        self.physic = RobotArmPhysics(1)
+        self.physic.robot_loaded.connect(self.update_simulation)
 
     def set_max_velocity(self, max_vel):
         if max_vel > 0:
@@ -35,11 +30,9 @@ class PhysicsWorker(QThread):
     def run(self):
         """ Ciclo principal del subproceso el cual actualiza el robot cada n milisegundos
         """
-        if self.physic is None:
-            self.physic = RobotArmPhysics(1)
         self._running = True
         self.set_max_velocity(1.0)
-        self.update_simulation()
+        self.physic.load_models()
 
     def pause(self):
         """Pausa la simulación"""
@@ -48,7 +41,8 @@ class PhysicsWorker(QThread):
     def stop(self):
         """Detener la simulación"""
         self._running = False
-        self.physic.reset_joint_positions()
+        # self.physic.reset_joint_positions()
+        self.physic.reset_simulation()
         self.set_max_velocity(1.0)
 
     def update_simulation(self):
@@ -57,6 +51,7 @@ class PhysicsWorker(QThread):
         target_positions = self.get_position_rad()
         # Compara si la cantidad de posiciones ingresadas es igual a la cantidad de uniones del
         # robot
+        # print(target_positions, self._running, self.physic.joint_indices)
         if self._running:
             if len(target_positions) == len(self.physic.joint_indices):
                 actual_positions = self.physic.get_joint_positions()

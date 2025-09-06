@@ -15,6 +15,6 @@ if __name__ == '__main__':
     QGuiApplication.styleHints().setColorScheme(Qt.ColorScheme.Dark)
 
     window = MainInterface()
-    window.show()
+    window.showMaximized()
 
     (app.exec())

@@ -16,8 +16,9 @@ class SimWorker(QThread):
         super().__init__()
         self.hwnd = None
         self.timer = None
-        self.worker = None
         self.sim_interface = sim_interface
+        self.worker = PhysicsWorker()
+        self.worker.set_max_velocity(1.2)
 
     def run(self):
         """ Define el ciclo de ejecucion del subproceso el cual se ejecuta hasta que detecta 
@@ -52,9 +53,6 @@ class SimWorker(QThread):
     def start_simulation(self):
         """ Da inicio a la ejecucion de la simulacion o la vuelve a poner en curso si fue pausada
         """
-        if self.worker is None:
-            self.worker = PhysicsWorker()
-            self.worker.set_max_velocity(1.2)
         self.worker.start()
 
     def pause_simulation(self):

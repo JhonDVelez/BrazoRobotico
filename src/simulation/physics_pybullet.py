@@ -1,5 +1,4 @@
 import os
-import time
 import pybullet as p
 import pybullet_data
 from PyQt6.QtCore import pyqtSignal
@@ -24,6 +23,9 @@ class RobotArmPhysics(QWidget):
         self.joint_positions = []
         self.joint_velocities = []
         self.initial_states = []
+        self.plane_id = None
+        self.ground_id = None
+        self.robot_id = None
         self.enable_shadows = enable_shadows
 
         self.urdf_path = os.path.join(os.path.dirname(
@@ -31,7 +33,8 @@ class RobotArmPhysics(QWidget):
         self.__init_pybullet()
 
     def __init_pybullet(self):
-        """Inicializar PyBullet y cargar el URDF del robot"""
+        """ Inicializar PyBullet y cargar el URDF del robot
+        """
         self.env = p.connect(p.GUI, options="--width=1 --height=1")
 
         # Configurar la simulación
@@ -64,7 +67,8 @@ class RobotArmPhysics(QWidget):
             return self.robot_id
 
     def get_joint_positions(self):
-        """Obtiene el estado actual de todas las articulaciones"""
+        """ Obtiene el estado actual de todas las articulaciones
+        """
 
         return [p.getJointState(self.robot_id, 1)[0],
                 p.getJointState(self.robot_id, 2)[0],
@@ -73,11 +77,9 @@ class RobotArmPhysics(QWidget):
                 p.getJointState(self.robot_id, 5)[0],
                 p.getJointState(self.robot_id, 6)[0]]
 
-    def set_initial_states(self, initital_states):
-        self.initial_states = initital_states
-
     def set_joint_positions(self, positions, max_velocity=0.5):
-        """Establece las posiciones objetivo de las articulaciones"""
+        """ Establece las posiciones objetivo de las articulaciones
+        """
         if self.robot_id is None or len(positions) != len(self.joint_indices):
             return
 
@@ -92,10 +94,13 @@ class RobotArmPhysics(QWidget):
             )
 
     def step_simulation(self):
-        """Avanza un paso de la simulación"""
+        """ Avanza un paso de la simulación
+        """
         p.stepSimulation()
 
     def load_models(self):
+        """ Carga nuevamente el modelo a partir del URDF y crea el plano
+        """
         # Crear el suelo
         self.plane_id = p.createCollisionShape(p.GEOM_PLANE)
         self.ground_id = p.createMultiBody(0, self.plane_id)
@@ -113,6 +118,8 @@ class RobotArmPhysics(QWidget):
         self.robot_loaded.emit()
 
     def get_robot_info(self):
+        """ Obtiene informacion del robot principalmente los indices de cada junta
+        """
         # Obtener información de las articulaciones
         num_joints = p.getNumJoints(self.robot_id)
 
@@ -124,6 +131,8 @@ class RobotArmPhysics(QWidget):
                 self.joint_indices.append(i)
 
     def reset_simulation(self):
+        """ Borra los modelos del robot y el suelo para quitar la carga grafica por completo.
+        """
         print(f"Prev reset: {self.robot_id}")
         p.removeBody(self.robot_id)
         p.removeBody(self.plane_id)

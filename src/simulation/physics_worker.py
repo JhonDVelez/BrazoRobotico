@@ -15,6 +15,7 @@ class PhysicsWorker(QThread):
         self.physic = None
         self.timer = None
         self._running = False
+        self._paused = False
         self.max_velocity = None
         self.physic = RobotArmPhysics(1)
         self.physic.robot_loaded.connect(self.update_simulation)
@@ -28,20 +29,27 @@ class PhysicsWorker(QThread):
             self.max_velocity = 1.0
 
     def run(self):
-        """ Ciclo principal del subproceso el cual actualiza el robot cada n milisegundos
+        """ Ciclo principal del subproceso el cual actualiza el robot cada n milisegundos 
         """
         self._running = True
         self.set_max_velocity(1.0)
-        self.physic.load_models()
+        # Si esta pausado actualiza activa nuevamente el ciclo
+        if self._paused:
+            self._paused = False
+            self.update_simulation()
+        # Pero si esta detenido vuelve a cargar el modelo.
+        else:
+            self.physic.load_models()
 
     def pause(self):
         """Pausa la simulación"""
         self._running = False
+        self._paused = True
 
     def stop(self):
         """Detener la simulación"""
         self._running = False
-        # self.physic.reset_joint_positions()
+        self._paused = False
         self.physic.reset_simulation()
         self.set_max_velocity(1.0)
 
@@ -51,7 +59,6 @@ class PhysicsWorker(QThread):
         target_positions = self.get_position_rad()
         # Compara si la cantidad de posiciones ingresadas es igual a la cantidad de uniones del
         # robot
-        # print(target_positions, self._running, self.physic.joint_indices)
         if self._running:
             if len(target_positions) == len(self.physic.joint_indices):
                 actual_positions = self.physic.get_joint_positions()

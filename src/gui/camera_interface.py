@@ -112,7 +112,6 @@ class VideoOverlayWidget(QWidget):
             self.stop_video()
 
         try:
-            print("Video iniciado")
             self.video_worker = VideoWorker(camera_index=0)
 
             # Conectar señales
@@ -148,13 +147,14 @@ class VideoOverlayWidget(QWidget):
         self.load_image(self.image_path)
 
     def pause_video(self):
-        print("Video pausado")
-
+        """ Pausa la actualizacion de frames de la camara
+        """
         if self.video_worker is not None:
             self.video_worker.pause()
 
     def resume_video(self):
-        print("Video activo")
+        """ Vuelve a activar la actualizacion de frames de la camara
+        """
 
         if self.video_worker is not None:
             self.video_worker.resume()

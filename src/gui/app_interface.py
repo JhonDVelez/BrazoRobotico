@@ -1,7 +1,8 @@
 import os
 import win32con
+import win32gui
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QMessageBox
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QFormLayout, QSizePolicy
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QSizePolicy
 from PyQt6.QtGui import QScreen, QIcon
 from PyQt6.QtCore import Qt, QSize
 from PyQt6 import uic
@@ -58,10 +59,7 @@ class MainInterface(QMainWindow):
         self.camera_interface = VideoOverlayWidget(self.ui)
         self.cameraBox.layout().addWidget(self.camera_interface)
         self.camera_interface.videoLabel.setEnabled(False)
-        # self.video_widget.pause_video()
 
-    # def init_model(self):
-        # self.modelBox = self.ui.modelBox
     def init_controls(self):
         """ Inicializa la interfaz de controladores con sliders que indica el
            angulo objetivo de cada motor del robot
@@ -153,6 +151,8 @@ class MainInterface(QMainWindow):
         self.start_button.hide()
 
     def pause(self):
+        """ Pone en pausa la simulacion si existe y la camara
+        """
         if self.simulation_interface is not None:
             self.simulation_interface.pause_simulation()
             self.simulation_interface.setEnabled(False)
@@ -165,6 +165,8 @@ class MainInterface(QMainWindow):
         self.start_button.show()
 
     def stop(self):
+        """ "Detiene" la simulacion y apaga la camara
+        """
         if self.simulation_interface is not None:
             self.simulation_interface.hide()
             self._toggle_pybullet_visibility()
@@ -248,6 +250,9 @@ class MainInterface(QMainWindow):
             event.ignore()
 
     def _toggle_pybullet_visibility(self):
+        """ Simula la tecla v para desactivar todos los modelos de pybullet cuando la ventana 
+            se oculta
+        """
         self.simulation_interface.physics_worker.send_key(
             self.simulation_interface.physics_worker.hwnd,
             ord('V'),
@@ -260,6 +265,8 @@ class MainInterface(QMainWindow):
         )
 
     def keyPressEvent(self, event):
+        """ Toma los eventos del teclado y los envia a la ventana incrustada de pybullet, presionado
+        """
         try:
             if self.simulation_interface is not None:
                 if event.key() == Qt.Key.Key_Control:
@@ -274,10 +281,12 @@ class MainInterface(QMainWindow):
                         ord('S'),
                         press=True
                     )
-        except Exception as e:
+        except (TypeError, win32gui.error) as e:
             print(f"Error en la captura del teclado: {e}")
 
     def keyReleaseEvent(self, event):
+        """ Toma los eventos del teclado y los envia a la ventana incrustada de pybullet, librerado
+        """
         try:
             if self.simulation_interface is not None:
                 if event.key() == Qt.Key.Key_Control:
@@ -292,5 +301,5 @@ class MainInterface(QMainWindow):
                         ord('S'),
                         press=False
                     )
-        except Exception as e:
+        except (TypeError, win32gui.error) as e:
             print(f"Error en la captura del teclado: {e}")

@@ -1,7 +1,7 @@
 import os
 from PyQt6.QtWidgets import QWidget, QSizePolicy
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QResizeEvent, QPixmap
+from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtGui import QResizeEvent, QPixmap, QIcon
 from PyQt6 import uic
 from gui.camera_worker import VideoWorker  # Importar el worker thread
 
@@ -19,7 +19,6 @@ class VideoOverlayWidget(QWidget):
         self.video_worker = None
         self.video_active = False
         self.app_running = None
-        self.original_pixmap = None
         self.__setup_ui()
         self.__setup_connections()
 
@@ -37,10 +36,16 @@ class VideoOverlayWidget(QWidget):
         self.videoLabel.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
-        self.videoButton.setFixedSize(50, 30)
+        self.videoButton.setIcon(QIcon(os.path.join(
+            os.path.dirname(__file__), 'icons', 'camera.png')))
+        self.videoButton.setIconSize(QSize(25, 25))
+        self.videoButton.setStyleSheet(
+            "background-color: white;")
+        self.videoButton.setFixedSize(30, 30)
         self.videoButton.raise_()
         self.image_path = os.path.join(os.path.dirname(
-            __file__), "..", "img", 'camera.png')
+            __file__), "img", 'camera.png')
+        self.pixmap = QPixmap(self.image_path)
 
     def __setup_connections(self):
         """Configura las conexiones de eventos
@@ -55,9 +60,6 @@ class VideoOverlayWidget(QWidget):
             pixmap (QPixmap): El pixmap del video a mostrar
         """
         if pixmap and not pixmap.isNull():
-            # Cache del pixmap original para reescalado
-            self.original_pixmap = pixmap
-
             # Escalar solo si es necesario
             label_size = self.videoLabel.size()
             if pixmap.size() != label_size:
@@ -71,20 +73,19 @@ class VideoOverlayWidget(QWidget):
                 self.videoLabel.setPixmap(pixmap)
         else:
             self.videoLabel.clear()
-            if hasattr(self, '_original_pixmap'):
-                del self.original_pixmap
 
-    def load_image(self, image_path: str):
+    def load_image(self):
         """ Carga una imagen desde la raiz del proyecto y la establece como pixmap en el label.
 
         Args:
             image_path (str): Ruta de la imagen a cargar
         """
-        pixmap = QPixmap(image_path)
-        if not pixmap.isNull():
-            self.set_video_pixmap(pixmap)
+
+        if not self.pixmap.isNull():
+            self.set_video_pixmap(self.pixmap)
         else:
-            print(f"Error: No se pudo cargar la imagen desde {image_path}")
+            print(
+                f"Error: No se pudo cargar la imagen desde {self.image_path}")
 
     def on_frame_ready(self, pixmap: QPixmap):
         """ Slot para manejar el frame listo del worker thread.
@@ -105,14 +106,14 @@ class VideoOverlayWidget(QWidget):
         self.stop_video()
 
     def start_video(self):
-        """ Inicia la captura de video desde la cámara y configura el worker 
+        """ Inicia la captura de video desde la cámara y configura el worker
             thread para recibir frames.
         """
         if self.video_worker is not None:
             self.stop_video()
 
         try:
-            self.video_worker = VideoWorker(camera_index=0)
+            self.video_worker = VideoWorker()
 
             # Conectar señales
             self.video_worker.frame_ready.connect(self.on_frame_ready)
@@ -144,7 +145,7 @@ class VideoOverlayWidget(QWidget):
             except (RuntimeError, OSError) as e:
                 print(f"Error en la ejecucion al detener el video: {e}")
 
-        self.load_image(self.image_path)
+        self.load_image()
 
     def pause_video(self):
         """ Pausa la actualizacion de frames de la camara
@@ -168,19 +169,14 @@ class VideoOverlayWidget(QWidget):
         super().resizeEvent(event)
 
         # Reescalar imagen actual si existe (de forma optimizada)
-        if hasattr(self, '_original_pixmap'):
-            if self.parent.cameraBox.isVisible():
-                scaled_pixmap = self.original_pixmap.scaled(
-                    self.videoLabel.size(),
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.FastTransformation
-                )
-                self.videoLabel.setPixmap(scaled_pixmap)
+
+        if not self.video_active:
+            self.load_image()
 
     def showEvent(self, event):
         """Se ejecuta cuando el widget se vuelve visible"""
         super().showEvent(event)
-        self.load_image(self.image_path)
+        self.load_image()
 
     def toggle_video(self):
         """ Alterna el estado de la captura de video.

@@ -69,8 +69,8 @@ class SlidersWidget(QWidget):
 
         self.pose1Button.clicked.connect(self.set_pose_1)
         self.pose2Button.clicked.connect(self.set_pose_2)
-        # self.pose3Button.clicked.connect(self.set_pose_3)
-        # self.pose4Button.clicked.connect(self.set_pose_4)
+        self.pose3Button.clicked.connect(self.set_pose_3)
+        self.pose4Button.clicked.connect(self.set_pose_4)
 
     def update_class_status(self):
         """ Actualiza los valores almacenados de los slider/spinBox (estan conectados)
@@ -124,3 +124,19 @@ class SlidersWidget(QWidget):
         self.spinBox4.setValue(0)
         self.spinBox5.setValue(-20)
         self.spinBox6.setValue(20)
+
+    def set_pose_3(self):
+        self.spinBox1.setValue(20)
+        self.spinBox2.setValue(60)
+        self.spinBox3.setValue(10)
+        self.spinBox4.setValue(0)
+        self.spinBox5.setValue(50)
+        self.spinBox6.setValue(20)
+
+    def set_pose_4(self):
+        self.spinBox1.setValue(20)
+        self.spinBox2.setValue(50)
+        self.spinBox3.setValue(40)
+        self.spinBox4.setValue(0)
+        self.spinBox5.setValue(80)
+        self.spinBox6.setValue(60)

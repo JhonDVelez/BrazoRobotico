@@ -1,6 +1,5 @@
 # Blender 4.5.1 LTS
 # www.blender.org
-mtllib arm2_link_1.mtl
 o arm2_link_1
 v -9.392713 14.491689 147.399048
 v -9.436759 8.991508 147.453156

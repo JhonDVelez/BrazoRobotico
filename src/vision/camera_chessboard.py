@@ -7,9 +7,9 @@ from vision.camera import CameraControl
 class CameraChessBoard():
     """Cámara especializada para detección de tableros de ajedrez usando preprocesado con UMat"""
 
-    def __init__(self, camera_index: int = 0, board_size: Tuple[int, int] = (7, 7)):
+    def __init__(self, board_size: Tuple[int, int] = (7, 7)):
         self.detector = ChessboardDetector(board_size)
-        self.camera = CameraControl(camera_index)
+        self.camera = CameraControl()
 
         # Cache para optimización
         self.corners = None

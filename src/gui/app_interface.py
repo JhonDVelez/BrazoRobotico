@@ -21,7 +21,7 @@ class MainInterface(QMainWindow):
     def __init__(self):
         super().__init__()
         self.simulation_interface = None
-        self.simulation_hidden = False
+        self.stopped = True
         self.camera_paused = False
         self.init_main_window()
         self.init_camera()
@@ -58,7 +58,7 @@ class MainInterface(QMainWindow):
 
         self.camera_interface = VideoOverlayWidget(self.ui)
         self.cameraBox.layout().addWidget(self.camera_interface)
-        self.camera_interface.videoLabel.setEnabled(False)
+        self.camera_interface.videoButton.hide()
 
     def init_controls(self):
         """ Inicializa la interfaz de controladores con sliders que indica el
@@ -117,13 +117,11 @@ class MainInterface(QMainWindow):
             self.sim_layout.setContentsMargins(0, 0, 0, 0)
             self.modelBox.setLayout(self.sim_layout)
 
-        self.simulation_interface = SimInterface()
+        self.simulation_interface = SimInterface(self.ui)
         self.simulation_interface.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.simulation_interface.setMinimumSize(QSize(0, 0))
         self.sim_layout.addWidget(self.simulation_interface)
-        self.simulation_hidden = False
-        self.simulation_interface.hide()
 
     def start(self):
         """ Inicia o detiene la simulacion en caso de ser la primera vez instancia la clase
@@ -131,12 +129,6 @@ class MainInterface(QMainWindow):
         """
         if self.habSimulationCheck.isChecked():
             self.simulation_interface.start_simulation()
-            if self.simulation_hidden and self.habSimulationCheck.isChecked():
-                self._toggle_pybullet_visibility()
-            self.simulation_interface.show()
-            self.simulation_interface.setEnabled(True)
-
-            self.simulation_hidden = False
         else:
             if self.modelBox.isVisible():
                 self.toogle_visibility_model_event(self.modelBox)
@@ -144,20 +136,21 @@ class MainInterface(QMainWindow):
         self.habSimulationCheck.setEnabled(False)
         if self.camera_paused:
             self.camera_interface.resume_video()
-        self.camera_interface.videoLabel.setEnabled(True)
+
+        self.camera_interface.videoButton.show()
 
         self.stop_button.show()
         self.pause_button.show()
         self.start_button.hide()
+
+        self.stopped = False
 
     def pause(self):
         """ Pone en pausa la simulacion si existe y la camara
         """
         if self.simulation_interface is not None:
             self.simulation_interface.pause_simulation()
-            self.simulation_interface.setEnabled(False)
 
-        self.camera_interface.videoLabel.setEnabled(False)
         self.camera_interface.pause_video()
         self.camera_paused = True
 
@@ -168,18 +161,17 @@ class MainInterface(QMainWindow):
         """ "Detiene" la simulacion y apaga la camara
         """
         if self.simulation_interface is not None:
-            self.simulation_interface.hide()
-            self._toggle_pybullet_visibility()
             self.simulation_interface.stop_simulation()
-            self.simulation_hidden = True
         self.habSimulationCheck.setEnabled(True)
 
-        self.camera_interface.videoLabel.setEnabled(False)
         self.camera_interface.stop_video()
+        self.camera_interface.videoButton.hide()
 
         self.stop_button.hide()
         self.pause_button.hide()
         self.start_button.show()
+
+        self.stopped = True
 
     def reset(self):
         """ Reinicia los valores de los sliders a 0
@@ -248,21 +240,6 @@ class MainInterface(QMainWindow):
             event.accept()
         else:
             event.ignore()
-
-    def _toggle_pybullet_visibility(self):
-        """ Simula la tecla v para desactivar todos los modelos de pybullet cuando la ventana 
-            se oculta
-        """
-        self.simulation_interface.physics_worker.send_key(
-            self.simulation_interface.physics_worker.hwnd,
-            ord('V'),
-            press=True
-        )
-        self.simulation_interface.physics_worker.send_key(
-            self.simulation_interface.physics_worker.hwnd,
-            ord('V'),
-            press=False
-        )
 
     def keyPressEvent(self, event):
         """ Toma los eventos del teclado y los envia a la ventana incrustada de pybullet, presionado

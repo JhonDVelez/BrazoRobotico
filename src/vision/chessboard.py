@@ -40,7 +40,7 @@ class ChessboardDetector:
 
         # Refinar esquinas
         corners_refined = cv2.cornerSubPix(
-            gray, corners, (11, 11), (-1, -1), self.criteria)
+            gray, corners, self.board_size, (-1, -1), self.criteria)
         return self.__extrapolate_corners(corners_refined)
 
     def __extrapolate_corners(self, corners):

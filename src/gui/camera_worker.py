@@ -6,7 +6,7 @@ from vision.camera_chessboard import CameraChessBoard
 
 
 class VideoWorker(QThread):
-    """Worker thread para manejar la captura y procesamiento de video
+    """ Worker thread para manejar la captura y procesamiento de video
     """
 
     # Señales para comunicación con el hilo principal
@@ -22,7 +22,7 @@ class VideoWorker(QThread):
         self._running = True
         self._paused = False
         # Inicializar cámara en el hilo de trabajo
-        self.camera_chess_board = CameraChessBoard(self.camera_index)
+        self.camera_chess_board = CameraChessBoard()
 
     def run(self):
         """ Bucle principal del hilo de video
@@ -65,14 +65,6 @@ class VideoWorker(QThread):
             # Asegurarse de uint8 contiguous
             frame = np.ascontiguousarray(frame, dtype=np.uint8)
 
-            # frame shape
-            if frame.ndim == 2:
-                height, width = frame.shape
-                bytes_per_line = width
-                q_image = QImage(frame.data, width, height,
-                                 bytes_per_line, QImage.Format.Format_Grayscale8)
-                return QPixmap.fromImage(q_image)
-
             height, width, channels = frame.shape
             if channels == 3:
                 bytes_per_line = channels * width
@@ -98,19 +90,23 @@ class VideoWorker(QThread):
             return QPixmap()
 
     def stop(self):
-        """ Detiene el hilo de video"""
+        """ Detiene el hilo de video
+        """
         self._running = False
         self._paused = False
 
         # Esperar a que termine el hilo
-        if not self.wait(2000):  # 2 segundos
+        if not self.wait(2000):
             print("Warning: Video thread no terminó correctamente, forzando terminación")
             self.terminate()
-            self.wait(1000)  # Esperar 1 segundo tras terminate
+            self.wait(1000)
 
     def pause(self):
+        """ Pausa el worker evitando la actualizacion de frames
+        """
         self._paused = True
 
     def resume(self):
+        """ Reanuda la ejecucion del worker permitiendo actualizar los frames
+        """
         self._paused = False
-

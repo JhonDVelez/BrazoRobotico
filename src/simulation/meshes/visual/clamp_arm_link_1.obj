@@ -1,6 +1,5 @@
 # Blender 4.5.1 LTS
 # www.blender.org
-mtllib clamp_arm_link_1.mtl
 o clamp_arm_link_1
 v 28.545649 -13.742188 421.744934
 v 28.393700 -8.239967 421.289673

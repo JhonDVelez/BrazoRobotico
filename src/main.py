@@ -3,7 +3,6 @@
 from PyQt6.QtWidgets import QApplication
 from gui.app_interface import MainInterface
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QStyleHints
 from PyQt6.QtGui import QGuiApplication
 import sys
 

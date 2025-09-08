@@ -15,8 +15,7 @@ class CameraControl:
        Optimizada para usar UMat (OpenCL) en preprocesado.
     """
 
-    def __init__(self, camera_index: int = 0):
-        self.camera_index = camera_index
+    def __init__(self):
         self.cap: Optional[cv2.VideoCapture] = None
         self.camera_ready = False
 
@@ -31,12 +30,14 @@ class CameraControl:
             self.__release_camera()
 
             # Usar DirectShow en Windows para mejor performance
-            self.cap = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
+            self.cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+            if not self.cap or not self.cap.isOpened():
+                self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
             if not self.cap or not self.cap.isOpened():
                 raise IOError("No se pudo abrir la cámara")
 
-            self.__configure_camera()
+            # self.__configure_camera()
 
             self.camera_ready = True
             return True

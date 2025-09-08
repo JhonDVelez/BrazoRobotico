@@ -1,6 +1,5 @@
 # Blender 4.5.1 LTS
 # www.blender.org
-mtllib clamp2_link_1.mtl
 o clamp2_link_1
 v 21.239250 -15.733126 439.395996
 v 19.688198 -15.467759 441.149536

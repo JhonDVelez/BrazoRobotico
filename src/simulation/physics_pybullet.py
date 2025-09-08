@@ -35,30 +35,13 @@ class RobotArmPhysics(QWidget):
     def __init_pybullet(self):
         """ Inicializar PyBullet y cargar el URDF del robot
         """
-        self.env = p.connect(p.GUI, options="--width=1 --height=1")
+        self.env = p.connect(p.DIRECT)
 
         # Configurar la simulación
         p.setGravity(0, 0, -9.81)
         p.setTimeStep(1./240.)  # 240 Hz
-        p.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0)
-        p.configureDebugVisualizer(p.COV_ENABLE_WIREFRAME, 0)
-        p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 0)
-        p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 0)
-        p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 0)
-        p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, self.enable_shadows)
-        p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
-        p.configureDebugVisualizer(lightPosition=[-10, 10, 10],
-                                   shadowMapResolution=1024,
-                                   shadowMapWorldSize=1)
 
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
-
-        p.resetDebugVisualizerCamera(
-            cameraDistance=0.6,
-            cameraYaw=20,
-            cameraPitch=-40,
-            cameraTargetPosition=[0.2, 0., 0.1]
-        )
 
     def get_robot_id(self) -> int:
         """ Obtiene el id del robot del motor de fisicas de pybullet
@@ -133,9 +116,7 @@ class RobotArmPhysics(QWidget):
     def reset_simulation(self):
         """ Borra los modelos del robot y el suelo para quitar la carga grafica por completo.
         """
-        print(f"Prev reset: {self.robot_id}")
         p.removeBody(self.robot_id)
         p.removeBody(self.plane_id)
         p.resetSimulation()
         self.joint_indices = []
-        print(f"Post reset: {self.robot_id}")

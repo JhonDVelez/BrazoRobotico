@@ -1,14 +1,15 @@
 import os
-import win32con
-import win32gui
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QMessageBox
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QSizePolicy
 from PyQt6.QtGui import QScreen, QIcon
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import QSize
 from PyQt6 import uic
+from data.control_utils import modes, units, domains
+from data.controller import dataFlow
 from gui.camera_interface import VideoOverlayWidget
 from gui.sliders_interface import SlidersWidget
 from gui.simulation_interface import SimInterface
+from robot.openbotv_worker import robotWorker
 
 
 class MainInterface(QMainWindow):
@@ -26,6 +27,7 @@ class MainInterface(QMainWindow):
         self.init_main_window()
         self.init_camera()
         self.init_controls()
+        self.init_openbotv()
         self.init_simulation()
         self.setup_connections()
 
@@ -122,6 +124,14 @@ class MainInterface(QMainWindow):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.simulation_interface.setMinimumSize(QSize(0, 0))
         self.sim_layout.addWidget(self.simulation_interface)
+
+    def init_openbotv(self):
+        self.robot_controller = dataFlow(
+            modes.SLIDERS, units.DEG, domains.PHYSICAL)
+        self.robot_controller.start()
+
+        self.openbotv = robotWorker()
+        self.openbotv.start()
 
     def start(self):
         """ Inicia o detiene la simulacion en caso de ser la primera vez instancia la clase
@@ -240,43 +250,3 @@ class MainInterface(QMainWindow):
             event.accept()
         else:
             event.ignore()
-
-    def keyPressEvent(self, event):
-        """ Toma los eventos del teclado y los envia a la ventana incrustada de pybullet, presionado
-        """
-        try:
-            if self.simulation_interface is not None:
-                if event.key() == Qt.Key.Key_Control:
-                    self.simulation_interface.physics_worker.send_key(
-                        self.simulation_interface.physics_worker.hwnd,
-                        win32con.VK_CONTROL,
-                        press=True
-                    )
-                if event.key() == Qt.Key.Key_S:
-                    self.simulation_interface.physics_worker.send_key(
-                        self.simulation_interface.physics_worker.hwnd,
-                        ord('S'),
-                        press=True
-                    )
-        except (TypeError, win32gui.error) as e:
-            print(f"Error en la captura del teclado: {e}")
-
-    def keyReleaseEvent(self, event):
-        """ Toma los eventos del teclado y los envia a la ventana incrustada de pybullet, librerado
-        """
-        try:
-            if self.simulation_interface is not None:
-                if event.key() == Qt.Key.Key_Control:
-                    self.simulation_interface.physics_worker.send_key(
-                        self.simulation_interface.physics_worker.hwnd,
-                        win32con.VK_CONTROL,
-                        press=False
-                    )
-                if event.key() == Qt.Key.Key_S:
-                    self.simulation_interface.physics_worker.send_key(
-                        self.simulation_interface.physics_worker.hwnd,
-                        ord('S'),
-                        press=False
-                    )
-        except (TypeError, win32gui.error) as e:
-            print(f"Error en la captura del teclado: {e}")

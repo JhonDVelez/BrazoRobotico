@@ -1,15 +1,19 @@
 from typing import Optional, Tuple
 import numpy as np
+from PyQt6.QtCore import QThread
 from vision.chessboard import ChessboardDetector
 from vision.camera import CameraControl
 
 
-class CameraChessBoard():
+class CameraChessBoard(QThread):
     """Cámara especializada para detección de tableros de ajedrez usando preprocesado con UMat"""
 
     def __init__(self, board_size: Tuple[int, int] = (7, 7)):
+        super().__init__()
         self.detector = ChessboardDetector(board_size)
+        self.detector.start()
         self.camera = CameraControl()
+        self.camera.start()
 
         # Cache para optimización
         self.corners = None
@@ -22,6 +26,9 @@ class CameraChessBoard():
 
     def camera_off(self):
         """ Apaga la camara"""
+        self.detector.exit()
+        self.detector.wait(1000)
+        self.detector.deleteLater()
         self.camera.camera_off()
 
     def get_coordinates(self, frame: np.ndarray) -> Optional[np.ndarray]:
@@ -57,7 +64,8 @@ class CameraChessBoard():
         return out_frame
 
     def get_video_frame(self):
-        """Obtiene un frame procesado de la cámara"""
+        """ Obtiene un frame procesado de la cámara
+        """
         frame = self.camera.take_frame()
         if frame is None:
             raise IOError("No se pudo obtener frame de la cámara")

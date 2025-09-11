@@ -4,6 +4,9 @@ from PyQt6.QtCore import QUrl, Qt
 from PyQt6.QtQuickWidgets import QQuickWidget
 from PyQt6.QtGui import QResizeEvent, QPixmap
 from gui.simulation_worker import SimWorker
+from simulation.physics_worker import PhysicsWorker
+from data.control_utils import units, modes, domains
+from data.controller import dataFlow
 
 
 class SimInterface(QWidget):
@@ -15,10 +18,11 @@ class SimInterface(QWidget):
         self.parent = parent
         self.qwindow = None
         self.window_container = None
-        self.physics_worker = None
+        self.sim_worker = None
         self.simulation_running = False
         self.quick_widget = None
 
+        # Adicion de layout si no existe y configuraciones
         if not self.layout():
             self.v_layout = QVBoxLayout(self)
             self.v_layout.setContentsMargins(0, 0, 0, 0)
@@ -28,15 +32,24 @@ class SimInterface(QWidget):
                            QSizePolicy.Policy.Expanding)
         self.setMinimumSize(160, 120)
 
+        # Adicion del widget de Quick3D
         self.__init_model()
         if self.quick_widget is not None:
             self.layout().addWidget(self.quick_widget)
 
+        # Instancias de las clases encargadas de la simulacion asi como su controlador
         root_object = self.quick_widget.rootObject()
-        self.physics_worker = SimWorker(root_object)
-        self.physics_worker.start()
+        self.sim_worker = SimWorker(root_object)
         self.quick_widget.hide()
 
+        self.physics_worker = PhysicsWorker()
+        self.physics_worker.set_max_velocity(1.2)
+
+        self.controller = dataFlow(
+            modes.SLIDERS, units.RAD, domains.SIMULATION)
+        self.controller.start()
+
+        # Imagen que representa la seccion de la simulacion y su configuracion
         self.image_path = os.path.join(os.path.dirname(
             __file__), "img", 'robotArm.png')
         self.pipmax = QPixmap(self.image_path)
@@ -46,7 +59,6 @@ class SimInterface(QWidget):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.label.setScaledContents(False)
         self.label.setMinimumSize(160, 120)
-        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.layout().addWidget(self.label)
         self.set_label_pixmap(self.pipmax)
 
@@ -61,22 +73,25 @@ class SimInterface(QWidget):
     def start_simulation(self):
         """ Inicia la simulacion dando inicio al proceso de ejecucion
         """
-        self.physics_worker.start_simulation()
         self.label.hide()
         self.quick_widget.show()
+        self.sim_worker.start()
+        self.physics_worker.start()
 
     def pause_simulation(self):
         """ Pausa la simulación
         """
-        self.physics_worker.pause_simulation()
+        self.physics_worker.pause()
+        self.physics_worker.wait()
 
     def stop_simulation(self):
         """ Pausa la simulación
         """
-        self.physics_worker.exit()
-        self.physics_worker.wait()
-        self.physics_worker.stop_simulation()
+        self.sim_worker.exit()
+        self.sim_worker.wait()
         self.label.show()
+        self.physics_worker.wait()
+        self.physics_worker.stop()
 
     def set_label_pixmap(self, pixmap: QPixmap):
         """ Método para establecer el pixmap del video en el label reescalado si es necesario.

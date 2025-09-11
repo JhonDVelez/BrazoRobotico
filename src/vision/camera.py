@@ -1,4 +1,5 @@
 from typing import Optional
+from PyQt6.QtCore import QThread
 import math
 import numpy as np
 import cv2
@@ -10,12 +11,13 @@ except Exception:
     pass
 
 
-class CameraControl:
+class CameraControl(QThread):
     """Clase que gestiona una cámara y sus operaciones básicas
        Optimizada para usar UMat (OpenCL) en preprocesado.
     """
 
     def __init__(self):
+        super().__init__()
         self.cap: Optional[cv2.VideoCapture] = None
         self.camera_ready = False
 
@@ -25,7 +27,8 @@ class CameraControl:
         self.default_fps = 30
 
     def camera_on(self) -> bool:
-        """Enciende la cámara con configuración optimizada"""
+        """ Enciende la cámara con configuración optimizada
+        """
         try:
             self.__release_camera()
 
@@ -37,7 +40,7 @@ class CameraControl:
             if not self.cap or not self.cap.isOpened():
                 raise IOError("No se pudo abrir la cámara")
 
-            # self.__configure_camera()
+            self.__configure_camera()
 
             self.camera_ready = True
             return True
@@ -52,17 +55,26 @@ class CameraControl:
             return False
 
     def camera_off(self):
-        """Apaga la cámara y libera recursos"""
+        """ Apaga la cámara y libera recursos
+        """
         self.camera_ready = False
-        self.__release_camera()
-        cv2.destroyAllWindows()
+        try:
+            self.__release_camera()
+            cv2.destroyAllWindows()
+            self.exit()
+            self.wait(100)
+            self.deleteLater()
+        except Exception as e:
+            print(e)
 
     def camera_is_on(self):
-        """Verifica si la cámara está activa"""
+        """ Verifica si la cámara está activa
+        """
         return self.cap is not None and self.cap.isOpened() and self.camera_ready
 
     def take_frame(self):
-        """Captura un frame de la cámara (BGR). Reducimos resolución para aliviar CPU/GPU."""
+        """ Captura un frame de la cámara (BGR). Reducimos resolución para aliviar CPU/GPU.
+        """
         if not self.camera_ready or not self.cap:
             return None
 
@@ -75,7 +87,8 @@ class CameraControl:
         return None
 
     def __configure_camera(self):
-        """Configura propiedades de la cámara para optimizar performance"""
+        """ Configura propiedades de la cámara para optimizar performance
+        """
         if not self.cap:
             return
         # Aquí puedes setear width/height/fps si tu cámara lo soporta:
@@ -91,22 +104,21 @@ class CameraControl:
         if self.cap:
             try:
                 self.cap.release()
-            except Exception:
-                pass
+            except Exception as e:
+                print(e)
             self.cap = None
 
     def toggle_camera(self):
-        """Alterna el estado de la cámara"""
+        """ Alterna el estado de la cámara
+        """
         if self.camera_is_on():
             self.camera_off()
         else:
             self.camera_on()
 
     def auto_gamma_correction(self, img, mid_gray=0.6):
-        """
-        Versión que intenta aplicar la corrección gamma usando UMat (OpenCL) cuando sea posible.
-        Si no hay OpenCL disponible, cae a la versión CPU (numpy).
-        Recibe BGR uint8 y devuelve BGR uint8.
+        """ Aplica la corrección gamma usando UMat (OpenCL) cuando sea posible.
+            Si no hay OpenCL disponible, cae a la versión CPU (numpy).
         """
 
         if img is None:
@@ -114,7 +126,7 @@ class CameraControl:
 
         # Intentar versión con UMat/OpenCL
         try:
-            # Subir a UMat (posible ejecución en OpenCL)
+            # Subir a UMat
             u = cv2.UMat(img)
 
             # Convertir a gris para calcular intensidad media
@@ -146,7 +158,7 @@ class CameraControl:
 
         except Exception as e:
             print(f"Fallo al aplicar cambio de gamma con OpenCL: {e}")
-            # Fallback CPU (como en tu versión original)
+            # Lo hace en CPU si falla OpenCL
             try:
                 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                 mean_intensity = np.mean(gray) / 255.0

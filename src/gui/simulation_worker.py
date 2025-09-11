@@ -1,11 +1,8 @@
-import os
-import win32gui
 import win32api
 import win32con
-from PyQt6.QtCore import QThread, pyqtSignal, QTimer, QObject
-from PyQt6.QtQuick3D import QQuick3D
+from PyQt6.QtCore import QThread, pyqtSignal, QObject
 from PyQt6.QtGui import QVector3D
-from simulation.physics_worker import PhysicsWorker
+from data.control_utils import SimulationSignalManager
 
 
 class SimWorker(QThread):
@@ -35,11 +32,18 @@ class SimWorker(QThread):
             "z"
         ]
 
-        self.worker = PhysicsWorker()
-        self.worker.set_max_velocity(1.2)
-        self.worker.update_model.connect(self.update_simulation)
+        self.signal_manager = SimulationSignalManager.get_instance()
+        self.signal_manager.update_robot_signal.connect(
+            self.update_simulation)
 
-    def update_simulation(self, joint_positions=[0, 0, 0, 0, 0]):
+    def update_simulation(self, joint_positions=None):
+        """ Actualiza el modelo 3D de qtquick
+
+        Args:
+            joint_positions (_type_, optional): _description_. Defaults to None.
+        """
+        if joint_positions is None:
+            joint_positions = [0, 0, 0, 0, 0]
         joint_positions[-1] = joint_positions[-1]*-1
         for motor_name, angle, direction in zip(self.joint_names, joint_positions, self.direction_rotation):
             motor = self.root_object.findChild(QObject, motor_name)
@@ -47,30 +51,3 @@ class SimWorker(QThread):
                 motor.setProperty("eulerRotation", QVector3D(0, 0, angle))
             elif direction == "y":
                 motor.setProperty("eulerRotation", QVector3D(0, angle, 0))
-
-    def send_key(self, hwnd, vk_code, press=True):
-        """ Simula una tecla hacia la ventana hwnd (al interactuar con la interfaz la ventana de
-            pybullet deja de estar en foco por lo que no detecta el teclado por ello se deben emular
-            las pulsaciones de este)
-        """
-        if press:
-            win32api.SendMessage(hwnd, win32con.WM_KEYDOWN, vk_code, 0)
-        else:
-            win32api.SendMessage(hwnd, win32con.WM_KEYUP, vk_code, 0)
-
-    def start_simulation(self):
-        """ Da inicio a la ejecucion de la simulacion o la vuelve a poner en curso si fue pausada
-        """
-        self.worker.start()
-
-    def pause_simulation(self):
-        """ Detiene el ciclo de procesamiento del hilo pausando la ejecucion de la simulacion
-        """
-        self.worker.pause()
-        self.worker.wait()
-
-    def stop_simulation(self):
-        """ Detiene el ciclo de procesamiento del hilo pausando la ejecucion de la simulacion
-        """
-        self.worker.wait()
-        self.worker.stop()

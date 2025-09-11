@@ -139,11 +139,14 @@ class VideoOverlayWidget(QWidget):
                 self.video_worker.error_occurred.disconnect()
 
                 self.video_worker.stop()
-                self.video_worker.wait(3000)
+                # Espera hasta que el hilo termine
+                self.video_worker.wait(1000)
                 self.video_worker.deleteLater()
                 self.video_worker = None
             except (RuntimeError, OSError) as e:
                 print(f"Error en la ejecucion al detener el video: {e}")
+
+        self.load_image()
 
         self.load_image()
 

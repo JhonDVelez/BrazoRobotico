@@ -23,6 +23,7 @@ class VideoWorker(QThread):
         self._paused = False
         # Inicializar cámara en el hilo de trabajo
         self.camera_chess_board = CameraChessBoard()
+        self.camera_chess_board.start()
 
     def run(self):
         """ Bucle principal del hilo de video
@@ -94,12 +95,10 @@ class VideoWorker(QThread):
         """
         self._running = False
         self._paused = False
-
-        # Esperar a que termine el hilo
-        if not self.wait(2000):
-            print("Warning: Video thread no terminó correctamente, forzando terminación")
-            self.terminate()
-            self.wait(1000)
+        self.camera_chess_board.camera_off()
+        self.camera_chess_board.exit()
+        self.camera_chess_board.wait(100)
+        self.camera_chess_board.deleteLater()
 
     def pause(self):
         """ Pausa el worker evitando la actualizacion de frames

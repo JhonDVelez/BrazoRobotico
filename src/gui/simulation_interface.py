@@ -19,7 +19,6 @@ class SimInterface(QWidget):
         self.qwindow = None
         self.window_container = None
         self.sim_worker = None
-        self.simulation_running = False
         self.quick_widget = None
 
         # Adicion de layout si no existe y configuraciones
@@ -89,9 +88,10 @@ class SimInterface(QWidget):
         """
         self.sim_worker.exit()
         self.sim_worker.wait()
-        self.label.show()
         self.physics_worker.wait()
         self.physics_worker.stop()
+        self.label.show()
+        self.label.update()
 
     def set_label_pixmap(self, pixmap: QPixmap):
         """ Método para establecer el pixmap del video en el label reescalado si es necesario.
@@ -124,7 +124,7 @@ class SimInterface(QWidget):
 
         # Reescalar imagen actual si existe (de forma optimizada)
 
-        if not self.simulation_running:
+        if self.label.isVisible():
             self.set_label_pixmap(self.pipmax)
 
     def closeEvent(self, event):

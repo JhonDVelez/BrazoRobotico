@@ -1,9 +1,4 @@
-import os
-import win32gui
-import win32api
-import win32con
-from PyQt6.QtCore import QThread, pyqtSignal, QTimer, QObject
-from PyQt6.QtQuick3D import QQuick3D
+from PyQt6.QtCore import QThread, pyqtSignal, QObject
 from PyQt6.QtGui import QVector3D
 from simulation.physics_worker import PhysicsWorker
 
@@ -41,7 +36,9 @@ class SimWorker(QThread):
 
     def update_simulation(self, joint_positions=[0, 0, 0, 0, 0]):
         joint_positions[-1] = joint_positions[-1]*-1
-        for motor_name, angle, direction in zip(self.joint_names, joint_positions, self.direction_rotation):
+        for motor_name, angle, direction in zip(self.joint_names,
+                                                joint_positions,
+                                                self.direction_rotation):
             motor = self.root_object.findChild(QObject, motor_name)
             if direction == "z":
                 motor.setProperty("eulerRotation", QVector3D(0, 0, angle))

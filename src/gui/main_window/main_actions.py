@@ -1,0 +1,103 @@
+from gui.sliders_interface import SlidersWidget
+
+
+class MainActions:
+    def __init__(self):
+        self.hab_simulation = None
+
+    def start(self):
+        """ Inicia o detiene la simulacion en caso de ser la primera vez instancia la clase
+            SimInterface, tambien cambia los colores e iconos del boton.
+        """
+        if self.hab_simulation:
+            if not self.modelBox.isVisible():
+                self.toggle_visibility_model_event()
+            self.simulation_interface.start_simulation()
+            self.model_action.setEnabled(True)
+        else:
+            if self.modelBox.isVisible():
+                self.toggle_visibility_model_event()
+            self.model_action.setEnabled(False)
+
+        if self.camera_paused:
+            self.camera_interface.resume_video()
+
+        self.camera_interface.videoButton.show()
+        self.simulation_action.setEnabled(False)
+
+        self.stop_button.show()
+        self.pause_button.show()
+        self.start_button.hide()
+
+        self.stopped = False
+
+    def pause(self):
+        """ Pone en pausa la simulacion si existe y la camara
+        """
+        if self.simulation_interface is not None:
+            self.simulation_interface.pause_simulation()
+
+        self.camera_interface.pause_video()
+        self.camera_paused = True
+
+        self.pause_button.hide()
+        self.start_button.show()
+
+    def stop(self):
+        """ "Detiene" la simulacion y apaga la camara
+        """
+        if self.simulation_interface is not None and self.hab_simulation:
+            self.simulation_interface.stop_simulation()
+
+        self.simulation_action.setEnabled(True)
+        self.model_action.setEnabled(True)
+
+        self.camera_interface.stop_video()
+        self.camera_interface.videoButton.hide()
+
+        self.stop_button.hide()
+        self.pause_button.hide()
+        self.start_button.show()
+
+        self.stopped = True
+
+    def reset(self):
+        """ Reinicia los valores de los sliders a 0
+        """
+        SlidersWidget.restart_sliders()
+
+    def toggle_visibility_camera_event(self):
+        """ Alterna la visibilidad del widget de la cámara y actualiza el texto del botón
+            correspondiente.
+
+        Args:
+            cameraBox (PyQt6.QtWidgets.QGroupBox): El widget que contiene la cámara.
+        """
+        if self.cameraBox.isVisible():
+            self.cameraBox.hide()
+            self.camera_action.setText("Mostrar Cámara")
+        else:
+            self.cameraBox.show()
+            self.camera_action.setText("Ocultar Cámara")
+
+    def toggle_visibility_model_event(self):
+        """ Alterna la visibilidad del widget del modelo 3D y actualiza el texto del botón
+            correspondiente.
+
+        Args:
+            modelBox (PyQt6.QtWidgets.QGroupBox): El widget que contiene el modelo 3D.
+        """
+        if self.modelBox.isVisible():
+            self.modelBox.hide()
+            self.model_action.setText("Mostrar Modelo 3D")
+        else:
+            self.modelBox.show()
+            self.model_action.setText("Ocultar Modelo 3D")
+
+    def toggle_activation_model_event(self):
+        if self.hab_simulation:
+            self.hab_simulation = False
+            self.simulation_action.setText("Habilitar simulación")
+        else:
+            self.hab_simulation = True
+            self.simulation_action.setText("Deshabilitar simulación")

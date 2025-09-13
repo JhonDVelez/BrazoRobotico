@@ -43,114 +43,7 @@
    </property>
    <layout class="QGridLayout" name="gridLayout">
     <item row="0" column="0">
-     <layout class="QVBoxLayout" name="barContentLayout" stretch="1,16">
-      <item>
-       <widget class="QWidget" name="barWidget" native="true">
-        <property name="maximumSize">
-         <size>
-          <width>16777215</width>
-          <height>70</height>
-         </size>
-        </property>
-        <layout class="QVBoxLayout" name="verticalLayout">
-         <item>
-          <layout class="QHBoxLayout" name="barLayout" stretch="1,10,1">
-           <property name="sizeConstraint">
-            <enum>QLayout::SizeConstraint::SetFixedSize</enum>
-           </property>
-           <item>
-            <spacer name="horizontalSpacer">
-             <property name="orientation">
-              <enum>Qt::Orientation::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>32</width>
-               <height>41</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="QGroupBox" name="menuBox">
-             <property name="accessibleName">
-              <string notr="true">menuBox</string>
-             </property>
-             <property name="accessibleDescription">
-              <string notr="true"/>
-             </property>
-             <property name="accessibleIdentifier">
-              <string notr="true"/>
-             </property>
-             <property name="title">
-              <string notr="true"/>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignmentFlag::AlignCenter</set>
-             </property>
-             <property name="flat">
-              <bool>false</bool>
-             </property>
-             <property name="checkable">
-              <bool>false</bool>
-             </property>
-             <layout class="QHBoxLayout" name="horizontalLayout_5">
-              <item>
-               <widget class="QPushButton" name="cameraButton">
-                <property name="text">
-                 <string>Ocultar Cámara</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="modelButton">
-                <property name="text">
-                 <string>Ocultar Modelo 3D</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="slidersButton">
-                <property name="text">
-                 <string>Sliders</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="secuenceButton">
-                <property name="text">
-                 <string>Secuencia</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="visualControlButton">
-                <property name="text">
-                 <string>Control Visual</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </widget>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_2">
-             <property name="orientation">
-              <enum>Qt::Orientation::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>32</width>
-               <height>41</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-          </layout>
-         </item>
-        </layout>
-       </widget>
-      </item>
+     <layout class="QVBoxLayout" name="barContentLayout" stretch="16">
       <item>
        <widget class="QSplitter" name="contentSplitter">
         <property name="orientation">
@@ -202,16 +95,6 @@
           <property name="bottomMargin">
            <number>0</number>
           </property>
-          <item>
-           <widget class="QCheckBox" name="habSimulationCheck">
-            <property name="text">
-             <string>Habilitar Simulacion</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
           <item>
            <widget class="QWidget" name="widget" native="true">
             <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,0,0">

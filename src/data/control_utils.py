@@ -23,7 +23,6 @@ class SignalManager(QObject):
     get_data_signal = pyqtSignal()
     actual_position_signal = pyqtSignal(list)
     update_robot_signal = pyqtSignal(list)
-    send_to_robot = pyqtSignal(list)   # señal para mandar datos al robotWorker
 
 
 class SimulationSignalManager(SignalManager):
@@ -43,6 +42,8 @@ class SimulationSignalManager(SignalManager):
 class PhysicalSignalManager(SignalManager):
     """ SignalManager específico para robot físico
     """
+    send_to_robot = pyqtSignal(list)
+
     _instance = None
 
     @classmethod

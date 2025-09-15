@@ -1,6 +1,7 @@
 import os
 from PyQt6.QtGui import QAction, QKeySequence, QIcon
-from PyQt6.QtWidgets import QToolButton
+from PyQt6.QtWidgets import QToolButton, QMenuBar, QSizePolicy
+from PyQt6.QtCore import Qt
 
 
 class MainMenu:
@@ -23,21 +24,24 @@ class MainMenu:
         self.simulation_action.setStatusTip("Activar/Desactivar simulación")
 
     def create_menu(self):
-        if hasattr(self.ui, 'menubar'):
-            self.vista_menu = self.menubar.addMenu("&Vista")
-            self.vista_menu.addAction(self.camera_action)
-            self.vista_menu.addAction(self.model_action)
+        self.create_actions()
+        self.menubar = QMenuBar()
+        self.vista_menu = self.menubar.addMenu("&Vista")
+        self.vista_menu.addAction(self.camera_action)
+        self.vista_menu.addAction(self.model_action)
 
-            self.mode_menu = self.menubar.addMenu("&Modo")
-            self.mode_menu.addAction(self.sliders_action)
+        self.mode_menu = self.menubar.addMenu("&Modo")
+        self.mode_menu.addAction(self.sliders_action)
 
-            self.simulation_menu = self.menubar.addMenu("&Simulación")
-            self.simulation_menu.addAction(self.simulation_action)
+        self.simulation_menu = self.menubar.addMenu("&Simulación")
+        self.simulation_menu.addAction(self.simulation_action)
 
-            self.theme_menu = QToolButton(self)
-            self.sun_icon = QIcon(os.path.join(
-                os.path.dirname(__file__), "..", "icons", "sun.png"))
-            self.moon_icon = QIcon(os.path.join(
-                os.path.dirname(__file__), "..", "icons", "moon.png"))
-            self.theme_menu.setIcon(self.sun_icon)
-            self.menubar.setCornerWidget(self.theme_menu)
+        self.theme_menu = QToolButton(self)
+        self.sun_icon = QIcon(os.path.join(
+            os.path.dirname(__file__), "..", "icons", "sun.png"))
+        self.moon_icon = QIcon(os.path.join(
+            os.path.dirname(__file__), "..", "icons", "moon.png"))
+        self.theme_menu.setIcon(self.sun_icon)
+        self.menubar.setCornerWidget(self.theme_menu)
+        self.menubar.setSizePolicy(QSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred))

@@ -1,7 +1,7 @@
-import os
-from PyQt6.QtWidgets import QMainWindow, QMessageBox
-from PyQt6.QtCore import QEvent
-from PyQt6 import uic
+# from pyqt_frameless_window import FramelessMainWindow
+from qframelesswindow import FramelessMainWindow
+from PyQt6.QtWidgets import QMessageBox, QVBoxLayout, QHBoxLayout, QWidget, QSizePolicy, QMainWindow, QApplication
+from PyQt6.QtGui import QScreen
 from gui.main_window.main_init import MainInit
 from gui.main_window.main_actions import MainActions
 from gui.main_window.main_menu import MainMenu
@@ -9,11 +9,11 @@ from gui.main_window.main_theme import MainTheme
 from gui.main_window.main_title_bar import MainTitleBar
 
 
-class MainInterface(QMainWindow, MainInit, MainActions, MainMenu, MainTheme, MainTitleBar):
+class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTheme):
     """ Ventana principal de la interfaz
 
     Args:
-        QMainWindow (QtWidget): Integracion como ventana principal de la aplicacion
+        FramelessMainWindow: Ventana sin marco personalizada
     """
 
     def __init__(self):
@@ -24,25 +24,65 @@ class MainInterface(QMainWindow, MainInit, MainActions, MainMenu, MainTheme, Mai
         self.hab_simulation = True
         self.dark_theme = True
 
-        ui_path = os.path.join(os.path.dirname(__file__), "app_interface.ui")
-        self.ui = uic.loadUi(ui_path, self)
+        # IMPORTANTE: Configurar la title bar ANTES de setup_ui
+        self.custom_title_bar = MainTitleBar(self)
+        self.custom_title_bar.setSizePolicy(QSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred))
+        self.setTitleBar(self.custom_title_bar)
 
-        self.contentSplitter.setSizes([500, 500, 200])
-        self.visualSplitter.setSizes([100, 100])
+        # Crear un widget contenedor principal que respete la title bar
+        self.main_container = QWidget()
+        self.main_layout = QVBoxLayout(self.main_container)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
 
+        self.create_menu()
+
+        self.title_container = QWidget()
+        self.title_layout = QHBoxLayout(self.title_container)
+        self.title_layout.setContentsMargins(0, 0, 0, 0)
+        self.title_layout.setSpacing(0)
+
+        self.title_layout.addWidget(self.menubar)
+        self.title_layout.addWidget(self.titleBar)
+        self.main_layout.addWidget(self.title_container)
+
+        self.setup_ui_in_container()
         self.init_camera()
         self.init_controls()
         self.init_simulation()
-        self.create_actions()
-        self.create_menu()
-        self.setup_custom_titlebar()
         self.setup_connections()
         self.load_dark_theme()
+
+        self.contentSplitter.setSizes([500, 500, 200])
+        self.visualSplitter.setSizes([100, 100])
+        self.setCentralWidget(self.main_container)
+        # self.titleBar.raise_()
+        self.resize(1280, 720)
+        screen = QApplication.primaryScreen()
+        screen_geometry = screen.geometry()
+
+        # Calculate the center position
+        x = (screen_geometry.width() - self.width()) // 2
+        y = (screen_geometry.height() - self.height()) // 2
+
+        # Move the window to the calculated position
+        self.move(x, y)
+
+    def setup_ui_in_container(self):
+        """Configura la UI dentro del contenedor principal"""
+        # Crear el widget que contendrá toda la interfaz original
+        self.centralwidget = QWidget()
+
+        # Llamar al setup_ui original pero pasando el widget contenedor
+        self.setup_ui(self.centralwidget)
+
+        # Añadir el centralwidget al layout principal
+        self.main_layout.addWidget(self.centralwidget)
 
     def setup_connections(self):
         """ Configura las conexiones de eventos para los botones de la interfaz
         """
-        # Mantener exactamente igual - self.ui sigue funcionando
         if hasattr(self, 'cameraBox'):
             if hasattr(self, 'camera_action'):
                 self.camera_action.triggered.connect(
@@ -84,9 +124,3 @@ class MainInterface(QMainWindow, MainInit, MainActions, MainMenu, MainTheme, Mai
             event.accept()
         else:
             event.ignore()
-
-    def changeEvent(self, event):
-        """Detectar cambios de estado de la ventana"""
-        if event.type() == QEvent.Type.WindowStateChange and hasattr(self, 'custom_title_bar'):
-            self.custom_title_bar.window_state_changed(self.windowState())
-        super().changeEvent(event)

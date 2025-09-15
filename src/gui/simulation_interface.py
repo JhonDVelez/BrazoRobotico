@@ -1,23 +1,23 @@
 import os
 from PyQt6.QtWidgets import QVBoxLayout, QWidget, QLabel, QSizePolicy
-from PyQt6.QtCore import QUrl, Qt
+from PyQt6.QtCore import QUrl, Qt, QSize
 from PyQt6.QtQuickWidgets import QQuickWidget
+from PyQt6.QtQuick import QQuickView
 from PyQt6.QtGui import QResizeEvent, QPixmap
 from gui.simulation_worker import SimWorker
 
 
 class SimInterface(QWidget):
-    """ Clase encargada del modelo 3d mostrado en la interfaz
+    """ Clase encargada del modelo 3d mostrado en la interfaz usando QQuickView
     """
 
     def __init__(self, parent):
-        super().__init__(parent)
+        super().__init__()
         self.parent = parent
-        self.qwindow = None
+        self.quick_view = None
         self.window_container = None
         self.physics_worker = None
         self.simulation_running = False
-        self.quick_widget = None
 
         if not self.layout():
             self.v_layout = QVBoxLayout(self)
@@ -28,15 +28,14 @@ class SimInterface(QWidget):
                            QSizePolicy.Policy.Expanding)
         self.setMinimumSize(160, 120)
 
-        self.__init_model()
-        if self.quick_widget is not None:
-            self.layout().addWidget(self.quick_widget)
+        # Configurar la imagen estática
+        self._setup_static_image()
 
-        root_object = self.quick_widget.rootObject()
-        self.physics_worker = SimWorker(root_object)
-        self.physics_worker.start()
-        self.quick_widget.hide()
+        # Inicializar QQuickView
+        self.__init_quick_view()
 
+    def _setup_static_image(self):
+        """Configura la imagen estática que se muestra cuando no hay simulación"""
         self.image_path = os.path.join(os.path.dirname(
             __file__), "img", 'robotArm.png')
         self.pipmax = QPixmap(self.image_path)
@@ -46,81 +45,155 @@ class SimInterface(QWidget):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.label.setScaledContents(False)
         self.label.setMinimumSize(160, 120)
-        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.layout().addWidget(self.label)
         self.set_label_pixmap(self.pipmax)
 
-    def __init_model(self):
+    def __init_quick_view(self):
+        """Inicializa QQuickView"""
         try:
-            self.quick_widget = QQuickWidget()
-            self.quick_widget.setSource(QUrl.fromLocalFile(os.path.join(
-                os.path.dirname(__file__), '..', 'simulation', 'simulation.qml')))
+            self.quick_view = QQuickView()
+
+            # Configuraciones importantes
+            self.quick_view.setResizeMode(
+                QQuickView.ResizeMode.SizeRootObjectToView)
+            self.quick_view.setColor(Qt.GlobalColor.transparent)
+
+            # Cargar el QML
+            qml_path = os.path.join(os.path.dirname(
+                __file__), '..', 'simulation', 'simulation.qml')
+            self.quick_view.setSource(QUrl.fromLocalFile(qml_path))
+
+            # Configurar como widget sin marco
+            self.quick_view.setFlags(
+                Qt.WindowType.Widget | Qt.WindowType.FramelessWindowHint)
+
+            # Inicializar worker si hay contenido
+            root_object = self.quick_view.rootObject()
+            if root_object:
+                self.physics_worker = SimWorker(root_object)
+                self.physics_worker.start()
+
         except Exception as e:
-            print(f"Error al cargar el qml de la simulacion: {e}")
+            print(f"Error al inicializar QQuickView: {e}")
+            self.quick_view = None
 
     def start_simulation(self):
-        """ Inicia la simulacion dando inicio al proceso de ejecucion
-        """
-        self.physics_worker.start_simulation()
-        self.label.hide()
-        self.quick_widget.show()
+        """Inicia la simulación"""
+        if not self.quick_view:
+            print("Error: QQuickView no disponible")
+            return
+
+        try:
+            # Crear contenedor si no existe
+            if not self.window_container:
+                self.window_container = self.createWindowContainer(
+                    self.quick_view,
+                    self,
+                    Qt.WindowType.Widget
+                )
+
+                if self.window_container:
+                    self.window_container.setSizePolicy(
+                        QSizePolicy.Policy.Expanding,
+                        QSizePolicy.Policy.Expanding
+                    )
+                    self.window_container.setMinimumSize(160, 120)
+                    self.layout().addWidget(self.window_container)
+
+            # Mostrar simulación
+            self.label.hide()
+            if self.window_container:
+                self.window_container.show()
+            self.quick_view.show()
+
+            # Iniciar worker
+            if self.physics_worker:
+                self.physics_worker.start_simulation()
+
+            self.simulation_running = True
+
+        except Exception as e:
+            print(f"Error iniciando simulación: {e}")
 
     def pause_simulation(self):
-        """ Pausa la simulación
-        """
-        self.physics_worker.pause_simulation()
+        """Pausa la simulación"""
+        if self.physics_worker:
+            self.physics_worker.pause_simulation()
 
     def stop_simulation(self):
-        """ Pausa la simulación
-        """
-        self.physics_worker.exit()
-        self.physics_worker.wait()
-        self.physics_worker.stop_simulation()
+        """Para la simulación"""
+        self.simulation_running = False
+
+        if self.physics_worker:
+            self.physics_worker.stop_simulation()
+
+        if self.window_container:
+            self.window_container.hide()
+        if self.quick_view:
+            self.quick_view.hide()
+
         self.label.show()
 
     def set_label_pixmap(self, pixmap: QPixmap):
-        """ Método para establecer el pixmap del video en el label reescalado si es necesario.
-
-        Args:
-            pixmap (QPixmap): El pixmap del video a mostrar
-        """
+        """Establece el pixmap de la imagen estática"""
         if pixmap and not pixmap.isNull():
-            # Escalar solo si es necesario
             label_size = self.label.size()
-            if pixmap.size() != label_size:
-                scaled_pixmap = pixmap.scaled(
-                    label_size,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.FastTransformation
-                )
-                self.label.setPixmap(scaled_pixmap)
+            if label_size.width() > 0 and label_size.height() > 0:
+                if pixmap.size() != label_size:
+                    scaled_pixmap = pixmap.scaled(
+                        label_size,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.FastTransformation
+                    )
+                    self.label.setPixmap(scaled_pixmap)
+                else:
+                    self.label.setPixmap(pixmap)
             else:
                 self.label.setPixmap(pixmap)
         else:
-            self.videoLabel.clear()
+            self.label.clear()
 
     def resizeEvent(self, event: QResizeEvent):
-        """ Maneja el evento de redimensionamiento del widget.
-
-        Args:
-            event (QResizeEvent): Evento de redimensionamiento
-        """
+        """Maneja el redimensionamiento"""
         super().resizeEvent(event)
 
-        # Reescalar imagen actual si existe (de forma optimizada)
-
-        if not self.simulation_running:
+        if self.label.isVisible() and hasattr(self, 'pipmax'):
             self.set_label_pixmap(self.pipmax)
 
     def closeEvent(self, event):
-        """ Asegurar limpieza cuando se cierra el widget
-        """
-        # self.pause_simulation()
+        """Limpieza al cerrar"""
+        if self.simulation_running:
+            self.stop_simulation()
 
-        if self.qwindow is not None:
-            self.qwindow = None
-        if self.window_container is not None:
+        if self.physics_worker:
+            try:
+                self.physics_worker.exit()
+                self.physics_worker.wait(3000)
+            except:
+                pass
+            self.physics_worker = None
+
+        if self.window_container:
             self.window_container.setParent(None)
             self.window_container = None
 
+        if self.quick_view:
+            self.quick_view.close()
+            self.quick_view = None
+
         super().closeEvent(event)
+
+    def createWindowContainer(self, window, parent=None, flags=Qt.WindowType.Widget):
+        """Crea contenedor de ventana"""
+        try:
+            from PyQt6.QtWidgets import QWidget
+            if hasattr(QWidget, 'createWindowContainer'):
+                return QWidget.createWindowContainer(window, parent, flags)
+            else:
+                # Fallback
+                container = QWidget(parent)
+                window.setParent(container.winId())
+                return container
+        except Exception as e:
+            print(f"Error creando contenedor: {e}")
+            return None

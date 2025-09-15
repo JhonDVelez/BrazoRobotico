@@ -82,9 +82,9 @@ QMenuBar {
 }""":
             """
 QMenuBar {
-    background-color: rgba(42.000, 43.000, 46.000, 1.000);
-    padding: 2px;
-    border-bottom: 1px solid rgba(63.000, 64.000, 66.000, 1.000);
+    background-color: transparent;
+    padding: 5px 5px 5px 5px;
+    border-bottom: transparent;
 }""",
             """
 QToolBar > QToolButton {
@@ -103,34 +103,34 @@ QToolButton {
         for old, new in replacements.items():
             stylesheet = stylesheet.replace(old, new)
 
-        # Estilos para barra de título personalizada
-        custom_styles = """
-        CustomTitleBar {
-            background-color: #2b2b2b;
-            border-bottom: 1px solid #555;
-        }
-        CustomTitleBar QLabel {
-            color: white;
-            font-weight: bold;
-            font-size: 14px;
-        }
-        CustomTitleBar QToolButton {
-            color: white;
-            border: none;
-            font-weight: bold;
-            font-size: 12px;
-            padding: 4px 8px;
-            margin: 1px;
-            border-radius: 3px;
-        }
-        CustomTitleBar QToolButton:hover {
-            background-color: rgba(255, 255, 255, 0.2);
-        }
-        CustomTitleBar QToolButton#close_button:hover {
-            background-color: #e81123;
-        }
-        """
-        stylesheet += custom_styles
+        # # Estilos para barra de título personalizada
+        # custom_styles = """
+        # CustomTitleBar {
+        #     background-color:  # 2b2b2b;
+        #     border-bottom: 1px solid  # 555;
+        # }
+        # CustomTitleBar QLabel {
+        #     color: white;
+        #     font-weight: bold;
+        #     font-size: 14px;
+        # }
+        # CustomTitleBar QToolButton {
+        #     color: white;
+        #     border: none;
+        #     font-weight: bold;
+        #     font-size: 12px;
+        #     padding: 4px 8px;
+        #     margin: 1px;
+        #     border-radius: 3px;
+        # }
+        # CustomTitleBar QToolButton: hover {
+        #     background-color: rgba(255, 255, 255, 0.2);
+        # }
+        # CustomTitleBar QToolButton  # close_button:hover {
+        #     background-color:  # e81123;
+        # }
+        # """
+        # stylesheet += custom_styles
         self.setStyleSheet(stylesheet)
 
     def load_light_theme(self):
@@ -141,16 +141,16 @@ QToolButton {
         # Estilos para barra de título en tema claro
         custom_styles = """
         CustomTitleBar {
-            background-color: #f0f0f0;
-            border-bottom: 1px solid #ccc;
+            background-color:  # f0f0f0;
+            border-bottom: 1px solid  # ccc;
         }
         CustomTitleBar QLabel {
-            color: #333;
+            color:  # 333;
             font-weight: bold;
             font-size: 14px;
         }
         CustomTitleBar QToolButton {
-            color: #333;
+            color:  # 333;
             border: none;
             font-weight: bold;
             font-size: 12px;
@@ -158,11 +158,11 @@ QToolButton {
             margin: 1px;
             border-radius: 3px;
         }
-        CustomTitleBar QToolButton:hover {
+        CustomTitleBar QToolButton: hover {
             background-color: rgba(0, 0, 0, 0.1);
         }
-        CustomTitleBar QToolButton#close_button:hover {
-            background-color: #e81123;
+        CustomTitleBar QToolButton  # close_button:hover {
+            background-color:  # e81123;
             color: white;
         }
         """

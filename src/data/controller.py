@@ -32,8 +32,8 @@ class dataFlow(QThread):
         """ Envia los datos al simulador dependiendo de la fuente seleccionada
         """
         if self.mode is modes.SLIDERS:
-            self.signal_manager.update_pybullet_signal.emit(
-                self.__get_sliders_data())
+            self.signal_manager.update_pybullet_signal.emit(self.__get_sliders_data())
+            self.signal_manager.send_to_robot.emit(self.__get_sliders_data())
 
     def __get_sliders_data(self):
         if self.units is units.DEG:

@@ -116,7 +116,9 @@ class RobotArmPhysics(QWidget):
     def reset_simulation(self):
         """ Borra los modelos del robot y el suelo para quitar la carga grafica por completo.
         """
-        p.removeBody(self.robot_id)
-        p.removeBody(self.plane_id)
-        p.resetSimulation()
-        self.joint_indices = []
+        p.resetJointState(self.robot_id, 1, 0)
+        p.resetJointState(self.robot_id, 2, 0)
+        p.resetJointState(self.robot_id, 3, 0)
+        p.resetJointState(self.robot_id, 4, 0)
+        p.resetJointState(self.robot_id, 5, 0)
+        p.resetJointState(self.robot_id, 6, 0)

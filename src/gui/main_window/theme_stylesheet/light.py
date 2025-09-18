@@ -161,7 +161,7 @@ QMenuBar::item {
 }
 QMenuBar::item:selected {
     padding: 4px;
-    background-color: rgba(218.000, 220.000, 224.000, 1.000);
+    background-color: rgba(215.000, 215.000, 215.000, 1.000);
     border-radius: 4px;
 }
 QMenuBar::item:pressed {

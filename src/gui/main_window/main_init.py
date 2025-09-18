@@ -5,7 +5,7 @@ from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QSize, Qt, QRect
 from data.control_utils import modes, units, domains
 from data.controller import dataFlow
-from gui.camera_interface import VideoOverlayWidget
+from gui.camera_interface import videoInterface
 from gui.sliders_interface import SlidersWidget
 from gui.simulation_interface import SimInterface
 from robot.openbotv_worker import robotWorker
@@ -131,6 +131,9 @@ class MainInit:
         self.barContentLayout.addWidget(self.contentSplitter)
         self.gridLayout.addLayout(self.barContentLayout, 0, 0, 1, 1)
 
+        self.contentSplitter.setSizes([500, 500, 200])
+        self.visualSplitter.setSizes([100, 100])
+
     def init_camera(self):
         """ Inicializa la interfaz de la cámara y agrega el widget de video
         """
@@ -140,7 +143,7 @@ class MainInit:
             layout.setContentsMargins(0, 0, 0, 0)
             self.cameraBox.setLayout(layout)
 
-        self.camera_interface = VideoOverlayWidget(self)
+        self.camera_interface = videoInterface(self)
         self.cameraBox.layout().addWidget(self.camera_interface)
         self.camera_interface.videoButton.hide()
 
@@ -216,15 +219,8 @@ class MainInit:
         self.openbotv.start()
 
     def center_window(self):
-        screen = QApplication.primaryScreen()  # Obtiene la pantalla principal
-        # Geometría de la pantalla disponible
-        screen_geometry = screen.availableGeometry()
-
-        # Geometría de la ventana (incluyendo el marco)
-        window_geometry = self.frameGeometry()
-
-        # Calcula la posición para centrarla
-        center_x = screen_geometry.center().x() - window_geometry.center().x()
-        center_y = screen_geometry.center().y() - window_geometry.center().y()
-
-        self.move(center_x, center_y)
+        screen = QApplication.primaryScreen()
+        screen_geometry = screen.geometry()
+        x = (screen_geometry.width() - self.width()) // 2
+        y = (screen_geometry.height() - self.height()) // 2
+        self.move(x, y)

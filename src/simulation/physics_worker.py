@@ -1,4 +1,5 @@
 import numpy as np
+import time
 from PyQt6.QtCore import QThread, QTimer, pyqtSignal
 from numpy.typing import NDArray
 from simulation.physics_pybullet import RobotArmPhysics
@@ -21,6 +22,7 @@ class PhysicsWorker(QThread):
         self.max_velocity = None
         self.physic = RobotArmPhysics(1)
         self.physic.robot_loaded.connect(self.update_simulation)
+        self.physic.load_models()
 
     def set_max_velocity(self, max_vel):
         if max_vel > 0:
@@ -28,20 +30,18 @@ class PhysicsWorker(QThread):
         else:
             print("La velocidad maxima debe ser mayor a 0, "
                   "usando la velocidad maxima por defecto: 1 rad/s")
-            self.max_velocity = 1.0
+            self.max_velocity = 1.2
 
     def run(self):
         """ Ciclo principal del subproceso el cual actualiza el robot cada n milisegundos 
         """
         self._running = True
-        self.set_max_velocity(1.0)
+        self.set_max_velocity(1.2)
         # Si esta pausado actualiza activa nuevamente el ciclo
         if self._paused:
             self._paused = False
-            self.update_simulation()
-        # Pero si esta detenido vuelve a cargar el modelo.
-        else:
-            self.physic.load_models()
+
+        self.update_simulation()
 
     def pause(self):
         """Pausa la simulación"""
@@ -50,10 +50,9 @@ class PhysicsWorker(QThread):
 
     def stop(self):
         """Detener la simulación"""
+        self.physic.reset_simulation()
         self._running = False
         self._paused = False
-        self.physic.reset_simulation()
-        self.set_max_velocity(1.0)
 
     def update_simulation(self):
         """ Actualizacion de la posicion de los motores del robot

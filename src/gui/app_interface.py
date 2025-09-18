@@ -20,6 +20,7 @@ class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTh
         self.camera_paused = False
         self.hab_simulation = True
         self.dark_theme = True
+        self.theme_manager = ThemeManager.get_instance()
 
         # Crear contenedor principal
         container = QWidget()
@@ -46,20 +47,11 @@ class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTh
         self.setup_connections()
         self.load_dark_theme()
 
-        self.contentSplitter.setSizes([500, 500, 200])
-        self.visualSplitter.setSizes([100, 100])
-
         # ahora el central widget real es el contenedor con barra + contenido
         self.setCentralWidget(container)
 
         self.resize(1280, 720)
-        screen = QApplication.primaryScreen()
-        screen_geometry = screen.geometry()
-        x = (screen_geometry.width() - self.width()) // 2
-        y = (screen_geometry.height() - self.height()) // 2
-        self.move(x, y)
-
-        self.theme_manager = ThemeManager.get_instance()
+        self.center_window()
 
     def setup_connections(self):
         """ Configura las conexiones de eventos para los botones de la interfaz

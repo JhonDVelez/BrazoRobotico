@@ -78,18 +78,6 @@ class SimInterface(QWidget):
                 self.physics_worker = SimWorker(root_object)
                 self.physics_worker.start()
 
-        except Exception as e:
-            print(f"Error al inicializar QQuickView: {e}")
-            self.quick_view = None
-
-    def start_simulation(self):
-        """Inicia la simulación"""
-        if not self.quick_view:
-            print("Error: QQuickView no disponible")
-            return
-
-        try:
-            # Crear contenedor si no existe
             if not self.window_container:
                 self.window_container = self.createWindowContainer(
                     self.quick_view,
@@ -104,7 +92,19 @@ class SimInterface(QWidget):
                     )
                     self.window_container.setMinimumSize(160, 120)
                     self.layout().addWidget(self.window_container)
+            self.window_container.hide()
 
+        except Exception as e:
+            print(f"Error al inicializar QQuickView: {e}")
+            self.quick_view = None
+
+    def start_simulation(self):
+        """Inicia la simulación"""
+        if not self.quick_view:
+            print("Error: QQuickView no disponible")
+            return
+
+        try:
             # Mostrar simulación
             self.label.hide()
             if self.window_container:

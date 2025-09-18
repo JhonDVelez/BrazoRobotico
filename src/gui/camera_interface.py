@@ -1,13 +1,12 @@
 import os
-from PyQt6.QtWidgets import QWidget, QSizePolicy
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtWidgets import QWidget, QSizePolicy, QVBoxLayout, QLabel, QPushButton
+from PyQt6.QtCore import Qt, QSize, QRect
 from PyQt6.QtGui import QResizeEvent, QPixmap, QIcon
-from PyQt6 import uic
 from gui.camera_worker import VideoWorker
 from gui.main_window.main_theme import ThemeManager
 
 
-class VideoOverlayWidget(QWidget):
+class videoInterface(QWidget):
     """ Manejo del widged de video que muestra las imagenes de la camara en un label de la interfaz
 
     Args:
@@ -27,8 +26,48 @@ class VideoOverlayWidget(QWidget):
     def __setup_ui(self):
         """ Configura la interfaz de usuario del widget de video
         """
-        self.ui = uic.loadUi(os.path.join(
-            os.path.dirname(__file__), 'camera_interface.ui'), self)
+        self.setObjectName("OverlayButtonWidget")
+        self.resize(640, 480)
+
+        # SizePolicy
+        sizePolicy = QSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        self.setSizePolicy(sizePolicy)
+
+        # sizeIncrement
+        self.setSizeIncrement(QSize(160, 120))
+
+        self.setWindowTitle("Form")
+
+        # Main layout
+        self.mainLayout = QVBoxLayout(self)
+        self.mainLayout.setObjectName("mainLayout")
+        self.mainLayout.setContentsMargins(0, 0, 0, 0)
+        self.mainLayout.setSpacing(0)
+
+        # QLabel (videoLabel)
+        self.videoLabel = QLabel(self)
+        self.videoLabel.setObjectName("videoLabel")
+        sizePolicy = QSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        self.videoLabel.setSizePolicy(sizePolicy)
+        self.videoLabel.setMinimumSize(QSize(160, 120))
+        self.videoLabel.setText("")
+        self.videoLabel.setScaledContents(True)
+        self.videoLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.mainLayout.addWidget(self.videoLabel)
+
+        # QPushButton (videoButton) -> posición absoluta
+        self.videoButton = QPushButton(self)
+        self.videoButton.setObjectName("videoButton")
+        self.videoButton.setGeometry(QRect(10, 10, 50, 30))
+        self.videoButton.setToolTip("Toggle Camera")
+        self.videoButton.setText("")
         self.setSizePolicy(QSizePolicy.Policy.Expanding,
                            QSizePolicy.Policy.Expanding)
         self.setMinimumSize(160, 120)
@@ -54,7 +93,7 @@ class VideoOverlayWidget(QWidget):
     def __setup_connections(self):
         """Configura las conexiones de eventos
         """
-        if hasattr(self.ui, 'videoButton'):
+        if hasattr(self, 'videoButton'):
             self.videoButton.clicked.connect(self.toggle_video)
         self.theme_manager.theme_changed.connect(self.toggle_theme)
 

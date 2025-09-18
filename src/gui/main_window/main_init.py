@@ -204,7 +204,7 @@ class MainInit:
             self.sim_layout.setContentsMargins(0, 0, 0, 0)
             self.modelBox.setLayout(self.sim_layout)
 
-        self.simulation_interface = SimInterface(self)
+        self.simulation_interface = SimInterface(self, self.preloaded_data)
         self.simulation_interface.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.simulation_interface.setMinimumSize(QSize(0, 0))

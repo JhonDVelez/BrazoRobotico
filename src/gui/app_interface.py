@@ -13,8 +13,9 @@ from gui.main_window.main_title_bar import MainTitleBar
 class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTheme):
     """ Ventana principal de la interfaz """
 
-    def __init__(self):
+    def __init__(self, data):
         super().__init__()
+        self.preloaded_data = data
         self.simulation_interface = None
         self.stopped = True
         self.camera_paused = False

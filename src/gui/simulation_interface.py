@@ -12,10 +12,10 @@ class SimInterface(QWidget):
     """ Clase encargada del modelo 3d mostrado en la interfaz usando QQuickView
     """
 
-    def __init__(self, parent):
+    def __init__(self, parent, data):
         super().__init__()
+        self.quick_view = data
         self.parent = parent
-        self.quick_view = None
         self.window_container = None
         self.physics_worker = None
         self.simulation_running = False
@@ -46,7 +46,6 @@ class SimInterface(QWidget):
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.label.setScaledContents(False)
         self.label.setMinimumSize(160, 120)
         self.layout().addWidget(self.label)
         self.set_label_pixmap(self.pixmap)
@@ -56,18 +55,6 @@ class SimInterface(QWidget):
     def __init_quick_view(self):
         """Inicializa QQuickView"""
         try:
-            self.quick_view = QQuickView()
-
-            # Configuraciones importantes
-            self.quick_view.setResizeMode(
-                QQuickView.ResizeMode.SizeRootObjectToView)
-            self.quick_view.setColor(Qt.GlobalColor.transparent)
-
-            # Cargar el QML
-            qml_path = os.path.join(os.path.dirname(
-                __file__), '..', 'simulation', 'simulation.qml')
-            self.quick_view.setSource(QUrl.fromLocalFile(qml_path))
-
             # Configurar como widget sin marco
             self.quick_view.setFlags(
                 Qt.WindowType.Widget | Qt.WindowType.FramelessWindowHint)

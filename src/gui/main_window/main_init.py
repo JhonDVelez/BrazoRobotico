@@ -47,11 +47,17 @@ class MainInit:
         self.contentSplitter = QSplitter(parent=self.main_widget)
         self.contentSplitter.setOrientation(Qt.Orientation.Horizontal)
         self.contentSplitter.setObjectName("contentSplitter")
+        self.contentSplitter.setHandleWidth(8)
+        self.contentSplitter.setContentsMargins(0, 0, 0, 0)
+        self.contentSplitter.setFixedWidth(8)
 
         # ---- Visual Splitter ----
         self.visualSplitter = QSplitter(parent=self.contentSplitter)
         self.visualSplitter.setOrientation(Qt.Orientation.Vertical)
         self.visualSplitter.setObjectName("visualSplitter")
+        self.visualSplitter.setHandleWidth(8)
+        self.visualSplitter.setContentsMargins(0, 0, 0, 0)
+        self.visualSplitter.setFixedHeight(8)
 
         self.modelBox = QGroupBox(parent=self.visualSplitter)
         self.modelBox.setEnabled(True)
@@ -61,7 +67,6 @@ class MainInit:
         self.cameraBox = QGroupBox(parent=self.visualSplitter)
         self.cameraBox.setTitle("")
         self.cameraBox.setObjectName("cameraBox")
-
         # ---- Graphs Box ----
         self.graphsBox = QGroupBox(parent=self.contentSplitter)
         self.graphsBox.setTitle("")

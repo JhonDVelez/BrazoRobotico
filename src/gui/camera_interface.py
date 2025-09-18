@@ -3,7 +3,8 @@ from PyQt6.QtWidgets import QWidget, QSizePolicy
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QResizeEvent, QPixmap, QIcon
 from PyQt6 import uic
-from gui.camera_worker import VideoWorker  # Importar el worker thread
+from gui.camera_worker import VideoWorker
+from gui.main_window.main_theme import ThemeManager
 
 
 class VideoOverlayWidget(QWidget):
@@ -19,6 +20,7 @@ class VideoOverlayWidget(QWidget):
         self.video_worker = None
         self.video_active = False
         self.app_running = None
+        self.theme_manager = ThemeManager.get_instance()
         self.__setup_ui()
         self.__setup_connections()
 
@@ -43,15 +45,18 @@ class VideoOverlayWidget(QWidget):
             "background-color: white;")
         self.videoButton.setFixedSize(30, 30)
         self.videoButton.raise_()
-        self.image_path = os.path.join(os.path.dirname(
-            __file__), "img", 'camera.png')
-        self.pixmap = QPixmap(self.image_path)
+        self.image_path_r = os.path.join(os.path.dirname(
+            __file__), "img", 'camera_r.png')
+        self.image_path_b = os.path.join(os.path.dirname(
+            __file__), "img", 'camera_b.png')
+        self.pixmap = QPixmap(self.image_path_r)
 
     def __setup_connections(self):
         """Configura las conexiones de eventos
         """
         if hasattr(self.ui, 'videoButton'):
             self.videoButton.clicked.connect(self.toggle_video)
+        self.theme_manager.theme_changed.connect(self.toggle_theme)
 
     def set_video_pixmap(self, pixmap: QPixmap):
         """ Método para establecer el pixmap del video en el label reescalado si es necesario.
@@ -85,7 +90,7 @@ class VideoOverlayWidget(QWidget):
             self.set_video_pixmap(self.pixmap)
         else:
             print(
-                f"Error: No se pudo cargar la imagen desde {self.image_path}")
+                f"Error: No se pudo cargar la imagen desde {self.image_path_r}")
 
     def on_frame_ready(self, pixmap: QPixmap):
         """ Slot para manejar el frame listo del worker thread.
@@ -188,3 +193,12 @@ class VideoOverlayWidget(QWidget):
             self.stop_video()
         else:
             self.start_video()
+
+    def toggle_theme(self, dark_t):
+        """ Alterna el estado de la captura de video.
+        """
+        if dark_t:
+            self.pixmap = QPixmap(self.image_path_r)
+        else:
+            self.pixmap = QPixmap(self.image_path_b)
+        self.load_image()

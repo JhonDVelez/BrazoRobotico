@@ -5,6 +5,7 @@ from PyQt6.QtQuickWidgets import QQuickWidget
 from PyQt6.QtQuick import QQuickView
 from PyQt6.QtGui import QResizeEvent, QPixmap
 from gui.simulation_worker import SimWorker
+from gui.main_window.main_theme import ThemeManager
 
 
 class SimInterface(QWidget):
@@ -36,9 +37,11 @@ class SimInterface(QWidget):
 
     def _setup_static_image(self):
         """Configura la imagen estática que se muestra cuando no hay simulación"""
-        self.image_path = os.path.join(os.path.dirname(
-            __file__), "img", 'robotArm.png')
-        self.pipmax = QPixmap(self.image_path)
+        self.image_path_r = os.path.join(os.path.dirname(
+            __file__), "img", 'robotArm_r.png')
+        self.image_path_b = os.path.join(os.path.dirname(
+            __file__), "img", 'robotArm_b.png')
+        self.pixmap = QPixmap(self.image_path_r)
         self.label = QLabel()
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label.setSizePolicy(
@@ -46,7 +49,9 @@ class SimInterface(QWidget):
         self.label.setScaledContents(False)
         self.label.setMinimumSize(160, 120)
         self.layout().addWidget(self.label)
-        self.set_label_pixmap(self.pipmax)
+        self.set_label_pixmap(self.pixmap)
+        self.theme_manager = ThemeManager.get_instance()
+        self.theme_manager.theme_changed.connect(self.toggle_theme)
 
     def __init_quick_view(self):
         """Inicializa QQuickView"""
@@ -157,8 +162,8 @@ class SimInterface(QWidget):
         """Maneja el redimensionamiento"""
         super().resizeEvent(event)
 
-        if self.label.isVisible() and hasattr(self, 'pipmax'):
-            self.set_label_pixmap(self.pipmax)
+        if self.label.isVisible() and hasattr(self, 'pixmap'):
+            self.set_label_pixmap(self.pixmap)
 
     def closeEvent(self, event):
         """Limpieza al cerrar"""
@@ -197,3 +202,12 @@ class SimInterface(QWidget):
         except Exception as e:
             print(f"Error creando contenedor: {e}")
             return None
+
+    def toggle_theme(self, dark_t):
+        """ Alterna el estado de la captura de video.
+        """
+        if dark_t:
+            self.pixmap = QPixmap(self.image_path_r)
+        else:
+            self.pixmap = QPixmap(self.image_path_b)
+        self.set_label_pixmap(self.pixmap)

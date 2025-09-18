@@ -1,20 +1,17 @@
-# from pyqt_frameless_window import FramelessMainWindow
 from qframelesswindow import FramelessMainWindow
-from PyQt6.QtWidgets import QMessageBox, QVBoxLayout, QHBoxLayout, QWidget, QSizePolicy, QMainWindow, QApplication
+from PyQt6.QtWidgets import (
+    QMessageBox, QVBoxLayout, QWidget, QApplication
+)
 from PyQt6.QtGui import QScreen
 from gui.main_window.main_init import MainInit
 from gui.main_window.main_actions import MainActions
 from gui.main_window.main_menu import MainMenu
-from gui.main_window.main_theme import MainTheme
+from gui.main_window.main_theme import MainTheme, ThemeManager
 from gui.main_window.main_title_bar import MainTitleBar
 
 
 class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTheme):
-    """ Ventana principal de la interfaz
-
-    Args:
-        FramelessMainWindow: Ventana sin marco personalizada
-    """
+    """ Ventana principal de la interfaz """
 
     def __init__(self):
         super().__init__()
@@ -24,30 +21,25 @@ class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTh
         self.hab_simulation = True
         self.dark_theme = True
 
-        # IMPORTANTE: Configurar la title bar ANTES de setup_ui
-        self.custom_title_bar = MainTitleBar(self)
-        self.custom_title_bar.setSizePolicy(QSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred))
-        self.setTitleBar(self.custom_title_bar)
+        # Crear contenedor principal
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
-        # Crear un widget contenedor principal que respete la title bar
-        self.main_container = QWidget()
-        self.main_layout = QVBoxLayout(self.main_container)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
-        self.main_layout.setSpacing(0)
-
+        # ---- Barra de título
         self.create_menu()
+        self.title_bar = MainTitleBar(self)
+        # necesario para arrastrar/min/max
+        self.setTitleBar(self.title_bar)
+        layout.addWidget(self.title_bar)
 
-        self.title_container = QWidget()
-        self.title_layout = QHBoxLayout(self.title_container)
-        self.title_layout.setContentsMargins(0, 0, 0, 0)
-        self.title_layout.setSpacing(0)
+        # ---- Contenido
+        self.centralwidget = QWidget()
+        self.setup_ui(self.centralwidget)
+        layout.addWidget(self.centralwidget)
 
-        self.title_layout.addWidget(self.menubar)
-        self.title_layout.addWidget(self.titleBar)
-        self.main_layout.addWidget(self.title_container)
-
-        self.setup_ui_in_container()
+        self.create_status_bar()
         self.init_camera()
         self.init_controls()
         self.init_simulation()
@@ -56,29 +48,18 @@ class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTh
 
         self.contentSplitter.setSizes([500, 500, 200])
         self.visualSplitter.setSizes([100, 100])
-        self.setCentralWidget(self.main_container)
-        # self.titleBar.raise_()
+
+        # ahora el central widget real es el contenedor con barra + contenido
+        self.setCentralWidget(container)
+
         self.resize(1280, 720)
         screen = QApplication.primaryScreen()
         screen_geometry = screen.geometry()
-
-        # Calculate the center position
         x = (screen_geometry.width() - self.width()) // 2
         y = (screen_geometry.height() - self.height()) // 2
-
-        # Move the window to the calculated position
         self.move(x, y)
 
-    def setup_ui_in_container(self):
-        """Configura la UI dentro del contenedor principal"""
-        # Crear el widget que contendrá toda la interfaz original
-        self.centralwidget = QWidget()
-
-        # Llamar al setup_ui original pero pasando el widget contenedor
-        self.setup_ui(self.centralwidget)
-
-        # Añadir el centralwidget al layout principal
-        self.main_layout.addWidget(self.centralwidget)
+        self.theme_manager = ThemeManager.get_instance()
 
     def setup_connections(self):
         """ Configura las conexiones de eventos para los botones de la interfaz
@@ -105,8 +86,8 @@ class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTh
         if hasattr(self, 'simulation_action'):
             self.simulation_action.triggered.connect(
                 self.toggle_activation_model_event)
-        if hasattr(self, 'theme_menu'):
-            self.theme_menu.pressed.connect(self.toggle_theme_event)
+        if hasattr(self, 'theme_action'):
+            self.theme_action.triggered.connect(self.toggle_theme_event)
 
     def closeEvent(self, event):
         """ Gestiona el evento de cerrado presentando una ventana para verificar la salida de

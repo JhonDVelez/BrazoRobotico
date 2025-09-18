@@ -45,16 +45,6 @@ class SimWorker(QThread):
             elif direction == "y":
                 motor.setProperty("eulerRotation", QVector3D(0, angle, 0))
 
-    def send_key(self, hwnd, vk_code, press=True):
-        """ Simula una tecla hacia la ventana hwnd (al interactuar con la interfaz la ventana de
-            pybullet deja de estar en foco por lo que no detecta el teclado por ello se deben emular
-            las pulsaciones de este)
-        """
-        if press:
-            win32api.SendMessage(hwnd, win32con.WM_KEYDOWN, vk_code, 0)
-        else:
-            win32api.SendMessage(hwnd, win32con.WM_KEYUP, vk_code, 0)
-
     def start_simulation(self):
         """ Da inicio a la ejecucion de la simulacion o la vuelve a poner en curso si fue pausada
         """

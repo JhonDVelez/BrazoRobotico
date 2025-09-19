@@ -13,9 +13,10 @@ from gui.main_window.main_title_bar import MainTitleBar
 class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTheme):
     """ Ventana principal de la interfaz """
 
-    def __init__(self, data):
+    def __init__(self, quick3d, robot_id):
         super().__init__()
-        self.preloaded_data = data
+        self.preloaded_data = quick3d
+        self.robot_id = robot_id
         self.simulation_interface = None
         self.stopped = True
         self.camera_paused = False
@@ -37,9 +38,9 @@ class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTh
         layout.addWidget(self.title_bar)
 
         # ---- Contenido
-        self.centralwidget = QWidget()
-        self.setup_ui(self.centralwidget)
-        layout.addWidget(self.centralwidget)
+        self.central_widget = QWidget()
+        self.setup_ui(self.central_widget)
+        layout.addWidget(self.central_widget)
 
         self.create_status_bar()
         self.init_camera()
@@ -84,7 +85,7 @@ class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTh
 
     def closeEvent(self, event):
         """ Gestiona el evento de cerrado presentando una ventana para verificar la salida de
-            la aplicacion
+            la aplicación
         """
         reply = QMessageBox.question(
             self,

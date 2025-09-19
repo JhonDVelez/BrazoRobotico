@@ -11,7 +11,7 @@ class PhysicsWorker(QThread):
 
     update_model = pyqtSignal(list)
 
-    def __init__(self) -> None:
+    def __init__(self, robot_id) -> None:
         super().__init__()
         self.target_position_prev = [1, 0, 0, 0, 0, 0]
         self.model_ogl = None
@@ -20,9 +20,9 @@ class PhysicsWorker(QThread):
         self._running = False
         self._paused = False
         self.max_velocity = None
-        self.physic = RobotArmPhysics(1)
+        self.physic = RobotArmPhysics()
         self.physic.robot_loaded.connect(self.update_simulation)
-        self.physic.load_models()
+        self.physic.load_models(robot_id)
 
     def set_max_velocity(self, max_vel):
         if max_vel > 0:

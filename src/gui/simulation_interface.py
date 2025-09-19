@@ -12,9 +12,10 @@ class SimInterface(QWidget):
     """ Clase encargada del modelo 3d mostrado en la interfaz usando QQuickView
     """
 
-    def __init__(self, parent, data):
+    def __init__(self, parent, data, robot_id):
         super().__init__()
         self.quick_view = data
+        self.robot_id = robot_id
         self.parent = parent
         self.window_container = None
         self.physics_worker = None
@@ -62,7 +63,7 @@ class SimInterface(QWidget):
             # Inicializar worker si hay contenido
             root_object = self.quick_view.rootObject()
             if root_object:
-                self.physics_worker = SimWorker(root_object)
+                self.physics_worker = SimWorker(root_object, self.robot_id)
                 self.physics_worker.start()
 
             if not self.window_container:

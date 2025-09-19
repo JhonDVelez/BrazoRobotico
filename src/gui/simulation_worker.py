@@ -9,7 +9,7 @@ class SimWorker(QThread):
 
     pybullet_window = pyqtSignal(int)
 
-    def __init__(self, root_object):
+    def __init__(self, root_object, robot_id):
         super().__init__()
         self.hwnd = None
         self.timer = None
@@ -30,7 +30,7 @@ class SimWorker(QThread):
             "z"
         ]
 
-        self.worker = PhysicsWorker()
+        self.worker = PhysicsWorker(robot_id)
         self.worker.set_max_velocity(1.2)
         self.worker.update_model.connect(self.update_simulation)
 

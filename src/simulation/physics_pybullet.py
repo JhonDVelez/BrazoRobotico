@@ -11,7 +11,7 @@ class RobotArmPhysics(QWidget):
     """
     robot_loaded = pyqtSignal()
 
-    def __init__(self, enable_shadows=1):
+    def __init__(self):
         """ Inicializa la clase RobotArmPhysics definiendo variables e iniciando el env de pybullet
 
         Args:
@@ -23,25 +23,7 @@ class RobotArmPhysics(QWidget):
         self.joint_positions = []
         self.joint_velocities = []
         self.initial_states = []
-        self.plane_id = None
-        self.ground_id = None
         self.robot_id = None
-        self.enable_shadows = enable_shadows
-
-        self.urdf_path = os.path.join(os.path.dirname(
-            __file__), "urdf", 'openbot_v1.urdf')
-        self.__init_pybullet()
-
-    def __init_pybullet(self):
-        """ Inicializar PyBullet y cargar el URDF del robot
-        """
-        self.env = p.connect(p.DIRECT)
-
-        # Configurar la simulación
-        p.setGravity(0, 0, -9.81)
-        p.setTimeStep(1./240.)  # 240 Hz
-
-        p.setAdditionalSearchPath(pybullet_data.getDataPath())
 
     def get_robot_id(self) -> int:
         """ Obtiene el id del robot del motor de fisicas de pybullet
@@ -81,21 +63,10 @@ class RobotArmPhysics(QWidget):
         """
         p.stepSimulation()
 
-    def load_models(self):
+    def load_models(self, robot_id):
         """ Carga nuevamente el modelo a partir del URDF y crea el plano
         """
-        # Crear el suelo
-        self.plane_id = p.createCollisionShape(p.GEOM_PLANE)
-        self.ground_id = p.createMultiBody(0, self.plane_id)
-
-        # Carga el modelo del robot
-        self.robot_id = p.loadURDF(
-            self.urdf_path,
-            basePosition=[0, 0, 0],
-            baseOrientation=p.getQuaternionFromEuler([0, 0, 0]),
-            useFixedBase=True,  # o False si el robot es móvil
-            flags=p.URDF_USE_INERTIA_FROM_FILE | p.URDF_USE_SELF_COLLISION
-        )
+        self.robot_id = robot_id
 
         self.get_robot_info()
         self.robot_loaded.emit()

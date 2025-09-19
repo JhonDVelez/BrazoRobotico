@@ -196,15 +196,16 @@ class MainInit:
         self.stop_button.hide()
 
     def init_simulation(self):
-        """ Inicializa la interfaz de la simulacion creando el layout y realizando ajustes para una
-            correcta adicion a esta.
+        """ Inicializa la interfaz de la simulación creando el layout y realizando ajustes para una
+            correcta adición a esta.
         """
         if not self.modelBox.layout():
             self.sim_layout = QVBoxLayout(self.modelBox)
             self.sim_layout.setContentsMargins(0, 0, 0, 0)
             self.modelBox.setLayout(self.sim_layout)
 
-        self.simulation_interface = SimInterface(self, self.preloaded_data)
+        self.simulation_interface = SimInterface(
+            self, self.preloaded_data, self.robot_id)
         self.simulation_interface.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.simulation_interface.setMinimumSize(QSize(0, 0))

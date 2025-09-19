@@ -42,6 +42,8 @@ class SimulationSignalManager(SignalManager):
 class PhysicalSignalManager(SignalManager):
     """ SignalManager específico para robot físico
     """
+    send_to_robot = pyqtSignal(list)
+
     _instance = None
 
     @classmethod

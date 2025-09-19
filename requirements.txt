@@ -9,3 +9,4 @@ PyQt6-Qt6==6.9.1
 PyQt6_sip==13.10.2
 pyqt6-Frameless-window==0.7.3
 pyqtdarktheme==0.1.7
+pyserial==3.5

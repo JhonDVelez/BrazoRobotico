@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import QWidget, QHBoxLayout, QSizePolicy
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QSize, Qt, QRect
 from data.control_utils import modes, units, domains
-from data.controller import dataFlow
+from data.controller import DataFlow
 from gui.camera_interface import videoInterface
 from gui.sliders_interface import SlidersWidget
 from gui.simulation_interface import SimInterface
@@ -212,12 +212,11 @@ class MainInit:
         self.sim_layout.addWidget(self.simulation_interface)
 
     def init_openbotv(self, com: str):
-        self.robot_controller = dataFlow(
+        self.robot_controller = DataFlow(
             modes.SLIDERS, units.DEG, domains.PHYSICAL)
-        self.robot_controller.start()
 
         self.openbotv = robotWorker(com)
-        self.openbotv.start()
+        self.connect_action.setEnabled(False)
 
     def center_window(self):
         screen = QApplication.primaryScreen()

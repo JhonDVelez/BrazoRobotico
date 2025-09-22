@@ -7,7 +7,6 @@ from data.control_utils import PhysicalSignalManager, modes, units, domains
 class robotWorker(QThread):
     def __init__(self, com: str):
         super().__init__()
-        print(f"Worker inicializado en el puerto: {com}")
         self.CM904 = serial.Serial(com, 115200, timeout=2)
         q1r, q2r, q3r, q4r, q5r, q6r = [], [], [], [], [], []
         q1rf, q2rf, q3rf, q4rf, q5rf, q6rf = [], [], [], [], [], []
@@ -20,7 +19,7 @@ class robotWorker(QThread):
         self.signal_manager.send_to_robot.connect(self.get_data_from_interface)
 
     def run(self):
-        QTimer.singleShot(0, self.signal_manager.get_data_signal.emit)
+        self.signal_manager.get_data_signal.emit()
 
     def send_data_to_robot(self, valorm):
         if all(x >= 0 and x <= 300 for x in valorm):
@@ -30,11 +29,11 @@ class robotWorker(QThread):
             self.CM904.write(f"D{int(valorm[3]*(1023/300))}\n".encode())
             self.CM904.write(f"E{int(valorm[4]*(1023/300))}\n".encode())
             self.CM904.write(f"F{int(valorm[5]*(1023/300))}\n".encode())
-            print("datos enviados")
+            time.sleep(0.02)
         else:
             print("Error de envio de datos: Valores fuera de rango")
 
     def get_data_from_interface(self, datos):
-        print(f"[RobotWorker] Datos recibidos: {datos}")
+        # print(f"[RobotWorker] Datos recibidos: {datos}")
         self.send_data_to_robot(datos)
         QTimer.singleShot(4, self.signal_manager.get_data_signal.emit)

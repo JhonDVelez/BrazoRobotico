@@ -4,7 +4,7 @@ from data import control_utils
 from data.control_utils import PhysicalSignalManager, modes, units, domains, SimulationSignalManager
 
 
-class dataFlow(QThread):
+class DataFlow(QThread):
     """ Clase que actua como controlador de datos entre la interfaz y la simulacion o el 
         robot fisico
     """
@@ -19,13 +19,13 @@ class dataFlow(QThread):
         self.domain = domain
 
         # Inicializa las señales dependiendo de cual sea el dominio
-        if domain is domains.SIMULATION:
+        if self.domain is domains.SIMULATION:
             self.signal_manager = SimulationSignalManager.get_instance()
             self.signal_manager.get_data_signal.connect(
                 self.request_data_from_interface)
             self.signal_manager.actual_position_signal.connect(
                 self.update_simulation)
-        elif domain is domains.PHYSICAL:
+        elif self.domain is domains.PHYSICAL:
             self.signal_manager = PhysicalSignalManager.get_instance()
             self.signal_manager.get_data_signal.connect(
                 self.request_data_from_interface)

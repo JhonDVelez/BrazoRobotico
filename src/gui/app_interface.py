@@ -1,7 +1,6 @@
-import ctypes
 from ctypes import wintypes
 from qframelesswindow import FramelessMainWindow
-from PyQt6.QtWidgets import QMessageBox, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QMessageBox, QVBoxLayout, QWidget, QLabel
 from PyQt6.QtCore import QAbstractNativeEventFilter, QCoreApplication, QTimer
 from gui.main_window.main_init import MainInit
 from gui.main_window.main_actions import MainActions
@@ -28,6 +27,8 @@ class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTh
         self.dark_theme = True
         self.theme_manager = ThemeManager.get_instance()
         self.com = None
+        self.com_connected_label = QLabel('No conectado')
+        self.connected_to_robot = False
 
         # Crear contenedor principal
         container = QWidget()
@@ -119,7 +120,5 @@ class DeviceEventFilter(QAbstractNativeEventFilter):
     def nativeEventFilter(self, eventType, message):
         msg = wintypes.MSG.from_address(message.__int__())
         if msg.message == WM_DEVICECHANGE and msg.wParam in (DBT_DEVICEARRIVAL, DBT_DEVICEREMOVECOMPLETE):
-            # Programar la actualización en el loop de Qt
             QTimer.singleShot(0, self.callback)
-        # Muy importante: devolver False, 0 para no consumir el evento
         return False, 0

@@ -24,6 +24,11 @@ class MainActions:
 
         self.camera_interface.videoButton.show()
         self.simulation_action.setEnabled(False)
+        self.com_submenu.setEnabled(True)
+
+        if self.connected_to_robot:
+            self.robot_controller.start()
+            self.openbotv.start()
 
         self.stop_button.show()
         self.pause_button.show()
@@ -106,5 +111,6 @@ class MainActions:
         if not self.com:
             print("Error: Dispositivo no detectado")
             return
-
+        self.connected_to_robot = True
         self.init_openbotv(self.com)
+        self.com_connected_label.setText(self.com)

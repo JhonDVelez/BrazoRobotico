@@ -71,6 +71,7 @@ class CompletePreloader:
 
         try:
             self.preloaded_view = QQuickView()
+            self.preloaded_view.setFlag(Qt.WindowType.WindowStaysOnBottomHint)
             self.preloaded_view.setResizeMode(
                 QQuickView.ResizeMode.SizeRootObjectToView)
             self.preloaded_view.resize(512, 288)
@@ -234,7 +235,7 @@ if __name__ == '__main__':
     img_path = os.path.join(os.path.dirname(__file__),
                             "gui", "img", "openbotv_v1.png")
     splash_pix = QPixmap(img_path).scaled(800, 450)
-    splash = QSplashScreen(splash_pix, Qt.WindowType.WindowStaysOnTopHint)
+    splash = QSplashScreen(splash_pix)
     font = QFont("Arial", 12, QFont.Weight.Medium)
     splash.setFont(font)
 
@@ -266,6 +267,8 @@ if __name__ == '__main__':
         window.setWindowTitle("OpenBotv-v1")
         preloader.cleanup_preload_resources()
 
-        window.show()
+        window.showMaximized()
+        window.raise_()
+        window.activateWindow()
         splash.finish(window)
     sys.exit(app.exec())

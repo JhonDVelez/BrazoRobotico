@@ -2,181 +2,197 @@ import QtQuick
 import QtQuick3D
 
 Node {
-    id: _3_texture19
+    id: node
 
     // Resources
-    property url textureData16: "maps/textureData16.png"
-    property url textureData12: "maps/textureData12.png"
-    property url textureData17: "maps/textureData17.png"
-    property url textureData22: "maps/textureData22.png"
-    property url textureData11: "maps/textureData11.png"
-    property url textureData33: "maps/textureData33.png"
-    property url textureData38: "maps/textureData38.png"
+    property url textureData: "maps/textureData.png"
+    property url textureData10: "maps/textureData10.png"
+    property url textureData15: "maps/textureData15.png"
+    property url textureData20: "maps/textureData20.png"
+    property url textureData25: "maps/textureData25.png"
+    property url textureData30: "maps/textureData30.png"
+    property url textureData35: "maps/textureData35.png"
+
     Texture {
-        id: _6_texture6
+        id: _6_texture
         generateMipmaps: true
         mipFilter: Texture.Linear
-        source: _3_texture19.textureData16
+        source: node.textureData
     }
     Texture {
-        id: _5_texture11
+        id: _5_texture
         generateMipmaps: true
         mipFilter: Texture.Linear
-        source: _3_texture19.textureData12
+        source: node.textureData10
     }
     Texture {
-        id: _4_texture15
+        id: _4_texture
         generateMipmaps: true
         mipFilter: Texture.Linear
-        source: _3_texture19.textureData17
+        source: node.textureData15
     }
     Texture {
-        id: _3_texture21
+        id: _3_texture
         generateMipmaps: true
         mipFilter: Texture.Linear
-        source: _3_texture19.textureData22
+        source: node.textureData20
     }
     Texture {
-        id: _2_texture24
+        id: _2_texture
         generateMipmaps: true
         mipFilter: Texture.Linear
-        source: _3_texture19.textureData11
+        source: node.textureData25
     }
     Texture {
-        id: _1_texture31
+        id: _1_texture
         generateMipmaps: true
         mipFilter: Texture.Linear
-        source: _3_texture19.textureData33
+        source: node.textureData30
     }
     Texture {
-        id: _0_texture36
+        id: _0_texture
         generateMipmaps: true
         mipFilter: Texture.Linear
-        source: _3_texture19.textureData38
+        source: node.textureData35
     }
     PrincipledMaterial {
-        id: material_005_material4
+        id: material_005_material
         objectName: "Material.005"
-        baseColorMap: _6_texture6
-        roughness: 0.5
+        baseColorMap: _6_texture
+        roughness: 0.4
+        clearcoatAmount: 0.13
+        indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
     }
     PrincipledMaterial {
-        id: material_001_material10
+        id: material_001_material
         objectName: "Material.001"
-        baseColorMap: _5_texture11
-        roughness: 0.5
+        baseColorMap: _5_texture
+        roughness: 0.4
+        clearcoatAmount: 0.13
+        indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
     }
     PrincipledMaterial {
-        id: _6_texture4
+        id: material_002_material
         objectName: "Material.002"
-        baseColorMap: _4_texture15
-        roughness: 0.5
+        baseColorMap: _4_texture
+        roughness: 0.4
+        clearcoatAmount: 0.13
+        indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
     }
     PrincipledMaterial {
-        id: material_003_material20
+        id: material_003_material
         objectName: "Material.003"
-        baseColorMap: _3_texture21
-        roughness: 0.5
+        baseColorMap: _3_texture
+        roughness: 0.4
+        clearcoatAmount: 0.13
+        indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
     }
     PrincipledMaterial {
-        id: material_004_material24
+        id: material_004_material
         objectName: "Material.004"
-        baseColorMap: _2_texture24
-        roughness: 0.5
+        baseColorMap: _2_texture
+        roughness: 0.4
+        clearcoatAmount: 0.13
+        indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
     }
     PrincipledMaterial {
-        id: material_007_material30
+        id: material_007_material
         objectName: "Material.007"
-        baseColorMap: _1_texture31
-        roughness: 0.5
+        baseColorMap: _1_texture
+        roughness: 0.4
+        clearcoatAmount: 0.13
+        indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
+        
     }
     PrincipledMaterial {
-        id: material_006_material35
+        id: material_006_material
         objectName: "Material.006"
-        baseColorMap: _0_texture36
-        roughness: 0.5
+        roughness: 0.4
+        clearcoatAmount: 0.13
+        indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
     }
     PrincipledMaterial {
-        id: material_008_material40
+        id: material_008_material
         objectName: "Material.008"
-        baseColor: "#66ffffff"
-        baseColorMap: _6_texture6
-        roughness: 0.5
+        baseColorMap: _6_texture
+        roughness: 0.4
         cullMode: PrincipledMaterial.NoCulling
-        alphaMode: PrincipledMaterial.Blend
+        alphaMode: PrincipledMaterial.Opaque
+        clearcoatAmount: 0.13
+        indexOfRefraction: 1.45
     }
 
     // Nodes:
     Model {
-        id: base_link_mesh3
+        id: base_link
         objectName: "base_link"
         scale: Qt.vector3d(0.001, 0.001, 0.001)
-        source: "meshes/base_link_mesh4.mesh"
+        source: "meshes/base_link_mesh.mesh"
         materials: [
-            material_005_material4
+            material_005_material
         ]
         Model {
-            id: arm1_link_18
+            id: arm1_link_1
             objectName: "arm1_link_1"
             position: Qt.vector3d(0.0213967, 122.693, 1.2751)
-            source: "meshes/arm1_link_1_mesh8.mesh"
+            source: "meshes/arm1_link_1_mesh.mesh"
             materials: [
-                material_001_material10
+                material_001_material
             ]
             Model {
-                id: arm2_link_112
+                id: arm2_link_1
                 objectName: "arm2_link_1"
                 position: Qt.vector3d(-0.0400905, 32.5683, 1.2449)
-                source: "meshes/clamp_arm_link_1_mesh27.mesh"
+                source: "meshes/arm2_link_1_mesh.mesh"
                 materials: [
-                    _6_texture4
+                    material_002_material
                 ]
                 Model {
-                    id: arm3_link_117
+                    id: arm3_link_1
                     objectName: "arm3_link_1"
-                    position: Qt.vector3d(-0.13914, 93.4278, 0.583994)
-                    source: "meshes/arm3_link_1_mesh19.mesh"
+                    position: Qt.vector3d(-0.13914, 93.4279, 0.583994)
+                    source: "meshes/arm3_link_1_mesh.mesh"
                     materials: [
-                        material_003_material20
+                        material_003_material
                     ]
                     Model {
-                        id: arm4_link_1_mesh22
+                        id: arm4_link_1
                         objectName: "arm4_link_1"
                         position: Qt.vector3d(1.97872, 82.5878, -3.04708)
-                        source: "meshes/arm4_link_1_mesh23.mesh"
+                        source: "meshes/arm4_link_1_mesh.mesh"
                         materials: [
-                            material_004_material24
+                            material_004_material
                         ]
                         Model {
-                            id: clamp_arm_link_127
+                            id: clamp_arm_link_1
                             objectName: "clamp_arm_link_1"
                             position: Qt.vector3d(1.51373, 29.5679, -0.888374)
-                            source: "meshes/clamp_arm_link_1_mesh29.mesh"
+                            source: "meshes/clamp_arm_link_1_mesh.mesh"
                             materials: [
-                                material_007_material30
+                                material_007_material
                             ]
                             Model {
-                                id: clamp2_link_133
+                                id: clamp2_link_1
                                 objectName: "clamp2_link_1"
                                 position: Qt.vector3d(18.0772, 70.2332, -0.108659)
                                 scale: Qt.vector3d(1000, 1000, 1000)
-                                source: "meshes/clamp2_link_1_mesh34.mesh"
+                                source: "meshes/clamp2_link_1_mesh.mesh"
                                 materials: [
-                                    material_006_material35
+                                    material_006_material
                                 ]
                             }
                         }
@@ -185,11 +201,11 @@ Node {
             }
         }
         Model {
-            id: base_link_00138
+            id: base_link_001
             objectName: "base_link.001"
-            source: "meshes/base_link_001_mesh39.mesh"
+            source: "meshes/base_link_001_mesh.mesh"
             materials: [
-                material_008_material40
+                material_008_material
             ]
         }
     }

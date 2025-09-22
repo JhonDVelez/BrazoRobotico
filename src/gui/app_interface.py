@@ -1,13 +1,17 @@
+import ctypes
+from ctypes import wintypes
 from qframelesswindow import FramelessMainWindow
-from PyQt6.QtWidgets import (
-    QMessageBox, QVBoxLayout, QWidget, QApplication
-)
-from PyQt6.QtGui import QScreen
+from PyQt6.QtWidgets import QMessageBox, QVBoxLayout, QWidget
+from PyQt6.QtCore import QAbstractNativeEventFilter, QCoreApplication, QTimer
 from gui.main_window.main_init import MainInit
 from gui.main_window.main_actions import MainActions
 from gui.main_window.main_menu import MainMenu
 from gui.main_window.main_theme import MainTheme, ThemeManager
 from gui.main_window.main_title_bar import MainTitleBar
+
+WM_DEVICECHANGE = 0x0219
+DBT_DEVICEARRIVAL = 0x8000
+DBT_DEVICEREMOVECOMPLETE = 0x8004
 
 
 class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTheme):
@@ -23,6 +27,7 @@ class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTh
         self.hab_simulation = True
         self.dark_theme = True
         self.theme_manager = ThemeManager.get_instance()
+        self.com = None
 
         # Crear contenedor principal
         container = QWidget()
@@ -55,6 +60,9 @@ class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTh
         self.resize(1280, 720)
         self.center_window()
 
+        self._dev_filter = DeviceEventFilter(self.get_com_ports)
+        QCoreApplication.instance().installNativeEventFilter(self._dev_filter)
+
     def setup_connections(self):
         """ Configura las conexiones de eventos para los botones de la interfaz
         """
@@ -82,6 +90,8 @@ class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTh
                 self.toggle_activation_model_event)
         if hasattr(self, 'theme_action'):
             self.theme_action.triggered.connect(self.toggle_theme_event)
+        if hasattr(self, 'connect_action'):
+            self.connect_action.triggered.connect(self.connect_robot)
 
     def closeEvent(self, event):
         """ Gestiona el evento de cerrado presentando una ventana para verificar la salida de
@@ -99,3 +109,17 @@ class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTh
             event.accept()
         else:
             event.ignore()
+
+
+class DeviceEventFilter(QAbstractNativeEventFilter):
+    def __init__(self, callback):
+        super().__init__()
+        self.callback = callback
+
+    def nativeEventFilter(self, eventType, message):
+        msg = wintypes.MSG.from_address(message.__int__())
+        if msg.message == WM_DEVICECHANGE and msg.wParam in (DBT_DEVICEARRIVAL, DBT_DEVICEREMOVECOMPLETE):
+            # Programar la actualización en el loop de Qt
+            QTimer.singleShot(0, self.callback)
+        # Muy importante: devolver False, 0 para no consumir el evento
+        return False, 0

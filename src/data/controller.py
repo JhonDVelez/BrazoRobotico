@@ -21,23 +21,27 @@ class dataFlow(QThread):
         # Inicializa las señales dependiendo de cual sea el dominio
         if domain is domains.SIMULATION:
             self.signal_manager = SimulationSignalManager.get_instance()
-            self.signal_manager.get_data_signal.connect(self.get_data)
+            self.signal_manager.get_data_signal.connect(
+                self.request_data_from_interface)
             self.signal_manager.actual_position_signal.connect(
                 self.update_simulation)
         elif domain is domains.PHYSICAL:
             self.signal_manager = PhysicalSignalManager.get_instance()
-            self.signal_manager.get_data_signal.connect(self.get_data)
+            self.signal_manager.get_data_signal.connect(
+                self.request_data_from_interface)
         else:
             raise Exception("El dominio proporcionado no existe.")
 
-    def get_data(self):
+    def request_data_from_interface(self):
         """ Envia los datos al simulador dependiendo de la fuente seleccionada
         """
         if self.mode is modes.SLIDERS:
             if self.domain is domains.SIMULATION:
-                self.signal_manager.update_pybullet_signal.emit(self.__get_sliders_data())
+                self.signal_manager.update_pybullet_signal.emit(
+                    self.__get_sliders_data())
             elif self.domain is domains.PHYSICAL:
-                self.signal_manager.send_to_robot.emit(self.__get_sliders_data())
+                self.signal_manager.send_to_robot.emit(
+                    self.__get_sliders_data())
 
     def __get_sliders_data(self):
         if self.units is units.DEG:

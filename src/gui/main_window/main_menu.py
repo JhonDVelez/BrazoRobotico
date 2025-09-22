@@ -1,7 +1,8 @@
 import os
-from PyQt6.QtGui import QAction, QKeySequence, QIcon, QPixmap
+from PyQt6.QtGui import QAction, QKeySequence, QIcon, QPixmap, QActionGroup
 from PyQt6.QtWidgets import QMenuBar, QSizePolicy, QLabel, QStatusBar
 from PyQt6.QtCore import Qt
+from serial.tools import list_ports
 
 
 class MainMenu:
@@ -33,6 +34,11 @@ class MainMenu:
         self.theme_action.setShortcut(QKeySequence("Ctrl+l"))
         self.theme_action.setStatusTip("Cambiar tema")
 
+        self.connect_action = QAction("Conectar", self)
+        self.connect_action.setEnabled(False)
+
+        # self.com_select_action = QAction()
+
     def create_menu(self):
         self.create_actions()
         self.menu_bar = QMenuBar()
@@ -40,6 +46,7 @@ class MainMenu:
         self.menu_bar.setContentsMargins(0, 0, 0, 0)
         self.menu_bar.adjustSize()
 
+        # Logo en la equina izquierda
         self.logo_label = QLabel()
         self.laser_w = QPixmap(os.path.join(
             os.path.dirname(__file__), "..", "img", "laser_w.png")).scaledToHeight(20, Qt.TransformationMode.SmoothTransformation)
@@ -61,13 +68,55 @@ class MainMenu:
         self.simulation_menu = self.menu_bar.addMenu("&Simulación")
         self.simulation_menu.addAction(self.simulation_action)
 
+        self.robot_menu = self.menu_bar.addMenu("&Robot")
+        self.com_submenu = self.robot_menu.addMenu("&Puerto")
+        self.com_group = QActionGroup(self)
+        self.com_group.setExclusive(True)
+        self.get_com_ports()
+        self.robot_menu.addAction(self.connect_action)
+
         self.menu_bar.setSizePolicy(
             QSizePolicy(QSizePolicy.Policy.Preferred,
                         QSizePolicy.Policy.Preferred)
         )
 
+    def get_com_ports(self):
+        available_ports = list_ports.comports()
+
+        # 1. limpiar menú y grupo
+        self.com_submenu.clear()
+        for action in list(self.com_group.actions()):
+            self.com_group.removeAction(action)
+
+        if available_ports:
+            for port in available_ports:
+                # Acción con descripción
+                com_action = self.com_submenu.addAction(port.description)
+                com_action.setCheckable(True)
+                com_action.setData(port.device)
+                com_action.setStatusTip(f"Conectar al puerto {port.device}")
+
+                # Añadir la acción al grupo
+                self.com_group.addAction(com_action)
+                self.com_submenu.setEnabled(True)
+
+                # Conectar
+                com_action.triggered.connect(self.com_checkable_change)
+        else:
+            self.connect_action.setEnabled(False)
+            self.com = None
+            self.com_submenu.setEnabled(False)
+            self.com_connected_label.setText("No conectado")
+
+    def com_checkable_change(self, checked):
+        action = self.sender()
+        if action and checked:  # Solo cuando queda seleccionado
+            self.com = action.data()
+            self.com_connected_label.setText(self.com)
+            self.connect_action.setEnabled(True)
+
     def create_status_bar(self):
         statusBar = QStatusBar(self)
-        # statusBar.addWidget(QLabel('row 1'))
-        # statusBar.addWidget(QLabel('column 1'))
+        self.com_connected_label = QLabel('No conectado')
+        statusBar.addPermanentWidget(self.com_connected_label)
         self.setStatusBar(statusBar)

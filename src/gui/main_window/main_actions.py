@@ -101,3 +101,10 @@ class MainActions:
         else:
             self.hab_simulation = True
             self.simulation_action.setText("Deshabilitar simulación")
+
+    def connect_robot(self):
+        if not self.com:
+            print("Error: Dispositivo no detectado")
+            return
+
+        self.init_openbotv(self.com)

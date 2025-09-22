@@ -5,7 +5,7 @@ import sys
 import time
 import pybullet as p
 import pybullet_data
-from PyQt6.QtGui import QGuiApplication, QPixmap, QFont
+from PyQt6.QtGui import QGuiApplication, QPixmap, QFont, QIcon
 from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtQuick import QQuickView
 from PyQt6.QtCore import QUrl, Qt
@@ -227,6 +227,8 @@ class CompletePreloader:
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setStyle('fusion')
+    app.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__),
+                                         "gui", "img", 'laser_w.png')))
 
     # Splash screen
     img_path = os.path.join(os.path.dirname(__file__),
@@ -261,6 +263,7 @@ if __name__ == '__main__':
             Qt.GlobalColor.white
         )
         window = MainInterface(preloaded_container, pybullet_robot)
+        window.setWindowTitle("OpenBotv-v1")
         preloader.cleanup_preload_resources()
 
         window.show()

@@ -1,0 +1,179 @@
+#include <string.h>
+#include <Dynamixel.h> 
+
+/* Serial device defines for dxl bus */
+#define DXL_BUS_SERIAL1 1  // Dynamixel on Serial1(USART1) <-OpenCM9.04
+
+/* Dynamixel ID defines */
+#define ID_NUM1 1  // motor base
+#define ID_NUM2 2  // motor hombro
+#define ID_NUM3 3  // motor codo
+#define ID_NUM4 4  // orientación del gripper
+#define ID_NUM5 5  // motor extensión del gripper
+#define ID_NUM6 6  // motor abre y cierra el gripper
+
+/* tabla de definiciones */
+#define GOAL_SPEED 32
+#define GOAL_POSITION 30
+#define PRESENT_POSITION 36   // Dirección para leer posición actual (AX, MX, RX series)
+#define MOVING 46             // Dirección del bit MOVING (AX, MX)
+
+Dynamixel Dxl(DXL_BUS_SERIAL1);
+
+int conj = 0;         // para ejecutar la “pose” inicial una sola vez
+int posf1 = 0, posf2 = 0, posf3 = 0, posf4 = 0, posf5 = 0, posf6 = 0;
+
+// --- Función clamp para forzar valores en un rango ---
+inline int clamp(int value, int minVal, int maxVal) {
+  if (value < minVal) return minVal;
+  if (value > maxVal) return maxVal;
+  return value;
+}
+
+// --- Buffer para comunicación USB ---
+volatile bool comandoListo = false;
+volatile int bufferLen = 0;
+char bufferCmd[32];
+
+// --- ISR mínima: solo copia datos ---
+void usbInterrupt(byte* buffer, byte nCount) {
+  if (nCount >= sizeof(bufferCmd)) return;  // proteger overflow
+  memcpy(bufferCmd, buffer, nCount);
+  bufferCmd[nCount] = '\0';
+  bufferLen = nCount;
+  comandoListo = true;   // marcar bandera
+}
+
+// --- Procesa el comando recibido ---
+void procesarComando(const char* data, int len) {
+  if (len <= 1) return; // nada válido
+
+  char comando = data[0];
+  if (comando < 'A' || comando > 'F') {
+    SerialUSB.println("ERROR: Comando desconocido");
+    return;
+  }
+
+  // convertir número de forma segura
+  char *endptr;
+  long val = strtol(&data[1], &endptr, 10);
+  if (*endptr != '\0') {
+    SerialUSB.println("ERROR: Dato invalido");
+    return;
+  }
+
+  // saturar primero al rango del AX-12A
+  int cuenta = clamp((int)val, 0, 1023);
+
+  // aplicar rango por motor
+  switch (comando) {
+    case 'A':
+      cuenta = clamp(cuenta, 171, 853);
+      Dxl.writeWord(ID_NUM1, GOAL_POSITION, cuenta);
+      posf1 = cuenta;
+      break;
+    case 'B':
+      cuenta = clamp(cuenta, 239, 682);
+      Dxl.writeWord(ID_NUM2, GOAL_POSITION, cuenta);
+      posf2 = cuenta;
+      break;
+    case 'C':
+      cuenta = clamp(cuenta, 171, 682);
+      Dxl.writeWord(ID_NUM3, GOAL_POSITION, cuenta);
+      posf3 = cuenta;
+      break;
+    case 'D':
+      cuenta = clamp(cuenta, 171, 853);
+      Dxl.writeWord(ID_NUM4, GOAL_POSITION, cuenta);
+      posf4 = cuenta;
+      break;
+    case 'E':
+      cuenta = clamp(cuenta, 512, 853);
+      Dxl.writeWord(ID_NUM5, GOAL_POSITION, cuenta);
+      posf5 = cuenta;
+      break;
+    case 'F':
+      cuenta = clamp(cuenta, 130, 583);
+      Dxl.writeWord(ID_NUM6, GOAL_POSITION, cuenta);
+      posf6 = cuenta;
+      break;
+  }
+}
+
+void setup() {
+  Dxl.begin(3);  // Inicializa el bus Dynamixel (3 → 1 Mbps)
+  SerialUSB.begin(115200); 
+
+  // Configuración de todos los motores
+  Dxl.writeWord(ID_NUM1, GOAL_SPEED, 50); Dxl.jointMode(ID_NUM1);
+  Dxl.writeWord(ID_NUM2, GOAL_SPEED, 50); Dxl.jointMode(ID_NUM2);
+  Dxl.writeWord(ID_NUM3, GOAL_SPEED, 50); Dxl.jointMode(ID_NUM3);
+  Dxl.writeWord(ID_NUM4, GOAL_SPEED, 50); Dxl.jointMode(ID_NUM4);
+  Dxl.writeWord(ID_NUM5, GOAL_SPEED, 50); Dxl.jointMode(ID_NUM5);
+  Dxl.writeWord(ID_NUM6, GOAL_SPEED, 50); Dxl.jointMode(ID_NUM6);
+
+  SerialUSB.attachInterrupt(usbInterrupt); // interrupción al recibir datos por USB
+  pinMode(BOARD_LED_PIN, OUTPUT);          // LED de estado
+}
+
+void loop() {
+  // Procesar comandos pendientes
+  if (comandoListo) {
+    comandoListo = false;
+    procesarComando(bufferCmd, bufferLen);
+  }
+
+  // Inicial pose (solo una vez)
+  if (conj == 0) {
+    Dxl.setPosition(ID_NUM1, 512, 50); posf1 = 512;
+    Dxl.setPosition(ID_NUM2, 512, 50); posf2 = 512;
+    Dxl.setPosition(ID_NUM3, 512, 50); posf3 = 512;
+    delay(2000);
+    Dxl.setPosition(ID_NUM4, 512, 50); posf4 = 512;
+    Dxl.setPosition(ID_NUM5, 712, 50); posf5 = 712;
+    delay(2000);
+    Dxl.setPosition(ID_NUM6, 100, 50);
+    delay(3000);
+    Dxl.setPosition(ID_NUM6, 580, 50); posf6 = 580;
+    enviarPosiciones(512, 512, 512, 512, 712, 580);
+    conj = 1;
+  }
+
+  // Leer estado MOVING de todos los motores
+  bool m1 = Dxl.readByte(ID_NUM1, MOVING);
+  bool m2 = Dxl.readByte(ID_NUM2, MOVING);
+  bool m3 = Dxl.readByte(ID_NUM3, MOVING);
+  bool m4 = Dxl.readByte(ID_NUM4, MOVING);
+  bool m5 = Dxl.readByte(ID_NUM5, MOVING);
+  bool m6 = Dxl.readByte(ID_NUM6, MOVING);
+
+  // Leer posiciones actuales
+  int pos1 = Dxl.readWord(ID_NUM1, PRESENT_POSITION);
+  int pos2 = Dxl.readWord(ID_NUM2, PRESENT_POSITION);
+  int pos3 = Dxl.readWord(ID_NUM3, PRESENT_POSITION);
+  int pos4 = Dxl.readWord(ID_NUM4, PRESENT_POSITION);
+  int pos5 = Dxl.readWord(ID_NUM5, PRESENT_POSITION);
+  int pos6 = Dxl.readWord(ID_NUM6, PRESENT_POSITION);
+
+  static bool enviadoFin = false;
+
+  if (m1 || m2 || m3 || m4 || m5 || m6) {
+    enviarPosiciones(pos1, pos2, pos3, pos4, pos5, pos6);
+    enviadoFin = false;
+  } else if (!enviadoFin) {
+    enviarPosiciones(pos1, pos2, pos3, pos4, pos5, pos6);
+    SerialUSB.println("END");
+    enviadoFin = true;
+  }
+
+  delay(20);
+}
+
+void enviarPosiciones(int p1, int p2, int p3, int p4, int p5, int p6) {
+  SerialUSB.print("A"); SerialUSB.print(p1); SerialUSB.print(";");
+  SerialUSB.print("B"); SerialUSB.print(p2); SerialUSB.print(";");
+  SerialUSB.print("C"); SerialUSB.print(p3); SerialUSB.print(";");
+  SerialUSB.print("D"); SerialUSB.print(p4); SerialUSB.print(";");
+  SerialUSB.print("E"); SerialUSB.print(p5); SerialUSB.print(";");
+  SerialUSB.print("F"); SerialUSB.print(p6); SerialUSB.println(";");
+}

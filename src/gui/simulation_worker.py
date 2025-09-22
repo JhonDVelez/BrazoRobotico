@@ -33,6 +33,8 @@ class SimWorker(QThread):
         self.worker = PhysicsWorker(robot_id)
         self.worker.set_max_velocity(1.2)
         self.worker.update_model.connect(self.update_simulation)
+        # clamp = self.root_object.findChild(QObject, self.joint_names[-1])
+        # clamp.setProperty("eulerRotation", QVector3D(0, 0, -21))
 
     def update_simulation(self, joint_positions=[0, 0, 0, 0, 0]):
         joint_positions[-1] = joint_positions[-1]*-1

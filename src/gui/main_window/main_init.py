@@ -211,12 +211,12 @@ class MainInit:
         self.simulation_interface.setMinimumSize(QSize(0, 0))
         self.sim_layout.addWidget(self.simulation_interface)
 
-    def init_openbotv(self):
+    def init_openbotv(self, com: str):
         self.robot_controller = dataFlow(
             modes.SLIDERS, units.DEG, domains.PHYSICAL)
         self.robot_controller.start()
 
-        self.openbotv = robotWorker()
+        self.openbotv = robotWorker(com)
         self.openbotv.start()
 
     def center_window(self):

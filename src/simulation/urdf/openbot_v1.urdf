@@ -157,7 +157,7 @@
     <parent link="clamp_arm_link_1"/>
     <child link="clamp2_link_1"/>
     <axis xyz="0.022552 0.999728 -0.005939"/>
-    <limit effort="10" lower="0.0" upper="1.57" velocity="3"/>
+    <limit effort="10" lower="-0.66" upper="1.57" velocity="3"/>
   </joint>
   <joint name="arm2_arm3_joint" type="revolute">
     <origin rpy="0 0 0" xyz="-0.000619 -0.027137 0.093663"/>

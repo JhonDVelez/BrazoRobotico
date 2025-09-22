@@ -58,7 +58,9 @@ class PhysicsWorker(QThread):
         """ Actualizacion de la posicion de los motores del robot
         """
         target_positions = self.get_position_rad(
-            SlidersWidget.get_sliders_state())
+            [x-150 for x in SlidersWidget.get_sliders_state()])
+        
+        target_positions[-1] = target_positions[-1]*-1
         # Compara si la cantidad de posiciones ingresadas es igual a la cantidad de uniones del
         # robot
         if self._running:

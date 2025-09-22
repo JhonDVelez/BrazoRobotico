@@ -10,7 +10,7 @@ class SlidersWidget(QWidget):
     Args:
         QWidget (QWidget): Define que la clase es de tipo widget para pyqt
     """
-    sliders_status = [0, 0, 0, 0, 0, 0]
+    sliders_status = [150, 150, 150, 150, 150, 150]
     instance = None
 
     def __init__(self, parent):
@@ -43,16 +43,18 @@ class SlidersWidget(QWidget):
         self.container.addWidget(self.label, 0, 0)
 
         self.slider_1 = QSlider(Qt.Orientation.Horizontal, self.widget)
-        self.slider_1.setMinimum(-150)
-        self.slider_1.setMaximum(150)
+        self.slider_1.setMinimum(50)
+        self.slider_1.setMaximum(250)
+        self.slider_1.setValue(150)
         self.container.addWidget(self.slider_1, 0, 1)
 
         self.spin_box_1 = QSpinBox(self.widget)
         self.spin_box_1.setSizePolicy(QSizePolicy(
             QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
         self.spin_box_1.setMaximumSize(QSize(100, 16777215))
-        self.spin_box_1.setMinimum(-150)
-        self.spin_box_1.setMaximum(150)
+        self.spin_box_1.setMinimum(50)
+        self.spin_box_1.setMaximum(250)
+        self.spin_box_1.setValue(150)
         self.container.addWidget(self.spin_box_1, 0, 2)
 
         # θ2
@@ -60,16 +62,18 @@ class SlidersWidget(QWidget):
         self.container.addWidget(self.label_3, 1, 0)
 
         self.slider_2 = QSlider(Qt.Orientation.Horizontal, self.widget)
-        self.slider_2.setMinimum(-30)
-        self.slider_2.setMaximum(190)
+        self.slider_2.setMinimum(70)
+        self.slider_2.setMaximum(200)
+        self.slider_2.setValue(150)
         self.container.addWidget(self.slider_2, 1, 1)
 
         self.spin_box_2 = QSpinBox(self.widget)
         self.spin_box_2.setSizePolicy(QSizePolicy(
             QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
         self.spin_box_2.setMaximumSize(QSize(100, 16777215))
-        self.spin_box_2.setMinimum(-150)
-        self.spin_box_2.setMaximum(150)
+        self.spin_box_2.setMinimum(70)
+        self.spin_box_2.setMaximum(200)
+        self.spin_box_2.setValue(150)
         self.container.addWidget(self.spin_box_2, 1, 2)
 
         # θ3
@@ -77,16 +81,18 @@ class SlidersWidget(QWidget):
         self.container.addWidget(self.label_4, 2, 0)
 
         self.slider_3 = QSlider(Qt.Orientation.Horizontal, self.widget)
-        self.slider_3.setMinimum(-97)
-        self.slider_3.setMaximum(100)
+        self.slider_3.setMinimum(50)
+        self.slider_3.setMaximum(200)
+        self.slider_3.setValue(150)
         self.container.addWidget(self.slider_3, 2, 1)
 
         self.spin_box_3 = QSpinBox(self.widget)
         self.spin_box_3.setSizePolicy(QSizePolicy(
             QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
         self.spin_box_3.setMaximumSize(QSize(100, 16777215))
-        self.spin_box_3.setMinimum(-150)
-        self.spin_box_3.setMaximum(150)
+        self.spin_box_3.setMinimum(50)
+        self.spin_box_3.setMaximum(250)
+        self.spin_box_3.setValue(150)
         self.container.addWidget(self.spin_box_3, 2, 2)
 
         # θ4
@@ -94,16 +100,18 @@ class SlidersWidget(QWidget):
         self.container.addWidget(self.label_5, 3, 0)
 
         self.slider_4 = QSlider(Qt.Orientation.Horizontal, self.widget)
-        self.slider_4.setMinimum(-150)
-        self.slider_4.setMaximum(150)
+        self.slider_4.setMinimum(50)
+        self.slider_4.setMaximum(250)
+        self.slider_4.setValue(150)
         self.container.addWidget(self.slider_4, 3, 1)
 
         self.spin_box_4 = QSpinBox(self.widget)
         self.spin_box_4.setSizePolicy(QSizePolicy(
             QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
         self.spin_box_4.setMaximumSize(QSize(100, 16777215))
-        self.spin_box_4.setMinimum(-150)
-        self.spin_box_4.setMaximum(150)
+        self.spin_box_4.setMinimum(50)
+        self.spin_box_4.setMaximum(250)
+        self.spin_box_4.setValue(150)
         self.container.addWidget(self.spin_box_4, 3, 2)
 
         # θ5
@@ -111,16 +119,18 @@ class SlidersWidget(QWidget):
         self.container.addWidget(self.label_6, 4, 0)
 
         self.slider_5 = QSlider(Qt.Orientation.Horizontal, self.widget)
-        self.slider_5.setMinimum(-97)
-        self.slider_5.setMaximum(100)
+        self.slider_5.setMinimum(150)
+        self.slider_5.setMaximum(250)
+        self.slider_5.setValue(150)
         self.container.addWidget(self.slider_5, 4, 1)
 
         self.spin_box_5 = QSpinBox(self.widget)
         self.spin_box_5.setSizePolicy(QSizePolicy(
             QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
         self.spin_box_5.setMaximumSize(QSize(100, 16777215))
-        self.spin_box_5.setMinimum(-150)
-        self.spin_box_5.setMaximum(150)
+        self.spin_box_5.setMinimum(150)
+        self.spin_box_5.setMaximum(250)
+        self.spin_box_5.setValue(150)
         self.container.addWidget(self.spin_box_5, 4, 2)
 
         # θ6
@@ -128,16 +138,18 @@ class SlidersWidget(QWidget):
         self.container.addWidget(self.label_7, 5, 0)
 
         self.slider_6 = QSlider(Qt.Orientation.Horizontal, self.widget)
-        self.slider_6.setMinimum(0)
-        self.slider_6.setMaximum(142)
+        self.slider_6.setMinimum(38)
+        self.slider_6.setMaximum(171)
+        self.slider_6.setValue(150)
         self.container.addWidget(self.slider_6, 5, 1)
 
         self.spin_box_6 = QSpinBox(self.widget)
         self.spin_box_6.setSizePolicy(QSizePolicy(
             QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
         self.spin_box_6.setMaximumSize(QSize(100, 16777215))
-        self.spin_box_6.setMinimum(-150)
-        self.spin_box_6.setMaximum(150)
+        self.spin_box_6.setMinimum(38)
+        self.spin_box_6.setMaximum(171)
+        self.spin_box_6.setValue(150)
         self.container.addWidget(self.spin_box_6, 5, 2)
 
         # Añadir el primer widget al layout principal
@@ -227,12 +239,12 @@ class SlidersWidget(QWidget):
     def reset_values(self):
         """ Regresa a su estado original los valores de los slider/spinBox (estan conectados)
         """
-        self.spin_box_1.setValue(0)
-        self.spin_box_2.setValue(0)
-        self.spin_box_3.setValue(0)
-        self.spin_box_4.setValue(0)
-        self.spin_box_5.setValue(0)
-        self.spin_box_6.setValue(0)
+        self.spin_box_1.setValue(150)
+        self.spin_box_2.setValue(150)
+        self.spin_box_3.setValue(150)
+        self.spin_box_4.setValue(150)
+        self.spin_box_5.setValue(150)
+        self.spin_box_6.setValue(150)
 
     @classmethod
     def restart_sliders(cls):
@@ -250,33 +262,33 @@ class SlidersWidget(QWidget):
         return cls.sliders_status
 
     def set_pose_1(self):
-        self.spin_box_1.setValue(-70)
+        self.spin_box_1.setValue(60)
         self.spin_box_2.setValue(80)
         self.spin_box_3.setValue(40)
-        self.spin_box_4.setValue(-120)
-        self.spin_box_5.setValue(-60)
+        self.spin_box_4.setValue(120)
+        self.spin_box_5.setValue(170)
         self.spin_box_6.setValue(50)
 
     def set_pose_2(self):
-        self.spin_box_1.setValue(-70)
-        self.spin_box_2.setValue(60)
-        self.spin_box_3.setValue(-10)
-        self.spin_box_4.setValue(0)
-        self.spin_box_5.setValue(-20)
-        self.spin_box_6.setValue(20)
+        self.spin_box_1.setValue(100)
+        self.spin_box_2.setValue(90)
+        self.spin_box_3.setValue(160)
+        self.spin_box_4.setValue(150)
+        self.spin_box_5.setValue(160)
+        self.spin_box_6.setValue(38)
 
     def set_pose_3(self):
-        self.spin_box_1.setValue(20)
-        self.spin_box_2.setValue(60)
-        self.spin_box_3.setValue(10)
-        self.spin_box_4.setValue(0)
-        self.spin_box_5.setValue(50)
-        self.spin_box_6.setValue(20)
+        self.spin_box_1.setValue(60)
+        self.spin_box_2.setValue(80)
+        self.spin_box_3.setValue(40)
+        self.spin_box_4.setValue(120)
+        self.spin_box_5.setValue(170)
+        self.spin_box_6.setValue(50)
 
     def set_pose_4(self):
-        self.spin_box_1.setValue(20)
-        self.spin_box_2.setValue(50)
+        self.spin_box_1.setValue(60)
+        self.spin_box_2.setValue(80)
         self.spin_box_3.setValue(40)
-        self.spin_box_4.setValue(0)
-        self.spin_box_5.setValue(80)
-        self.spin_box_6.setValue(60)
+        self.spin_box_4.setValue(120)
+        self.spin_box_5.setValue(170)
+        self.spin_box_6.setValue(50)

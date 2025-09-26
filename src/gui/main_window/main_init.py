@@ -213,10 +213,14 @@ class MainInit:
 
     def init_openbotv(self, com: str):
         self.robot_controller = DataFlow(
-            modes.SLIDERS, units.DEG, domains.PHYSICAL)
+            modes.SLIDERS, units.DEG, domains.PHYSICAL
+        )
 
         self.openbotv = robotWorker(com)
+        self.openbotv.start()  # <- Esto sí lanza el run() en un hilo nuevo
+
         self.connect_action.setEnabled(False)
+
 
     def center_window(self):
         screen = QApplication.primaryScreen()

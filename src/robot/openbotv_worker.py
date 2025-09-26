@@ -23,12 +23,12 @@ class robotWorker(QThread):
 
     def send_data_to_robot(self, valorm):
         if all(x >= 0 and x <= 300 for x in valorm):
-            self.CM904.write(f"A{int(valorm[0]*(1023/300))}\n".encode())
-            self.CM904.write(f"B{int(valorm[1]*(1023/300))}\n".encode())
-            self.CM904.write(f"C{int(valorm[2]*(1023/300))}\n".encode())
-            self.CM904.write(f"D{int(valorm[3]*(1023/300))}\n".encode())
-            self.CM904.write(f"E{int(valorm[4]*(1023/300))}\n".encode())
-            self.CM904.write(f"F{int(valorm[5]*(1023/300))}\n".encode())
+            self.CM904.write(f"A{round(valorm[0]*(1023/300))}\n".encode())
+            self.CM904.write(f"B{round(valorm[1]*(1023/300))}\n".encode())
+            self.CM904.write(f"C{round(valorm[2]*(1023/300))}\n".encode())
+            self.CM904.write(f"D{round(valorm[3]*(1023/300))}\n".encode())
+            self.CM904.write(f"E{round(valorm[4]*(1023/300))}\n".encode())
+            self.CM904.write(f"F{round(valorm[5]*(1023/300))}\n".encode())
             time.sleep(0.02)
         else:
             print("Error de envio de datos: Valores fuera de rango")

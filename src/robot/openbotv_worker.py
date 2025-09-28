@@ -16,12 +16,10 @@ class robotWorker(QThread):
 
     def run(self):
         print("[DEBUG] robotWorker.run() iniciado con QTimer")
-
         # Crear un timer dentro del hilo
         self.timer = QTimer()
         self.timer.timeout.connect(self.request_data)
         self.timer.start(20)  # cada 20 ms → 50 Hz
-
         # Necesario para que el QTimer funcione dentro del QThread
         self.exec()
 
@@ -31,15 +29,24 @@ class robotWorker(QThread):
 
     def send_data_to_robot(self, valorm):
         if all(0 <= x <= 300 for x in valorm):
-            #print(f"[DEBUG] Enviando al serial: {valorm}")
-            self.CM904.write(f"A{round(valorm[0]*(1023/300))}\n".encode())
-            self.CM904.write(f"B{round(valorm[1]*(1023/300))}\n".encode())
-            self.CM904.write(f"C{round(valorm[2]*(1023/300))}\n".encode())
-            self.CM904.write(f"D{round(valorm[3]*(1023/300))}\n".encode())
-            self.CM904.write(f"E{round(valorm[4]*(1023/300))}\n".encode())
-            self.CM904.write(f"F{round(valorm[5]*(1023/300))}\n".encode())
+            self.comandos = [
+                f"A{round(valorm[0]*(1023/300))}\n",
+                f"B{round(valorm[1]*(1023/300))}\n",
+                f"C{round(valorm[2]*(1023/300))}\n",
+                f"D{round(valorm[3]*(1023/300))}\n",
+                f"E{round(valorm[4]*(1023/300))}\n",
+                f"F{round(valorm[5]*(1023/300))}\n",
+            ]
+            self._enviar_comando(0)  # empezar desde el primero
         else:
             print("Error de envío de datos: Valores fuera de rango")
+
+
+    def _enviar_comando(self, index):
+        if index < len(self.comandos):
+            self.CM904.write(self.comandos[index].encode())
+            # espera 5 ms y luego llama al siguiente
+            QTimer.singleShot(5, lambda: self._enviar_comando(index + 1))
 
     def get_data_from_interface(self, datos):
         #print(f"[RobotWorker] Recibido desde interfaz: {datos}")

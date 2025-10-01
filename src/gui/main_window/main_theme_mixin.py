@@ -1,4 +1,5 @@
-from PyQt6.QtCore import pyqtSignal, QObject
+from PyQt6.QtCore import pyqtSignal, QObject, Qt
+from PyQt6.QtWidgets import QApplication
 import qdarktheme
 import qdarktheme.dist
 import qdarktheme.dist.dark
@@ -8,25 +9,28 @@ import qdarktheme.dist.light.stylesheet
 from gui.main_window.theme_stylesheet import dark, light
 
 
-class MainTheme:
+class MainThemeMixin:
     theme_change = pyqtSignal(str)
+    actual_theme = None
 
-    def __init__(self):
-        self.dark_theme = True
+    def update_theme(self, scheme: Qt.ColorScheme):
+        """Se ejecuta cada vez que cambia el tema del sistema"""
+        if scheme == Qt.ColorScheme.Dark:
+            self.load_dark_theme()
+        elif scheme == Qt.ColorScheme.Light:
+            self.load_light_theme()
+        else:
+            print("Error: Tema desconocido")
 
     def toggle_theme_event(self):
-        if self.dark_theme:
+        if self.actual_theme == Qt.ColorScheme.Dark:
             self.theme_manager.emit_theme_change(False)
-            self.load_light_theme()
-            self.dark_theme = False
-            if hasattr(self, 'theme_menu'):
-                self.theme_menu.setIcon(self.moon_icon)
-        else:
+            self.actual_theme = Qt.ColorScheme.Light
+        elif self.actual_theme == Qt.ColorScheme.Light:
             self.theme_manager.emit_theme_change(True)
-            self.load_dark_theme()
-            self.dark_theme = True
-            if hasattr(self, 'theme_menu'):
-                self.theme_menu.setIcon(self.sun_icon)
+            self.actual_theme = Qt.ColorScheme.Dark
+
+        self.update_theme(self.actual_theme)
 
     def load_dark_theme(self):
         qdarktheme.dist.dark.stylesheet.STYLE_SHEET = dark.STYLE_SHEET

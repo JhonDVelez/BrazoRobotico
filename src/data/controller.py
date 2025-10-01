@@ -28,7 +28,7 @@ class DataFlow(QThread):
         elif self.domain is domains.PHYSICAL:
             self.signal_manager = PhysicalSignalManager.get_instance()
             self.signal_manager.get_data_signal.connect(
-            self.request_data_from_interface)
+                self.request_data_from_interface)
             # self.signal_manager.send_to_robot.connect(
             # self.signal_manager.send_data_to_robot)
         else:
@@ -42,10 +42,9 @@ class DataFlow(QThread):
                 self.signal_manager.update_pybullet_signal.emit(
                     self.__get_sliders_data())
             elif self.domain is domains.PHYSICAL:
-                #print("[DEBUG] Emitiendo send_to_robot con:", self.__get_sliders_data())
                 self.signal_manager.send_to_robot.emit(
                     self.__get_sliders_data())
-                
+
     def __get_sliders_data(self):
         if self.units is units.DEG:
             return SlidersWidget.get_sliders_state()
@@ -61,7 +60,7 @@ class DataFlow(QThread):
         Args:
             actual_positions (list): Posiciones actuales de los motores del robot de pybullet
         """
-        self.signal_manager.update_robot_signal.emit(
+        self.signal_manager.update_model_signal.emit(
             control_utils.rad_to_deg(actual_positions))
 
     def set_mode(self, mode: modes):

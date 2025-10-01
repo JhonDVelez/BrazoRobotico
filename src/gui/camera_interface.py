@@ -1,12 +1,13 @@
 import os
-from PyQt6.QtWidgets import QWidget, QSizePolicy, QVBoxLayout, QLabel, QPushButton
+from PyQt6.QtWidgets import QSizePolicy, QVBoxLayout, QLabel, QPushButton
 from PyQt6.QtCore import Qt, QSize, QRect
-from PyQt6.QtGui import QResizeEvent, QPixmap, QIcon
+from PyQt6.QtGui import QPixmap, QIcon
 from gui.camera_worker import VideoWorker
-from gui.main_window.main_theme import ThemeManager
+from gui.main_window.main_theme_mixin import ThemeManager
+from gui.main_window.image_utils_mixin import ImageUtilsMixin
 
 
-class videoInterface(QWidget):
+class CameraInterface(ImageUtilsMixin):
     """ Manejo del widged de video que muestra las imagenes de la camara en un label de la interfaz
 
     Args:
@@ -17,7 +18,7 @@ class videoInterface(QWidget):
         super().__init__(parent)
         self.parent = parent
         self.video_worker = None
-        self.video_active = False
+        self.process_running = False
         self.app_running = None
         self.theme_manager = ThemeManager.get_instance()
         self.__setup_ui()
@@ -42,48 +43,49 @@ class videoInterface(QWidget):
         self.setWindowTitle("Form")
 
         # Main layout
-        self.mainLayout = QVBoxLayout(self)
-        self.mainLayout.setObjectName("mainLayout")
-        self.mainLayout.setContentsMargins(0, 0, 0, 0)
-        self.mainLayout.setSpacing(0)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setObjectName("mainLayout")
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
 
         # QLabel (videoLabel)
-        self.videoLabel = QLabel(self)
-        self.videoLabel.setObjectName("videoLabel")
+        self.image_label = QLabel(self)
+        self.image_label.setObjectName("videoLabel")
         sizePolicy = QSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        self.videoLabel.setSizePolicy(sizePolicy)
-        self.videoLabel.setMinimumSize(QSize(160, 120))
-        self.videoLabel.setText("")
-        self.videoLabel.setScaledContents(True)
-        self.videoLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_label.setSizePolicy(sizePolicy)
+        self.image_label.setMinimumSize(QSize(160, 120))
+        self.image_label.setText("")
+        self.image_label.setScaledContents(True)
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.mainLayout.addWidget(self.videoLabel)
+        self.main_layout.addWidget(self.image_label)
 
         # QPushButton (videoButton) -> posición absoluta
-        self.videoButton = QPushButton(self)
-        self.videoButton.setObjectName("videoButton")
-        self.videoButton.setGeometry(QRect(10, 10, 50, 30))
-        self.videoButton.setToolTip("Toggle Camera")
-        self.videoButton.setText("")
+        self.video_button = QPushButton(self)
+        self.video_button.setObjectName("videoButton")
+        self.video_button.setGeometry(QRect(10, 10, 50, 30))
+        self.video_button.setToolTip("Toggle Camera")
+        self.video_button.setText("")
         self.setSizePolicy(QSizePolicy.Policy.Expanding,
                            QSizePolicy.Policy.Expanding)
         self.setMinimumSize(160, 120)
 
-        self.videoLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.videoLabel.setScaledContents(False)
-        self.videoLabel.setSizePolicy(
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_label.setScaledContents(False)
+        self.image_label.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
-        self.videoButton.setIcon(QIcon(os.path.join(
+        self.video_button.setIcon(QIcon(os.path.join(
             os.path.dirname(__file__), 'icons', 'camera.png')))
-        self.videoButton.setIconSize(QSize(25, 25))
-        self.videoButton.setStyleSheet(
+        self.video_button.setIconSize(QSize(25, 25))
+        self.video_button.setStyleSheet(
             "background-color: white;")
-        self.videoButton.setFixedSize(30, 30)
-        self.videoButton.raise_()
+        self.video_button.setFixedSize(30, 30)
+        self.video_button.raise_()
+
         self.image_path_r = os.path.join(os.path.dirname(
             __file__), "img", 'camera_r.png')
         self.image_path_b = os.path.join(os.path.dirname(
@@ -93,43 +95,8 @@ class videoInterface(QWidget):
     def __setup_connections(self):
         """Configura las conexiones de eventos
         """
-        if hasattr(self, 'videoButton'):
-            self.videoButton.clicked.connect(self.toggle_video)
+        self.video_button.clicked.connect(self.toggle_video)
         self.theme_manager.theme_changed.connect(self.toggle_theme)
-
-    def set_video_pixmap(self, pixmap: QPixmap):
-        """ Método para establecer el pixmap del video en el label reescalado si es necesario.
-
-        Args:
-            pixmap (QPixmap): El pixmap del video a mostrar
-        """
-        if pixmap and not pixmap.isNull():
-            # Escalar solo si es necesario
-            label_size = self.videoLabel.size()
-            if pixmap.size() != label_size:
-                scaled_pixmap = pixmap.scaled(
-                    label_size,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.FastTransformation
-                )
-                self.videoLabel.setPixmap(scaled_pixmap)
-            else:
-                self.videoLabel.setPixmap(pixmap)
-        else:
-            self.videoLabel.clear()
-
-    def load_image(self):
-        """ Carga una imagen desde la raiz del proyecto y la establece como pixmap en el label.
-
-        Args:
-            image_path (str): Ruta de la imagen a cargar
-        """
-
-        if not self.pixmap.isNull():
-            self.set_video_pixmap(self.pixmap)
-        else:
-            print(
-                f"Error: No se pudo cargar la imagen desde {self.image_path_r}")
 
     def on_frame_ready(self, pixmap: QPixmap):
         """ Slot para manejar el frame listo del worker thread.
@@ -137,8 +104,8 @@ class videoInterface(QWidget):
         Args:
             pixmap (QPixmap): El pixmap del frame de video listo
         """
-        if self.video_active:
-            self.set_video_pixmap(pixmap)
+        if self.process_running:
+            self.set_pixmap(pixmap)
 
     def on_video_error(self, error_message):
         """ Maneja errores del worker thread de video.
@@ -165,7 +132,7 @@ class videoInterface(QWidget):
 
             # Iniciar el hilo
             self.video_worker.start()
-            self.video_active = True
+            self.process_running = True
 
         except (RuntimeError, OSError) as e:
             print(f"Error al iniciar video: {e}")
@@ -174,7 +141,7 @@ class videoInterface(QWidget):
     def stop_video(self):
         """ Detiene la captura de video
         """
-        self.video_active = False
+        self.process_running = False
 
         if self.video_worker is not None:
             try:
@@ -204,40 +171,13 @@ class videoInterface(QWidget):
         if self.video_worker is not None:
             self.video_worker.resume()
 
-    def resizeEvent(self, event: QResizeEvent):
-        """ Maneja el evento de redimensionamiento del widget.
-
-        Args:
-            event (QResizeEvent): Evento de redimensionamiento
-        """
-        super().resizeEvent(event)
-
-        # Reescalar imagen actual si existe (de forma optimizada)
-
-        if not self.video_active:
-            self.load_image()
-
-    def showEvent(self, event):
-        """Se ejecuta cuando el widget se vuelve visible"""
-        super().showEvent(event)
-        self.load_image()
-
     def toggle_video(self):
         """ Alterna el estado de la captura de video.
         """
-        if not self.parent.cameraBox.isVisible() or not self.videoLabel.isEnabled():
+        if not self.parent.cameraBox.isVisible() or not self.image_label.isEnabled():
             return
 
-        if self.video_active:
+        if self.process_running:
             self.stop_video()
         else:
             self.start_video()
-
-    def toggle_theme(self, dark_t):
-        """ Alterna el estado de la captura de video.
-        """
-        if dark_t:
-            self.pixmap = QPixmap(self.image_path_r)
-        else:
-            self.pixmap = QPixmap(self.image_path_b)
-        self.load_image()

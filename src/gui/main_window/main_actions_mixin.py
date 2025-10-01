@@ -1,7 +1,7 @@
 from gui.sliders_interface import SlidersWidget
 
 
-class MainActions:
+class MainActionsMixin:
     def __init__(self):
         self.hab_simulation = None
 
@@ -22,7 +22,8 @@ class MainActions:
         if self.camera_paused:
             self.camera_interface.resume_video()
 
-        self.camera_interface.videoButton.show()
+        self.camera_interface.video_button.show()
+        self.camera_interface.video_button.raise_()
         self.simulation_action.setEnabled(False)
         self.com_submenu.setEnabled(True)
 
@@ -58,7 +59,7 @@ class MainActions:
         self.model_action.setEnabled(True)
 
         self.camera_interface.stop_video()
-        self.camera_interface.videoButton.hide()
+        self.camera_interface.video_button.hide()
 
         self.stop_button.hide()
         self.pause_button.hide()

@@ -1,14 +1,17 @@
 import os
-from PyQt6.QtWidgets import QVBoxLayout, QWidget, QLabel, QSizePolicy
-from PyQt6.QtCore import QUrl, Qt, QSize
-from PyQt6.QtQuickWidgets import QQuickWidget
+from PyQt6.QtWidgets import QVBoxLayout, QLabel, QSizePolicy
+from PyQt6.QtCore import Qt
 from PyQt6.QtQuick import QQuickView
-from PyQt6.QtGui import QResizeEvent, QPixmap
+from PyQt6.QtGui import QPixmap
 from gui.simulation_worker import SimWorker
-from gui.main_window.main_theme import ThemeManager
+from gui.main_window.main_theme_mixin import ThemeManager
+from gui.main_window.image_utils_mixin import ImageUtilsMixin
+from simulation.physics_worker import PhysicsWorker
+from data.control_utils import units, modes, domains
+from data.controller import DataFlow
 
 
-class SimInterface(QWidget):
+class SimInterface(ImageUtilsMixin):
     """ Clase encargada del modelo 3d usando contenedor completamente precargado
     """
 
@@ -17,8 +20,8 @@ class SimInterface(QWidget):
         self.preloaded_container = preloaded_container  # Contenedor completo precargado
         self.robot_id = robot_id
         self.parent = parent
-        self.physics_worker = None
-        self.simulation_running = False
+        self.sim_worker = None
+        self.process_running = False
         self.quick_view = None
         self.window_container = None
 
@@ -39,25 +42,27 @@ class SimInterface(QWidget):
         self.setMinimumSize(160, 120)
 
         # Configurar imagen estática
-        self._setup_static_image()
+        self.__setup_static_image()
 
         # Integrar contenedor precargado
         self.__integrate_preloaded_container()
 
-    def _setup_static_image(self):
+        self.__setup_controller()
+
+    def __setup_static_image(self):
         """Configura la imagen estática que se muestra cuando no hay simulación"""
         self.image_path_r = os.path.join(os.path.dirname(
             __file__), "img", 'robotArm_r.png')
         self.image_path_b = os.path.join(os.path.dirname(
             __file__), "img", 'robotArm_b.png')
         self.pixmap = QPixmap(self.image_path_r)
-        self.label = QLabel()
-        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.label.setSizePolicy(
+        self.image_label = QLabel()
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_label.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.label.setMinimumSize(160, 120)
-        self.layout().addWidget(self.label)
-        self.set_label_pixmap(self.pixmap)
+        self.image_label.setMinimumSize(160, 120)
+        self.layout().addWidget(self.image_label)
+        self.load_image()
         self.theme_manager = ThemeManager.get_instance()
         self.theme_manager.theme_changed.connect(self.toggle_theme)
 
@@ -91,10 +96,20 @@ class SimInterface(QWidget):
             # Inicializar worker de física
             root_object = self.quick_view.rootObject()
             if root_object:
-                self.physics_worker = SimWorker(root_object, self.robot_id)
+                self.sim_worker = SimWorker(root_object, self.robot_id)
+                self.sim_worker.start()
 
         except Exception as e:
             print(f"Error integrando contenedor precargado: {e}")
+
+    def __setup_controller(self):
+        self.physics_worker = PhysicsWorker(self.robot_id)
+        self.physics_worker.set_max_velocity(1.2)
+        self.physics_worker.start()
+
+        self.controller = DataFlow(
+            modes.SLIDERS, units.RAD, domains.SIMULATION)
+        self.controller.start()
 
     def start_simulation(self):
         """Inicia la simulación con recursos ya precargados - INSTANTÁNEO"""
@@ -103,96 +118,55 @@ class SimInterface(QWidget):
             return
 
         try:
-            self.label.hide()
+            self.image_label.hide()
             self.window_container.show()
             self.quick_view.show()
             self.quick_view.update()
 
-            if self.physics_worker:
-                if not self.physics_worker.isRunning():
-                    self.physics_worker.start()
-                self.physics_worker.start_simulation()
+            if self.sim_worker:
+                if not self.sim_worker.isRunning():
+                    self.sim_worker.start()
+                self.sim_worker.start()
 
-            self.simulation_running = True
+            self.process_running = True
         except Exception as e:
             print(f"Error iniciando simulación: {e}")
 
     def pause_simulation(self):
         """Pausa la simulación"""
-        if self.physics_worker:
-            self.physics_worker.pause_simulation()
+        if self.sim_worker:
+            self.sim_worker.pause_simulation()
 
     def stop_simulation(self):
         """Para la simulación"""
-        self.simulation_running = False
+        self.process_running = False
 
-        if self.physics_worker:
-            self.physics_worker.stop_simulation()
+        if self.sim_worker:
+            self.sim_worker.stop_simulation()
 
         if self.window_container:
             self.window_container.hide()
         if self.quick_view:
             self.quick_view.hide()
 
-        self.label.show()
-
-    def set_label_pixmap(self, pixmap: QPixmap):
-        """Establece el pixmap de la imagen estática"""
-        if pixmap and not pixmap.isNull():
-            label_size = self.label.size()
-            if label_size.width() > 0 and label_size.height() > 0:
-                if pixmap.size() != label_size:
-                    scaled_pixmap = pixmap.scaled(
-                        label_size,
-                        Qt.AspectRatioMode.KeepAspectRatio,
-                        Qt.TransformationMode.FastTransformation
-                    )
-                    self.label.setPixmap(scaled_pixmap)
-                else:
-                    self.label.setPixmap(pixmap)
-            else:
-                self.label.setPixmap(pixmap)
-        else:
-            self.label.clear()
-
-    def resizeEvent(self, event: QResizeEvent):
-        """Maneja el redimensionamiento"""
-        super().resizeEvent(event)
-
-        # Actualizar imagen estática
-        if self.label.isVisible() and hasattr(self, 'pixmap'):
-            self.set_label_pixmap(self.pixmap)
-
-        # Actualizar vista 3D solo si está visible
-        if (self.quick_view and self.window_container and
-                self.window_container.isVisible()):
-            self.quick_view.update()
+        self.image_label.show()
 
     def closeEvent(self, event):
         """Limpieza al cerrar"""
-        if self.simulation_running:
+        if self.process_running:
             self.stop_simulation()
-        if self.physics_worker:
+        if self.sim_worker:
             try:
-                self.physics_worker.stop_simulation()
-                if self.physics_worker.isRunning():
-                    self.physics_worker.quit()
-                    self.physics_worker.wait(2000)
+                self.sim_worker.stop_simulation()
+                if self.sim_worker.isRunning():
+                    self.sim_worker.quit()
+                    self.sim_worker.wait(2000)
             except Exception as e:
                 print(f"Error cerrando worker: {e}")
-            self.physics_worker = None
+            self.sim_worker = None
 
         self.window_container = None
         self.quick_view = None
         self.preloaded_container = None
 
         super().closeEvent(event)
-
-    def toggle_theme(self, dark_t):
-        """ Alterna el tema de la imagen estática
-        """
-        if dark_t:
-            self.pixmap = QPixmap(self.image_path_r)
-        else:
-            self.pixmap = QPixmap(self.image_path_b)
-        self.set_label_pixmap(self.pixmap)

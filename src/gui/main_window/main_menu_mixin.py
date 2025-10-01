@@ -7,7 +7,7 @@ from robot.openbotv_worker import robotWorker
 from data.controller import DataFlow
 
 
-class MainMenu:
+class MainMenuMixin:
     def __init__(self):
         self.robot_controller = None
         self.openbotv = None

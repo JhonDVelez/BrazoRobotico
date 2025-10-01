@@ -29,6 +29,7 @@ class SimulationSignalManager(SignalManager):
     """ SignalManager específico para simulacion
     """
     update_pybullet_signal = pyqtSignal(list)
+    update_model_signal = pyqtSignal(list)
 
     _instance = None
 

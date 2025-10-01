@@ -157,21 +157,21 @@
     <parent link="clamp_arm_link_1"/>
     <child link="clamp2_link_1"/>
     <axis xyz="0.022552 0.999728 -0.005939"/>
-    <limit effort="10" lower="-0.66" upper="1.57" velocity="3"/>
+    <limit effort="10" lower="-2.617" upper="2.617" velocity="3"/>
   </joint>
   <joint name="arm2_arm3_joint" type="revolute">
     <origin rpy="0 0 0" xyz="-0.000619 -0.027137 0.093663"/>
     <parent link="arm2_link_1"/>
     <child link="arm3_link_1"/>
     <axis xyz="0.022552 0.999728 -0.005939"/>
-    <limit effort="10" lower="-2.09" upper="2.09" velocity="3"/>
+    <limit effort="10" lower="-2.617" upper="2.617" velocity="3"/>
   </joint>
   <joint name="arm1_arm2_joint" type="revolute">
     <origin rpy="0 0 0" xyz="0.000325 0.01449 0.032614"/>
     <parent link="arm1_link_1"/>
     <child link="arm2_link_1"/>
     <axis xyz="0.022552 0.999728 -0.005939"/>
-    <limit effort="10" lower="-1.6" upper="1.6" velocity="3"/>
+    <limit effort="10" lower="-2.617" upper="2.617" velocity="3"/>
   </joint>
   <joint name="base_arm1_joint" type="revolute">
     <origin rpy="0 0 0" xyz="8e-06 -0.001272 0.12251"/>
@@ -185,7 +185,7 @@
     <parent link="arm4_link_1"/>
     <child link="clamp_arm_link_1"/>
     <axis xyz="0.022552 0.999728 -0.005939"/>
-    <limit effort="10" lower="-2.61" upper="1.57" velocity="3"/>
+    <limit effort="10" lower="-2.617" upper="2.617" velocity="3"/>
   </joint>
   <joint name="arm3_arm4_joint" type="revolute">
     <origin rpy="0 0 0" xyz="0.002053 0.013858 0.08434"/>

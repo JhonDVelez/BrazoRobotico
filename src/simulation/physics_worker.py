@@ -1,4 +1,3 @@
-import numpy as np
 from PyQt6.QtCore import QThread, QTimer, pyqtSignal, pyqtSlot
 from simulation.physics_pybullet import RobotArmPhysics
 from data.control_utils import SimulationSignalManager
@@ -73,7 +72,8 @@ class PhysicsWorker(QThread):
         """
         # Compara si la cantidad de posiciones ingresadas es igual a la cantidad de uniones del
         # robot
-        target_positions = [pos - 2.6179938779914944 for pos in target_positions]
+        target_positions = [
+            pos - 2.6179938779914944 for pos in target_positions]
         if self._running:
             if len(target_positions) == len(self.physic.joint_indices):
                 actual_positions = self.physic.get_joint_positions()

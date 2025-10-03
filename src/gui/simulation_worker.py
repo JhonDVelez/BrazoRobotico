@@ -29,7 +29,7 @@ class SimWorker(QThread):
             "z"]
 
         self.signal_manager = SimulationSignalManager.get_instance()
-        self.signal_manager.update_model_signal.connect(self.update_simulation)
+        self.signal_manager.update_robot_signal.connect(self.update_simulation)
 
     @pyqtSlot(list)
     def update_simulation(self, joint_positions=None):

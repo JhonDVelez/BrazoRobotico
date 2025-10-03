@@ -51,17 +51,15 @@ class DataFlow(QThread):
         if self.units is units.RAD:
             return control_utils.deg_to_rad(SlidersWidget.get_sliders_state())
 
-    def update_graph(self):
-        pass  # Enviar datos a los graficos
-
     def update_simulation(self, actual_positions):
         """ Envia los datos al modelo 3D de QtQuick los cuales deben estar en grados
 
         Args:
             actual_positions (list): Posiciones actuales de los motores del robot de pybullet
         """
-        self.signal_manager.update_model_signal.emit(
-            control_utils.rad_to_deg(actual_positions))
+        pos = control_utils.rad_to_deg(actual_positions)
+        self.signal_manager.update_robot_signal.emit(pos)
+        self.signal_manager.update_graph_signal.emit(pos)
 
     def set_mode(self, mode: modes):
         """ Permite redefinir el modo de ejecucion, es decir, cambiar la fuente de los datos 

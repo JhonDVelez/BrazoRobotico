@@ -68,12 +68,12 @@ class MainInitMixin:
         self.cameraBox = QGroupBox(parent=self.visualSplitter)
         self.cameraBox.setTitle("")
         self.cameraBox.setObjectName("cameraBox")
-        # ---- Graphs Box ----
+
         self.graphsBox = QGroupBox(parent=self.contentSplitter)
         self.graphsBox.setTitle("")
         self.graphsBox.setObjectName("graphsBox")
+        self.graphsBox.setContentsMargins(0, 0, 0, 0)
 
-        # ---- Controls Box ----
         self.controlsBox = QGroupBox(parent=self.contentSplitter)
         self.controlsBox.setTitle("")
         self.controlsBox.setAlignment(
@@ -223,13 +223,13 @@ class MainInitMixin:
         self.connect_action.setEnabled(False)
 
     def init_graphics(self):
-        graph_widget = graphInterface(domains.SIMULATION)
+        self.sim_graph_interface = graphInterface(domains.SIMULATION)
         if not self.graphsBox.layout():
             self.graph_layout = QVBoxLayout(self.graphsBox)
             self.graph_layout.setContentsMargins(0, 0, 0, 0)
             self.graphsBox.setLayout(self.graph_layout)
 
-        self.graph_layout.addWidget(graph_widget)
+        self.graph_layout.addWidget(self.sim_graph_interface)
 
     def center_window(self):
         screen = QApplication.primaryScreen()

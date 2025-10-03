@@ -23,13 +23,13 @@ class SignalManager(QObject):
     get_data_signal = pyqtSignal()
     actual_position_signal = pyqtSignal(list)
     update_robot_signal = pyqtSignal(list)
+    update_graph_signal = pyqtSignal(list)
 
 
 class SimulationSignalManager(SignalManager):
     """ SignalManager específico para simulacion
     """
     update_pybullet_signal = pyqtSignal(list)
-    update_model_signal = pyqtSignal(list)
 
     _instance = None
 

@@ -31,6 +31,9 @@ class MainActionsMixin:
             self.robot_controller.start()
             self.openbotv.start()
 
+        self.sim_graph_interface.image_label.hide()
+        self.sim_graph_interface.graph_widget.show()
+
         self.stop_button.show()
         self.pause_button.show()
         self.start_button.hide()

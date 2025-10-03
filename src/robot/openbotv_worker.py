@@ -5,6 +5,7 @@ import time
 
 from PyQt6.QtCore import QThread, QTimer
 
+
 class robotWorker(QThread):
     def __init__(self, com: str):
         super().__init__()
@@ -15,8 +16,6 @@ class robotWorker(QThread):
         self.signal_manager.send_to_robot.connect(self.get_data_from_interface)
 
     def run(self):
-        print("[DEBUG] robotWorker.run() iniciado con QTimer")
-
         # Crear un timer dentro del hilo
         self.timer = QTimer()
         self.timer.timeout.connect(self.request_data)
@@ -26,12 +25,12 @@ class robotWorker(QThread):
         self.exec()
 
     def request_data(self):
-        #print("[DEBUG] Emitiendo get_data_signal")
+        # print("[DEBUG] Emitiendo get_data_signal")
         self.signal_manager.get_data_signal.emit()
 
     def send_data_to_robot(self, valorm):
         if all(0 <= x <= 300 for x in valorm):
-            #print(f"[DEBUG] Enviando al serial: {valorm}")
+            # print(f"[DEBUG] Enviando al serial: {valorm}")
             self.CM904.write(f"A{round(valorm[0]*(1023/300))}\n".encode())
             self.CM904.write(f"B{round(valorm[1]*(1023/300))}\n".encode())
             self.CM904.write(f"C{round(valorm[2]*(1023/300))}\n".encode())
@@ -42,7 +41,7 @@ class robotWorker(QThread):
             print("Error de envío de datos: Valores fuera de rango")
 
     def get_data_from_interface(self, datos):
-        #print(f"[RobotWorker] Recibido desde interfaz: {datos}")
+        # print(f"[RobotWorker] Recibido desde interfaz: {datos}")
         self.send_data_to_robot(datos)
 
     def stop(self):
@@ -50,5 +49,3 @@ class robotWorker(QThread):
             self.timer.stop()
         self.quit()
         self.wait()
-
-

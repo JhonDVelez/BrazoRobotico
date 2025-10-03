@@ -1,5 +1,3 @@
-"""Importa las librerias y modulos necesarios
-"""
 import os
 import sys
 import time

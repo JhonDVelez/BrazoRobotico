@@ -5,6 +5,7 @@ import time
 
 from PyQt6.QtCore import QThread, QTimer
 
+
 class robotWorker(QThread):
     def __init__(self, com: str):
         super().__init__()
@@ -24,7 +25,7 @@ class robotWorker(QThread):
         self.exec()
 
     def request_data(self):
-        #print("[DEBUG] Emitiendo get_data_signal")
+        # print("[DEBUG] Emitiendo get_data_signal")
         self.signal_manager.get_data_signal.emit()
 
     def send_data_to_robot(self, valorm):
@@ -49,7 +50,7 @@ class robotWorker(QThread):
             QTimer.singleShot(5, lambda: self._enviar_comando(index + 1))
 
     def get_data_from_interface(self, datos):
-        #print(f"[RobotWorker] Recibido desde interfaz: {datos}")
+        # print(f"[RobotWorker] Recibido desde interfaz: {datos}")
         self.send_data_to_robot(datos)
 
     def stop(self):
@@ -57,5 +58,3 @@ class robotWorker(QThread):
             self.timer.stop()
         self.quit()
         self.wait()
-
-

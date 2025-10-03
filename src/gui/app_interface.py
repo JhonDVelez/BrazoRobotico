@@ -1,20 +1,24 @@
+import os
 from ctypes import wintypes
 from qframelesswindow import FramelessMainWindow
-from PyQt6.QtWidgets import QMessageBox, QVBoxLayout, QWidget, QLabel
+from PyQt6.QtWidgets import QMessageBox, QVBoxLayout, QWidget, QLabel, QApplication
 from PyQt6.QtCore import QAbstractNativeEventFilter, QCoreApplication, QTimer
-from gui.main_window.main_init import MainInit
-from gui.main_window.main_actions import MainActions
-from gui.main_window.main_menu import MainMenu
-from gui.main_window.main_theme import MainTheme, ThemeManager
-from gui.main_window.main_title_bar import MainTitleBar
+from gui.main_window.main_init_mixin import MainInitMixin
+from gui.main_window.main_actions_mixin import MainActionsMixin
+from gui.main_window.main_menu_mixin import MainMenuMixin
+from gui.main_window.main_theme_mixin import MainThemeMixin, ThemeManager
+from gui.main_window.main_title_bar_mixin import MainTitleBarMixin
 
 WM_DEVICECHANGE = 0x0219
 DBT_DEVICEARRIVAL = 0x8000
 DBT_DEVICEREMOVECOMPLETE = 0x8004
+os.environ["QT_LOGGING_RULES"] = "qt.qpa.window=false"
 
 
-class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTheme):
-    """ Ventana principal de la interfaz """
+class MainInterface(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuMixin,
+                    MainThemeMixin):
+    """ Ventana principal de la interfaz 
+    """
 
     def __init__(self, quick3d, robot_id):
         super().__init__()
@@ -36,14 +40,13 @@ class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTh
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # ---- Barra de título
+        # Barra de título
         self.create_menu()
-        self.title_bar = MainTitleBar(self)
+        self.title_bar = MainTitleBarMixin(self)
         # necesario para arrastrar/min/max
         self.setTitleBar(self.title_bar)
         layout.addWidget(self.title_bar)
 
-        # ---- Contenido
         self.central_widget = QWidget()
         self.setup_ui(self.central_widget)
         layout.addWidget(self.central_widget)
@@ -52,8 +55,15 @@ class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTh
         self.init_camera()
         self.init_controls()
         self.init_simulation()
+        self.init_graphics()
         self.setup_connections()
-        self.load_dark_theme()
+
+        # Carga tema dependiendo de la configuracion de tema de windows
+        self.actual_theme = QApplication.instance().styleHints().colorScheme()
+        self.update_theme(self.actual_theme)
+
+        # Conectar señal al cambio de tema
+        QApplication.instance().styleHints().colorSchemeChanged.connect(self.update_theme)
 
         # ahora el central widget real es el contenedor con barra + contenido
         self.setCentralWidget(container)
@@ -113,11 +123,18 @@ class MainInterface(FramelessMainWindow, MainInit, MainActions, MainMenu, MainTh
 
 
 class DeviceEventFilter(QAbstractNativeEventFilter):
+    """ Clase que permite el uso de los eventos de ventana nativa de windows con barra de titulo 
+        personalizada
+    """
+
     def __init__(self, callback):
         super().__init__()
         self.callback = callback
 
     def nativeEventFilter(self, eventType, message):
+        """ Sobreescritura del metodo de manejo de eventos de ventana para barra de titulo 
+            personalizada
+        """
         msg = wintypes.MSG.from_address(message.__int__())
         if msg.message == WM_DEVICECHANGE and msg.wParam in (DBT_DEVICEARRIVAL, DBT_DEVICEREMOVECOMPLETE):
             QTimer.singleShot(0, self.callback)

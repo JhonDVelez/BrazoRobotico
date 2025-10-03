@@ -42,7 +42,7 @@ class RobotArmPhysics(QWidget):
                 p.getJointState(self.robot_id, 5)[0],
                 p.getJointState(self.robot_id, 6)[0]]
 
-    def set_joint_positions(self, positions, max_velocity=0.5):
+    def set_joint_positions(self, positions, max_velocity=1.2):
         """ Establece las posiciones objetivo de las articulaciones
         """
         if self.robot_id is None or len(positions) != len(self.joint_indices):

@@ -1,13 +1,12 @@
 from PyQt6.QtCore import QThread, pyqtSignal, QObject
 from PyQt6.QtGui import QVector3D
-from simulation.physics_worker import PhysicsWorker
+from qdarktheme.qtpy.QtCore import pyqtSlot
+from data.control_utils import SimulationSignalManager
 
 
 class SimWorker(QThread):
     """Worker thread para manejar gui del pybullet e incrustarla en la interfaz de pyqt
     """
-
-    pybullet_window = pyqtSignal(int)
 
     def __init__(self, root_object, robot_id):
         super().__init__()
@@ -27,17 +26,23 @@ class SimWorker(QThread):
             "z",
             "y",
             "z",
-            "z"
-        ]
+            "z"]
 
-        self.worker = PhysicsWorker(robot_id)
-        self.worker.set_max_velocity(1.2)
-        self.worker.update_model.connect(self.update_simulation)
-        # clamp = self.root_object.findChild(QObject, self.joint_names[-1])
-        # clamp.setProperty("eulerRotation", QVector3D(0, 0, -21))
+        self.signal_manager = SimulationSignalManager.get_instance()
+        self.signal_manager.update_robot_signal.connect(self.update_simulation)
 
-    def update_simulation(self, joint_positions=[0, 0, 0, 0, 0]):
-        joint_positions[-1] = joint_positions[-1]*-1
+    @pyqtSlot(list)
+    def update_simulation(self, joint_positions=None):
+        """ Actualiza el modelo 3D de qtquick
+
+        Args:
+            joint_positions (list, optional): Posicion actual de los motores en la simulaicon. 
+                                              Defaults to None.
+        """
+        if joint_positions is None:
+            joint_positions = [0, 0, 0, 0, 0, 0]
+        for i in (1, 2):
+            joint_positions[i] *= -1
         for motor_name, angle, direction in zip(self.joint_names,
                                                 joint_positions,
                                                 self.direction_rotation):
@@ -46,20 +51,3 @@ class SimWorker(QThread):
                 motor.setProperty("eulerRotation", QVector3D(0, 0, angle))
             elif direction == "y":
                 motor.setProperty("eulerRotation", QVector3D(0, angle, 0))
-
-    def start_simulation(self):
-        """ Da inicio a la ejecucion de la simulacion o la vuelve a poner en curso si fue pausada
-        """
-        self.worker.start()
-
-    def pause_simulation(self):
-        """ Detiene el ciclo de procesamiento del hilo pausando la ejecucion de la simulacion
-        """
-        self.worker.pause()
-        self.worker.wait()
-
-    def stop_simulation(self):
-        """ Detiene el ciclo de procesamiento del hilo pausando la ejecucion de la simulacion
-        """
-        self.worker.wait()
-        self.worker.stop()

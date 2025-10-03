@@ -5,13 +5,14 @@ from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QSize, Qt, QRect
 from data.control_utils import modes, units, domains
 from data.controller import DataFlow
-from gui.camera_interface import videoInterface
+from gui.camera_interface import CameraInterface
 from gui.sliders_interface import SlidersWidget
 from gui.simulation_interface import SimInterface
+from gui.graph_interface import graphInterface
 from robot.openbotv_worker import robotWorker
 
 
-class MainInit:
+class MainInitMixin:
 
     def setup_ui(self, main_widget):
         """
@@ -67,12 +68,12 @@ class MainInit:
         self.cameraBox = QGroupBox(parent=self.visualSplitter)
         self.cameraBox.setTitle("")
         self.cameraBox.setObjectName("cameraBox")
-        # ---- Graphs Box ----
+
         self.graphsBox = QGroupBox(parent=self.contentSplitter)
         self.graphsBox.setTitle("")
         self.graphsBox.setObjectName("graphsBox")
+        self.graphsBox.setContentsMargins(0, 0, 0, 0)
 
-        # ---- Controls Box ----
         self.controlsBox = QGroupBox(parent=self.contentSplitter)
         self.controlsBox.setTitle("")
         self.controlsBox.setAlignment(
@@ -143,9 +144,9 @@ class MainInit:
             layout.setContentsMargins(0, 0, 0, 0)
             self.cameraBox.setLayout(layout)
 
-        self.camera_interface = videoInterface(self)
+        self.camera_interface = CameraInterface(self)
         self.cameraBox.layout().addWidget(self.camera_interface)
-        self.camera_interface.videoButton.hide()
+        self.camera_interface.video_button.hide()
 
     def init_controls(self):
         """ Inicializa la interfaz de controladores con sliders que indica el
@@ -217,10 +218,18 @@ class MainInit:
         )
 
         self.openbotv = robotWorker(com)
-        self.openbotv.start()  # <- Esto sí lanza el run() en un hilo nuevo
+        self.openbotv.start()
 
         self.connect_action.setEnabled(False)
 
+    def init_graphics(self):
+        self.sim_graph_interface = graphInterface(domains.SIMULATION)
+        if not self.graphsBox.layout():
+            self.graph_layout = QVBoxLayout(self.graphsBox)
+            self.graph_layout.setContentsMargins(0, 0, 0, 0)
+            self.graphsBox.setLayout(self.graph_layout)
+
+        self.graph_layout.addWidget(self.sim_graph_interface)
 
     def center_window(self):
         screen = QApplication.primaryScreen()

@@ -23,6 +23,7 @@ class SignalManager(QObject):
     get_data_signal = pyqtSignal()
     actual_position_signal = pyqtSignal(list)
     update_robot_signal = pyqtSignal(list)
+    update_graph_signal = pyqtSignal(list)
 
 
 class SimulationSignalManager(SignalManager):

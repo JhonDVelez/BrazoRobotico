@@ -4,7 +4,7 @@ from PyQt6.QtGui import QFont
 from qframelesswindow import TitleBarBase
 
 
-class MainTitleBar(TitleBarBase):
+class MainTitleBarMixin(TitleBarBase):
     """ Custom title bar """
 
     def __init__(self, parent):

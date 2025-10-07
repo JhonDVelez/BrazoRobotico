@@ -43,7 +43,7 @@ class PhysicsWorker(QThread):
         """ Ciclo principal del subproceso el cual actualiza el robot cada n milisegundos
         """
         self._running = True
-        self.set_max_velocity(1.2)
+        self.set_max_velocity(5.5)
         # Si esta pausado actualiza activa nuevamente el ciclo
         if self._paused:
             self._paused = False
@@ -89,4 +89,4 @@ class PhysicsWorker(QThread):
                 # actuales es mayor o igual a 0.01 rad o 0.573°
                 if any(abs(x - y) >= 0.01 for x, y in zip(target_positions, actual_positions)):
                     self.physic.step_simulation()
-                QTimer.singleShot(4, self.get_data)
+                QTimer.singleShot(16, self.get_data)

@@ -129,9 +129,6 @@ QRadioButton::indicator:unchecked {
 QRadioButton::indicator:unchecked:disabled {
     image: url(${path}/dist/dark/svg/radio_button_unchecked__icon-foreground-disabled__rotate-0.svg);
 }
-QRadioButton::indicator:checked {
-    image: url(${path}/dist/dark/svg/radio_button_checked__highlight__rotate-0.svg);
-}
 QRadioButton::indicator:checked:disabled {
     image: url(${path}/dist/dark/svg/radio_button_checked__icon-foreground-disabled__rotate-0.svg);
 }

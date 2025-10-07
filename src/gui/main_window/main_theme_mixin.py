@@ -1,5 +1,6 @@
+from pathlib import Path
 from PyQt6.QtCore import pyqtSignal, QObject, Qt
-from PyQt6.QtWidgets import QApplication
+import pyqtgraph as pg
 import qdarktheme
 import qdarktheme.dist
 import qdarktheme.dist.dark
@@ -35,6 +36,12 @@ class MainThemeMixin:
     def load_dark_theme(self):
         qdarktheme.dist.dark.stylesheet.STYLE_SHEET = dark.STYLE_SHEET
         stylesheet = qdarktheme.load_stylesheet("dark")
+        svg_path = (Path(__file__).resolve().parent.parent.parent.parent /
+                    "src/gui/main_window/theme_stylesheet/svg/radio_button_checked_r.svg").as_posix()
+        stylesheet += f"""
+        QRadioButton::indicator:checked {{
+            image: url("{svg_path}");
+        }}"""
         self.setStyleSheet(stylesheet)
         self.title_bar.title_label.setStyleSheet(
             """background-color: rgba(42.000, 43.000, 46.000, 1.000); color: #ffffff;""")
@@ -48,10 +55,20 @@ class MainThemeMixin:
             """)
         self.logo_label.setPixmap(self.laser_w)
         self.theme_action.setIcon(self.sun_icon)
+        self.graph_interface.sim_graph_object.graph_widget.setBackground(
+            pg.mkColor((32, 33, 36)))
+        self.graph_interface.phy_graph_object.graph_widget.setBackground(
+            pg.mkColor((32, 33, 36)))
 
     def load_light_theme(self):
         qdarktheme.dist.light.stylesheet.STYLE_SHEET = light.STYLE_SHEET
         stylesheet = qdarktheme.load_stylesheet("light")
+        svg_path = (Path(__file__).resolve().parent.parent.parent.parent /
+                    "src/gui/main_window/theme_stylesheet/svg/radio_button_checked_b.svg").as_posix()
+        stylesheet += f"""
+        QRadioButton::indicator:checked {{
+            image: url("{svg_path}");
+        }}"""
         self.setStyleSheet(stylesheet)
         self.title_bar.title_label.setStyleSheet(
             """QLabel {color: #000000;}""")
@@ -67,6 +84,10 @@ class MainThemeMixin:
             """)
         self.logo_label.setPixmap(self.laser_b)
         self.theme_action.setIcon(self.moon_icon)
+        self.graph_interface.sim_graph_object.graph_widget.setBackground(
+            pg.mkColor((248, 249, 250)))
+        self.graph_interface.phy_graph_object.graph_widget.setBackground(
+            pg.mkColor((248, 249, 250)))
 
 
 class ThemeManager(QObject):

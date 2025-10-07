@@ -105,7 +105,6 @@ class SimInterface(ImageUtilsMixin):
     def __setup_controller(self):
         self.physics_worker = PhysicsWorker(self.robot_id)
         self.physics_worker.set_max_velocity(1.2)
-        self.physics_worker.start()
 
         self.controller = DataFlow(
             modes.SLIDERS, units.RAD, domains.SIMULATION)
@@ -126,7 +125,8 @@ class SimInterface(ImageUtilsMixin):
             if self.sim_worker:
                 if not self.sim_worker.isRunning():
                     self.sim_worker.start()
-                self.sim_worker.start()
+
+            self.physics_worker.start()
 
             self.process_running = True
         except Exception as e:
@@ -134,15 +134,15 @@ class SimInterface(ImageUtilsMixin):
 
     def pause_simulation(self):
         """Pausa la simulación"""
-        if self.sim_worker:
-            self.sim_worker.pause_simulation()
+        if self.physics_worker:
+            self.physics_worker.pause()
 
     def stop_simulation(self):
         """Para la simulación"""
         self.process_running = False
 
         if self.sim_worker:
-            self.sim_worker.stop_simulation()
+            self.physics_worker.stop()
 
         if self.window_container:
             self.window_container.hide()

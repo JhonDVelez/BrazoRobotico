@@ -42,7 +42,6 @@ class robotWorker(QThread):
         else:
             print("Error de envío de datos: Valores fuera de rango")
 
-
     def _enviar_comando(self, index):
         if index < len(self.comandos):
             self.CM904.write(self.comandos[index].encode())

@@ -29,8 +29,8 @@ class DataFlow(QThread):
             self.signal_manager = PhysicalSignalManager.get_instance()
             self.signal_manager.get_data_signal.connect(
                 self.request_data_from_interface)
-            # self.signal_manager.send_to_robot.connect(
-            # self.signal_manager.send_data_to_robot)
+            self.signal_manager.actual_position_signal.connect(
+                self.update_robot)
         else:
             raise Exception("El dominio proporcionado no existe.")
 
@@ -60,6 +60,15 @@ class DataFlow(QThread):
         pos = control_utils.rad_to_deg(actual_positions)
         self.signal_manager.update_robot_signal.emit(pos)
         self.signal_manager.update_graph_signal.emit(pos)
+
+    def update_robot(self, actual_positions):
+        """ Envia los datos al graficador el cual es una lista de 6 posiciones indicando el angulo 
+        actual de cada motor
+
+        Args:
+            actual_positions (list): Posiciones actuales de los motores del robot fisico
+        """
+        self.signal_manager.update_graph_signal.emit(actual_positions)
 
     def set_mode(self, mode: modes):
         """ Permite redefinir el modo de ejecucion, es decir, cambiar la fuente de los datos 

@@ -89,4 +89,4 @@ class PhysicsWorker(QThread):
                 # actuales es mayor o igual a 0.01 rad o 0.573°
                 if any(abs(x - y) >= 0.01 for x, y in zip(target_positions, actual_positions)):
                     self.physic.step_simulation()
-                QTimer.singleShot(4, self.get_data)
+                QTimer.singleShot(16, self.get_data)

@@ -50,7 +50,6 @@ class MainInitMixin:
         self.contentSplitter.setObjectName("contentSplitter")
         self.contentSplitter.setHandleWidth(8)
         self.contentSplitter.setContentsMargins(0, 0, 0, 0)
-        self.contentSplitter.setFixedWidth(8)
 
         # ---- Visual Splitter ----
         self.visualSplitter = QSplitter(parent=self.contentSplitter)
@@ -58,10 +57,8 @@ class MainInitMixin:
         self.visualSplitter.setObjectName("visualSplitter")
         self.visualSplitter.setHandleWidth(8)
         self.visualSplitter.setContentsMargins(0, 0, 0, 0)
-        self.visualSplitter.setFixedHeight(8)
 
         self.modelBox = QGroupBox(parent=self.visualSplitter)
-        self.modelBox.setEnabled(True)
         self.modelBox.setTitle("")
         self.modelBox.setObjectName("modelBox")
 
@@ -73,6 +70,11 @@ class MainInitMixin:
         self.graphsBox.setTitle("")
         self.graphsBox.setObjectName("graphsBox")
         self.graphsBox.setContentsMargins(0, 0, 0, 0)
+        graphsBox_sizePolicy = QSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        graphsBox_sizePolicy.setHorizontalStretch(0)
+        graphsBox_sizePolicy.setVerticalStretch(0)
+        self.graphsBox.setSizePolicy(graphsBox_sizePolicy)
 
         self.controlsBox = QGroupBox(parent=self.contentSplitter)
         self.controlsBox.setTitle("")
@@ -92,7 +94,7 @@ class MainInitMixin:
         self.widget.setObjectName("widget")
 
         self.horizontalLayout = QHBoxLayout(self.widget)
-        self.horizontalLayout.setContentsMargins(9, 9, 9, 9)
+        self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout.setObjectName("horizontalLayout")
 
         # Botones de control
@@ -223,13 +225,15 @@ class MainInitMixin:
         self.connect_action.setEnabled(False)
 
     def init_graphics(self):
-        self.sim_graph_interface = graphInterface(domains.SIMULATION)
         if not self.graphsBox.layout():
-            self.graph_layout = QVBoxLayout(self.graphsBox)
-            self.graph_layout.setContentsMargins(0, 0, 0, 0)
-            self.graphsBox.setLayout(self.graph_layout)
+            graph_layout = QVBoxLayout(self.graphsBox)
+            graph_layout.setContentsMargins(0, 0, 0, 0)
+            self.graphsBox.setLayout(graph_layout)
 
-        self.graph_layout.addWidget(self.sim_graph_interface)
+        self.graphsBox.setStyleSheet("""padding: 0px;""")
+
+        self.graph_interface = graphInterface()
+        self.graphsBox.layout().addWidget(self.graph_interface)
 
     def center_window(self):
         screen = QApplication.primaryScreen()

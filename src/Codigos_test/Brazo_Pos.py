@@ -1,3 +1,4 @@
+import sys
 import serial
 import time
 import numpy as np
@@ -41,12 +42,18 @@ while cont == 0:
     print("Revisar que este en la posición inicial, si no resetear en el micro")
     print("Sujetar la base del brazo cuando empiece el movimiento")
 
-    valorm1 = float(input("Ingrese valor final en grados motor 1 (50 a 250): "))
-    valorm2 = float(input("Ingrese valor final en grados motor 2 (70 a 200): "))
-    valorm3 = float(input("Ingrese valor final en grados motor 3 (50 a 200): "))
-    valorm4 = float(input("Ingrese valor final en grados motor 4 (50 a 250): "))
-    valorm5 = float(input("Ingrese valor final en grados motor 5 (150 a 250): "))
-    valorm6 = float(input("Ingrese valor final en grados motor 6 (38 a 171): "))
+    valorm1 = float(
+        input("Ingrese valor final en grados motor 1 (50 a 250): "))
+    valorm2 = float(
+        input("Ingrese valor final en grados motor 2 (70 a 200): "))
+    valorm3 = float(
+        input("Ingrese valor final en grados motor 3 (50 a 200): "))
+    valorm4 = float(
+        input("Ingrese valor final en grados motor 4 (50 a 250): "))
+    valorm5 = float(
+        input("Ingrese valor final en grados motor 5 (150 a 250): "))
+    valorm6 = float(
+        input("Ingrese valor final en grados motor 6 (38 a 171): "))
 
     # enviar datos al micro
     CM904.write(f"A{int(valorm1*(1023/300))}\n".encode())
@@ -114,7 +121,8 @@ while cont == 0:
                     else:
                         q6rf.append(q6r[-1])
 
-    salir = int(input("Digite 1 para salir y graficar, o 0 para seguir realizando cambios: "))
+    salir = int(
+        input("Digite 1 para salir y graficar, o 0 para seguir realizando cambios: "))
     if salir == 1:
         cont = 1
     else:
@@ -123,19 +131,22 @@ while cont == 0:
 tfinal = time.time() - start_time
 
 # ---------------- GRAFICAR ----------------
+
+
 def graficar(qr, qrf, titulo, subplot_pos):
     N = len(qr)
     Ts = tfinal / N
     t = np.arange(1, N+1) * Ts
-    plt.subplot(3,2,subplot_pos)
+    plt.subplot(3, 2, subplot_pos)
     plt.plot(t, qr, '-o', label=f'{titulo}')
-    #plt.plot(t, qrf, '-', label=f'{titulo}f') No funciona correctamente el filtro
+    # plt.plot(t, qrf, '-', label=f'{titulo}f') No funciona correctamente el filtro
     plt.xlabel("t(s)")
     plt.ylabel("deg")
     plt.grid(True)
     plt.legend()
 
-plt.figure(figsize=(10,8))
+
+plt.figure(figsize=(10, 8))
 graficar(q1r, q1rf, "q1", 1)
 graficar(q2r, q2rf, "q2", 2)
 graficar(q3r, q3rf, "q3", 3)
@@ -144,5 +155,4 @@ graficar(q5r, q5rf, "q5", 5)
 graficar(q6r, q6rf, "q6", 6)
 plt.tight_layout()
 plt.show()
-import sys
 sys.exit()

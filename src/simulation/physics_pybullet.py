@@ -1,12 +1,10 @@
-import os
 import pybullet as p
-import pybullet_data
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QWidget
 
 
 class RobotArmPhysics(QWidget):
-    """ Establece las fisicas del modelo 3D asi como la comunicacion con el environment de pybullet,
+    """ Establece las físicas del modelo 3D asi como la comunicación con el environment de pybullet,
         opengl y los datos obtenidos del urdf.
     """
     robot_loaded = pyqtSignal()
@@ -26,7 +24,7 @@ class RobotArmPhysics(QWidget):
         self.robot_id = None
 
     def get_robot_id(self) -> int:
-        """ Obtiene el id del robot del motor de fisicas de pybullet
+        """ Obtiene el id del robot del motor de físicas de pybullet
         """
         if self.robot_id:
             return self.robot_id
@@ -72,7 +70,7 @@ class RobotArmPhysics(QWidget):
         self.robot_loaded.emit()
 
     def get_robot_info(self):
-        """ Obtiene informacion del robot principalmente los indices de cada junta
+        """ Obtiene información del robot principalmente los indices de cada junta
         """
         # Obtener información de las articulaciones
         num_joints = p.getNumJoints(self.robot_id)
@@ -85,7 +83,7 @@ class RobotArmPhysics(QWidget):
                 self.joint_indices.append(i)
 
     def reset_simulation(self):
-        """ Borra los modelos del robot y el suelo para quitar la carga grafica por completo.
+        """ Borra los modelos del robot y el suelo para quitar la carga gráfica por completo.
         """
         p.resetJointState(self.robot_id, 1, 0)
         p.resetJointState(self.robot_id, 2, 0)

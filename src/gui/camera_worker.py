@@ -1,3 +1,6 @@
+""" Modulo donde se implementa el hilo de procesamiento para la captura y el procesamiento de las 
+    imágenes provenientes de la cámara
+"""
 import numpy as np
 import cv2
 from PyQt6.QtCore import QThread, pyqtSignal

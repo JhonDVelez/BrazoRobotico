@@ -1,11 +1,15 @@
-from PyQt6.QtWidgets import QHBoxLayout, QWidget, QToolBar, QToolButton, QLabel, QSizePolicy
-from PyQt6.QtCore import QSize, QTimer, Qt
+""" Este modulo Se encarga de la estructura y comportamiento de la barra de titulo donde se 
+    integra el menu, el titulo del programa y los botones de control de ventana.
+"""
+from PyQt6.QtWidgets import QHBoxLayout, QWidget, QToolButton, QLabel, QSizePolicy
+from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtGui import QFont
 from qframelesswindow import TitleBarBase
 
 
 class MainTitleBarMixin(TitleBarBase):
-    """ Custom title bar """
+    """ Barra de titulo personalizada basado qframelesswindow
+    """
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -27,7 +31,7 @@ class MainTitleBarMixin(TitleBarBase):
 
         # === LABEL CENTRAL ===
         self.title_label = QLabel(
-            "OpenBotv v1 - Universidad Distrital Francisco José de Caldas")
+            "OpenBotV Control Lab")
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Configurar fuente del título
@@ -36,7 +40,7 @@ class MainTitleBarMixin(TitleBarBase):
         self.title_label.setFont(font)
 
         # Controles a la derecha
-        self.__create_window_buttons()
+        self._create_window_buttons()
 
         # === CONFIGURAR POLÍTICAS DE TAMAÑO ===
         self.left_container.setSizePolicy(
@@ -59,7 +63,7 @@ class MainTitleBarMixin(TitleBarBase):
         # Equilibrar contenedores después de la inicialización
         QTimer.singleShot(0, self.balance_containers)
 
-    def __create_window_buttons(self):
+    def _create_window_buttons(self):
         self.buttons_frame = QWidget()
         self.buttons_frame.setFixedHeight(32)
 

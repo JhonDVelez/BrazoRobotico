@@ -36,7 +36,7 @@ class SimWorker(QThread):
         """ Actualiza el modelo 3D de qtquick
 
         Args:
-            joint_positions (list, optional): Posicion actual de los motores en la simulaicon. 
+            joint_positions (list, optional): Posición actual de los motores en la simulación. 
                                               Defaults to None.
         """
         if joint_positions is None:

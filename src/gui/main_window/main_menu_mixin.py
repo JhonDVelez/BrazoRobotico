@@ -1,18 +1,26 @@
+""" En este modulo se define el menu que se integrara a la barra de titulo y como se comporta.
+"""
 import os
 from PyQt6.QtGui import QAction, QKeySequence, QIcon, QPixmap, QActionGroup
 from PyQt6.QtWidgets import QMenuBar, QSizePolicy, QLabel, QStatusBar
 from PyQt6.QtCore import Qt
 from serial.tools import list_ports
-from robot.openbotv_worker import robotWorker
-from data.controller import DataFlow
+from robot.openbotv_worker import RobotWorker
+from data import DataFlow
 
 
 class MainMenuMixin:
+    """ Mixin encargado de definir el menu, las acciones que hará y su comportamiento con estas
+    """
+
     def __init__(self):
         self.robot_controller = None
         self.openbotv = None
 
     def create_actions(self):
+        """ Define las acciones que tendrá el menu asi como sus atajos, texto de la barra de estado
+            e iconos utilizados como botones.
+        """
         self.camera_action = QAction("Ocultar Cámara", self)
         self.camera_action.setShortcut(QKeySequence("Ctrl+j"))
         self.camera_action.setStatusTip("Mostrar/Ocultar la cámara")
@@ -45,6 +53,8 @@ class MainMenuMixin:
         # self.com_select_action = QAction()
 
     def create_menu(self):
+        """ Define la estructura del menu y submenus basado en las acciones definidas.
+        """
         self.create_actions()
         self.menu_bar = QMenuBar()
         self.menu_bar.setFixedHeight(32)
@@ -54,9 +64,11 @@ class MainMenuMixin:
         # Logo en la equina izquierda
         self.logo_label = QLabel()
         self.laser_w = QPixmap(os.path.join(
-            os.path.dirname(__file__), "..", "img", "laser_w.png")).scaledToHeight(20, Qt.TransformationMode.SmoothTransformation)
+            os.path.dirname(__file__), "..",
+            "img", "laser_w.png")).scaledToHeight(20, Qt.TransformationMode.SmoothTransformation)
         self.laser_b = QPixmap(os.path.join(
-            os.path.dirname(__file__), "..", "img", "laser_b.png")).scaledToHeight(20, Qt.TransformationMode.SmoothTransformation)
+            os.path.dirname(__file__), "..",
+            "img", "laser_b.png")).scaledToHeight(20, Qt.TransformationMode.SmoothTransformation)
         self.logo_label.setPixmap(self.laser_w)
         self.logo_label.setContentsMargins(8, 0, 5, 0)
 
@@ -86,6 +98,9 @@ class MainMenuMixin:
         )
 
     def get_com_ports(self):
+        """ Escanea el sistema en busca de puertos de comunicación serial y los expone como un
+            submenu para que el usuario seleccione el puerto del microcontrolador del robot
+        """
         available_ports = list_ports.comports()
 
         # limpiar menú y grupo
@@ -118,16 +133,28 @@ class MainMenuMixin:
             self.com_connected_label.setText("No conectado")
 
     def com_checkable_change(self, checked):
+        """ Detecta cuando se selecciona un puerto de comunicación serial COM y en caso de que este
+            seleccionado uno previamente detiene la conexión 
+            Si el controlador y el hilo de proceso del robot no están inicializados se activa la 
+            opción de realizar la conexión con ese puerto.
+
+        Args:
+            checked (bool): permite saber si al menos un puerto mostrado en la interfaz esta 
+                            seleccionado
+        """
         action = self.sender()
         if not self.com:
             self._stop_threads()
         if action and checked:  # Solo cuando queda seleccionado
             self.com = action.data()
-            if not getattr(self, "openbotv", None) and not getattr(self, "robot_controller", None) and not self.stopped:
+            if (not getattr(self, "openbotv", None) and
+                not getattr(self, "robot_controller", None) and
+                    not self.stopped):
                 self.connect_action.setEnabled(True)
 
     def _stop_threads(self):
-        """Detiene y elimina los hilos activos de forma segura."""
+        """ Detiene y elimina los hilos activos de forma segura
+        """
         if getattr(self, "robot_controller", None):
             try:
                 if isinstance(self.robot_controller, DataFlow):
@@ -141,7 +168,7 @@ class MainMenuMixin:
 
         if getattr(self, "openbotv", None):
             try:
-                if isinstance(self.openbotv, robotWorker):
+                if isinstance(self.openbotv, RobotWorker):
                     self.openbotv.exit()
                     self.openbotv.wait()
                     self.openbotv.deleteLater()
@@ -151,6 +178,9 @@ class MainMenuMixin:
                 self.openbotv = None
 
     def create_status_bar(self):
-        statusBar = QStatusBar(self)
-        statusBar.addPermanentWidget(self.com_connected_label)
-        self.setStatusBar(statusBar)
+        """ Crea la barra de estado y conecta la visualization del estado de conexión del puerto 
+            serial
+        """
+        status_bar = QStatusBar(self)
+        status_bar.addPermanentWidget(self.com_connected_label)
+        self.setStatusBar(status_bar)

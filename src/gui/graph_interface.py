@@ -1,15 +1,23 @@
+""" En este modulo se establece la estructura de la sección de la interfaz donde se muestran
+    las gráficas tipo osciloscopio
+"""
 import os
-import pyqtgraph as pg
-from PyQt6.QtCore import Qt, QElapsedTimer, QThread, QTimer
+from PyQt6.QtCore import Qt, QElapsedTimer
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import QLabel, QVBoxLayout, QHBoxLayout, QSizePolicy, QRadioButton
 from gui.main_window.image_utils_mixin import ImageUtilsMixin
 from gui.main_window.main_theme_mixin import ThemeManager
-from gui.graph_worker import upgradableGraph
-from data.control_utils import SimulationSignalManager, PhysicalSignalManager, domains
+from gui.graph_worker import GraphWorker
+from data.control_utils import Domains
 
 
-class graphInterface(ImageUtilsMixin):
+class GraphInterface(ImageUtilsMixin):
+    """ Clase donde se define las estructura de las gráficas, su comportamiento a las acciones
+        del usuario como iniciar o detener, asi como actualizar el gráfico con nuevos datos,
+        hace uso de el mixin ImageUtils para el pixmap(imagen) mostrada cuando no se esta en
+        ejecución.
+    """
+
     def __init__(self):
         super().__init__()
         self.process_running = False
@@ -28,11 +36,11 @@ class graphInterface(ImageUtilsMixin):
         graph_layout.setSpacing(0)
 
         # Crear objetos de gráficos
-        self.sim_graph_object = GraphWidget(domains.SIMULATION, 1000)
+        self.sim_graph_object = GraphWorker(Domains.SIMULATION, 1000)
         self.sim_graph_widget = self.sim_graph_object.graph_widget
         self.sim_graph_object.start()
 
-        self.phy_graph_object = GraphWidget(domains.PHYSICAL, 1000)
+        self.phy_graph_object = GraphWorker(Domains.PHYSICAL, 1000)
         self.phy_graph_widget = self.phy_graph_object.graph_widget
         self.phy_graph_object.start()
 
@@ -83,12 +91,16 @@ class graphInterface(ImageUtilsMixin):
         self.phy_radio_button.toggled.connect(self.update_visible_graph)
 
     def start(self):
+        """ Inicia la visualization de las gráficas ocultando la imagen.
+        """
         self.image_label.hide()
         self.sim_radio_button.show()
         self.phy_radio_button.show()
         self.update_visible_graph()
 
     def stop(self):
+        """ Oculta todos los widgets y las gráficas y muestra la imagen.
+        """
         self.phy_graph_widget.hide()
         self.sim_graph_widget.hide()
         self.sim_radio_button.hide()
@@ -104,90 +116,3 @@ class graphInterface(ImageUtilsMixin):
         elif self.phy_radio_button.isChecked():
             self.sim_graph_widget.hide()
             self.phy_graph_widget.show()
-
-
-class GraphWidget(QThread):
-    def __init__(self, domain, display_window=1000):
-        super().__init__()
-        self.display_window = display_window
-        self.__setup_ui(domain)
-        self.__setup_connections()
-
-    def __setup_ui(self, domain):
-        # Crear widget de gráficos con márgenes en cero
-        self.graph_widget = pg.GraphicsLayoutWidget(show=False, title="Graph")
-        self.graph_widget.setContentsMargins(0, 0, 0, 0)
-
-        # Remover bordes y márgenes del GraphicsLayoutWidget
-        self.graph_widget.setStyleSheet("""border: none;
-                                        padding: 0px 0px 0px -5px;""")
-
-        # Optimizaciones globales de PyQtGraph
-        pg.setConfigOptions(antialias=False)
-        # pg.setConfigOption('useOpenGL', True)
-
-        # Crear gráficos individuales
-        self.motor_1 = upgradableGraph(self.graph_widget, "motor 1", [
-                                       0, 0], self.display_window)
-        self.motor_2 = upgradableGraph(self.graph_widget, "motor 2", [
-                                       0, 1], self.display_window)
-        self.motor_3 = upgradableGraph(self.graph_widget, "motor 3", [
-                                       1, 0], self.display_window)
-        self.motor_4 = upgradableGraph(self.graph_widget, "motor 4", [
-                                       1, 1], self.display_window)
-        self.motor_5 = upgradableGraph(self.graph_widget, "motor 5", [
-                                       2, 0], self.display_window)
-        self.motor_6 = upgradableGraph(self.graph_widget, "motor 6", [
-                                       2, 1], self.display_window)
-
-        self.motor_1.start()
-        self.motor_2.start()
-        self.motor_3.start()
-        self.motor_4.start()
-        self.motor_5.start()
-        self.motor_6.start()
-
-        # Configurar signal manager según dominio
-        if domain is domains.SIMULATION:
-            self.signal_manager = SimulationSignalManager.get_instance()
-        elif domain is domains.PHYSICAL:
-            self.signal_manager = PhysicalSignalManager.get_instance()
-
-        # Buffer para acumular actualizaciones
-        self.update_buffer = []
-        self.batch_size = 10
-
-        # Timer para actualizaciones periódicas
-        self.update_timer = QTimer()
-        self.update_timer.setInterval(100)
-        self.update_timer.timeout.connect(self._process_buffer)
-        self.update_timer.start()
-
-    def __setup_connections(self):
-        self.signal_manager.update_graph_signal.connect(self.buffer_update)
-
-    def buffer_update(self, data):
-        """Acumula datos en buffer en lugar de actualizar inmediatamente"""
-        self.update_buffer.append(data)
-
-    def _process_buffer(self):
-        """Procesa el buffer acumulado"""
-        if not self.update_buffer:
-            return
-
-        for data in self.update_buffer:
-            self.motor_1.add_data(data[0])
-            self.motor_2.add_data(data[1])
-            self.motor_3.add_data(data[2])
-            self.motor_4.add_data(data[3])
-            self.motor_5.add_data(data[4])
-            self.motor_6.add_data(data[5])
-
-        self.update_buffer.clear()
-
-        self.motor_1.update_plot()
-        self.motor_2.update_plot()
-        self.motor_3.update_plot()
-        self.motor_4.update_plot()
-        self.motor_5.update_plot()
-        self.motor_6.update_plot()

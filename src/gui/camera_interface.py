@@ -1,3 +1,6 @@
+""" Modulo donde se gestiona la estructura y comportamiento de la cámara cuyas imágenes se muestran
+    en la interfaz
+"""
 import os
 from PyQt6.QtWidgets import QSizePolicy, QVBoxLayout, QLabel, QPushButton
 from PyQt6.QtCore import Qt, QSize, QRect
@@ -8,10 +11,7 @@ from gui.main_window.image_utils_mixin import ImageUtilsMixin
 
 
 class CameraInterface(ImageUtilsMixin):
-    """ Manejo del widged de video que muestra las imagenes de la camara en un label de la interfaz
-
-    Args:
-        QWidget (_type_): _description_
+    """ Manejo del widget de video que muestra las imágenes de la cámara en un label de la interfaz
     """
 
     def __init__(self, parent):
@@ -31,11 +31,11 @@ class CameraInterface(ImageUtilsMixin):
         self.resize(640, 480)
 
         # SizePolicy
-        sizePolicy = QSizePolicy(
+        size_policy = QSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        self.setSizePolicy(sizePolicy)
+        size_policy.setHorizontalStretch(0)
+        size_policy.setVerticalStretch(0)
+        self.setSizePolicy(size_policy)
 
         # sizeIncrement
         self.setSizeIncrement(QSize(160, 120))
@@ -51,11 +51,7 @@ class CameraInterface(ImageUtilsMixin):
         # QLabel (videoLabel)
         self.image_label = QLabel(self)
         self.image_label.setObjectName("videoLabel")
-        sizePolicy = QSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        self.image_label.setSizePolicy(sizePolicy)
+        self.image_label.setSizePolicy(size_policy)
         self.image_label.setMinimumSize(QSize(160, 120))
         self.image_label.setText("")
         self.image_label.setScaledContents(True)
@@ -159,13 +155,13 @@ class CameraInterface(ImageUtilsMixin):
         self.load_image()
 
     def pause_video(self):
-        """ Pausa la actualizacion de frames de la camara
+        """ Pausa la actualización de frames de la cámara
         """
         if self.video_worker is not None:
             self.video_worker.pause()
 
     def resume_video(self):
-        """ Vuelve a activar la actualizacion de frames de la camara
+        """ Vuelve a activar la actualización de frames de la cámara
         """
 
         if self.video_worker is not None:

@@ -1,10 +1,107 @@
+""" En este modulo se define la estructura de la distribución de las gráficas asi como su diseño y
+    el comportamiento definido al actualizar una vez se reciben datos nuevos.
+"""
 import numpy as np
 import pyqtgraph as pg
-from PyQt6.QtCore import QThread
-from gui.main_window.theme_stylesheet import dark, light
+from PyQt6.QtCore import QThread, QTimer
+from data import SimulationSignalManager, PhysicalSignalManager, Domains
+
+
+class GraphWorker(QThread):
+    """ Hilo de procesamiento de los gráficos definiendo estructura, estilo, ubicacion y 
+        su nombre asi como el tipo de señal que activará la actualización
+    """
+
+    def __init__(self, domain, display_window=1000):
+        super().__init__()
+        self.display_window = display_window
+        self.__setup_ui(domain)
+        self.__setup_connections()
+
+    def __setup_ui(self, domain):
+        # Crear widget de gráficos con márgenes en cero
+        self.graph_widget = pg.GraphicsLayoutWidget(show=False, title="Graph")
+        self.graph_widget.setContentsMargins(0, 0, 0, 0)
+
+        # Remover bordes y márgenes del GraphicsLayoutWidget
+        self.graph_widget.setStyleSheet("""border: none;
+                                        padding: 0px 0px 0px -5px;""")
+
+        # Optimizaciones globales de PyQtGraph
+        pg.setConfigOptions(antialias=False)
+        # pg.setConfigOption('useOpenGL', True)
+
+        # Crear gráficos individuales
+        self.motor_1 = upgradableGraph(self.graph_widget, "motor 1", [
+                                       0, 0], self.display_window)
+        self.motor_2 = upgradableGraph(self.graph_widget, "motor 2", [
+                                       0, 1], self.display_window)
+        self.motor_3 = upgradableGraph(self.graph_widget, "motor 3", [
+                                       1, 0], self.display_window)
+        self.motor_4 = upgradableGraph(self.graph_widget, "motor 4", [
+                                       1, 1], self.display_window)
+        self.motor_5 = upgradableGraph(self.graph_widget, "motor 5", [
+                                       2, 0], self.display_window)
+        self.motor_6 = upgradableGraph(self.graph_widget, "motor 6", [
+                                       2, 1], self.display_window)
+
+        self.motor_1.start()
+        self.motor_2.start()
+        self.motor_3.start()
+        self.motor_4.start()
+        self.motor_5.start()
+        self.motor_6.start()
+
+        # Configurar signal manager según dominio
+        if domain is Domains.SIMULATION:
+            self.signal_manager = SimulationSignalManager.get_instance()
+        elif domain is Domains.PHYSICAL:
+            self.signal_manager = PhysicalSignalManager.get_instance()
+
+        # Buffer para acumular actualizaciones
+        self.update_buffer = []
+        self.batch_size = 10
+
+        # Timer para actualizaciones periódicas
+        self.update_timer = QTimer()
+        self.update_timer.setInterval(100)
+        self.update_timer.timeout.connect(self._process_buffer)
+        self.update_timer.start()
+
+    def __setup_connections(self):
+        self.signal_manager.update_graph_signal.connect(self.buffer_update)
+
+    def buffer_update(self, data):
+        """Acumula datos en buffer en lugar de actualizar inmediatamente"""
+        self.update_buffer.append(data)
+
+    def _process_buffer(self):
+        """Procesa el buffer acumulado"""
+        if not self.update_buffer:
+            return
+
+        for data in self.update_buffer:
+            self.motor_1.add_data(data[0])
+            self.motor_2.add_data(data[1])
+            self.motor_3.add_data(data[2])
+            self.motor_4.add_data(data[3])
+            self.motor_5.add_data(data[4])
+            self.motor_6.add_data(data[5])
+
+        self.update_buffer.clear()
+
+        self.motor_1.update_plot()
+        self.motor_2.update_plot()
+        self.motor_3.update_plot()
+        self.motor_4.update_plot()
+        self.motor_5.update_plot()
+        self.motor_6.update_plot()
 
 
 class upgradableGraph(QThread):
+    """ Hilo de procesamiento para el procesamiento y actualización de cada gráfico individual.
+    """
+
     def __init__(self, graph_widget, title, pos, display_window=1000):
         super().__init__()
         self.graph_widget = graph_widget

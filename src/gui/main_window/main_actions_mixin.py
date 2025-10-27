@@ -1,13 +1,20 @@
-from gui.sliders_interface import SlidersWidget
+""" Modulo donde se define el comportamiento de los botones presentes en la interfaz a excepción de
+    los ubicados en la barra de menu.
+"""
+from ..sliders_interface import SlidersWidget
 
 
 class MainActionsMixin:
+    """ Gestiona el comportamiento de las secciones de la interfaz frente a distintas acciones de 
+        los botones como iniciar, pausar o detener la ejecución.
+    """
+
     def __init__(self):
         self.hab_simulation = None
 
     def start(self):
-        """ Inicia o detiene la simulacion en caso de ser la primera vez instancia la clase
-            SimInterface, tambien cambia los colores e iconos del boton.
+        """ Inicia o detiene la simulation en caso de ser la primera vez instancia la clase
+            SimInterface, también cambia los colores e iconos del botón.
         """
         if self.hab_simulation:
             if not self.modelBox.isVisible():
@@ -40,7 +47,7 @@ class MainActionsMixin:
         self.stopped = False
 
     def pause(self):
-        """ Pone en pausa la simulacion si existe y la camara
+        """ Pone en pausa la simulation si existe y la cámara
         """
         if self.simulation_interface is not None:
             self.simulation_interface.pause_simulation()
@@ -52,7 +59,7 @@ class MainActionsMixin:
         self.start_button.show()
 
     def stop(self):
-        """ "Detiene" la simulacion y apaga la camara
+        """ "Detiene" la simulation y apaga la cámara
         """
         if self.simulation_interface is not None and self.hab_simulation:
             self.simulation_interface.stop_simulation()
@@ -105,6 +112,9 @@ class MainActionsMixin:
             self.model_action.setText("Ocultar Modelo 3D")
 
     def toggle_activation_model_event(self):
+        """ Habilita o deshabilita la visualización del modelo 3D de QtQuick mediante la acción en 
+            la barra de menu.
+        """
         if self.hab_simulation:
             self.hab_simulation = False
             self.simulation_action.setText("Habilitar simulación")
@@ -113,6 +123,8 @@ class MainActionsMixin:
             self.simulation_action.setText("Deshabilitar simulación")
 
     def connect_robot(self):
+        """ Inicia la colección con el microcontrolador en el puerto de comunicación seleccionado
+        """
         if not self.com:
             print("Error: Dispositivo no detectado")
             return

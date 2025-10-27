@@ -1,10 +1,10 @@
 from PyQt6.QtCore import QThread, QTimer, pyqtSignal, pyqtSlot
-from simulation.physics_pybullet import RobotArmPhysics
-from data.control_utils import SimulationSignalManager
+from data import SimulationSignalManager
+from .physics_pybullet import RobotArmPhysics
 
 
 class PhysicsWorker(QThread):
-    """ Worker encargado de actualizar la simulacion de pybullet
+    """ Worker encargado de actualizar la simulation de pybullet
     """
 
     update_model = pyqtSignal(list)
@@ -62,13 +62,13 @@ class PhysicsWorker(QThread):
         self._paused = False
 
     def get_data(self):
-        """ Emite una señal que solicita datos de posicion de los motores a la interfaz
+        """ Emite una señal que solicita datos de posición de los motores a la interfaz
         """
         self.signal_manager.get_data_signal.emit()
 
     @pyqtSlot(list)
     def update_simulation(self, target_positions):
-        """ Actualizacion de la posicion de los motores del robot
+        """ Actualización de la posición de los motores del robot
         """
         # Compara si la cantidad de posiciones ingresadas es igual a la cantidad de uniones del
         # robot
@@ -85,7 +85,7 @@ class PhysicsWorker(QThread):
                     self.physic.set_joint_positions(
                         target_positions, self.max_velocity)
                     self.target_position_prev = target_positions
-                # Actualiza la simulacion si la diferencia entre los angulos objetivos y los angulos
+                # Actualiza la simulation si la diferencia entre los ángulos objetivos y los ángulos
                 # actuales es mayor o igual a 0.01 rad o 0.573°
                 if any(abs(x - y) >= 0.01 for x, y in zip(target_positions, actual_positions)):
                     self.physic.step_simulation()

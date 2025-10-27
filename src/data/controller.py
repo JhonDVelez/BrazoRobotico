@@ -1,17 +1,45 @@
+""" Modulo que actúa como controlador de flujo de datos permitiendo la comunicación ya sea entre 
+    la interfaz y el robot físico o entre la interfaz y la simulación.
+
+    Las clases de SignalManager actúan como puente entre estos elementos de la siguiente forma:
+
+    ```
+        GUI (Datos de la interfaz como los ángulos de los sliders)
+        ⭣
+    DataFlow
+        ⮃
+        ├──⮞ SimulationSignalManager ⭢ SimWorker (Hilo de proceso del modelo 3D)
+        |
+        ├──⮞ SimulationSignalManager ⮂ PhysicsWorker (Recibe y obtiene datos de pybullet)
+        │
+        └──⮞ SimulationSignalManager ⭢ GraphWorker (Agrega los datos al graficador)
+    ```
+    En cuanto al robot físico se tiene un flujo similar
+    ```
+       GUI (Datos de la interfaz como los ángulos de los sliders)
+        ⭣
+    DataFlow
+        ⮃
+        ├──⮞ PhysicalSignalManager ⮂ RobotWorker (Recibe y obtiene datos de pybullet)
+        │
+        └──⮞ PhysicalSignalManager ⭢ GraphWorker (Agrega los datos al graficador)
+    ```
+"""
 from PyQt6.QtCore import QThread
+from pyqtgraph.Qt.QtCore import pyqtSlot
 from gui.sliders_interface import SlidersWidget
-from data import control_utils
-from data.control_utils import PhysicalSignalManager, modes, units, domains, SimulationSignalManager
+from data import deg_to_rad, rad_to_deg
+from data import PhysicalSignalManager, Modes, Units, Domains, SimulationSignalManager
 
 
 class DataFlow(QThread):
-    """ Clase que actua como controlador de datos entre la interfaz y la simulacion o el 
-        robot fisico
+    """ Clase que actúa como controlador de datos entre la interfaz y la simulación o el 
+        robot físico
     """
 
-    def __init__(self, mode: modes, unit: units, domain: domains) -> None:
+    def __init__(self, mode: Modes, unit: Units, domain: Domains) -> None:
         super().__init__()
-        self.actual_pos = None  # Posicion actual del robot simulacion o fisico
+        self.actual_pos = None  # Posición actual del robot simulación o físico
         self.source_pos = None  # Posiciones deseadas de la fuente seleccionada
         self.mode = mode
         self.units = unit
@@ -19,70 +47,65 @@ class DataFlow(QThread):
         self.domain = domain
 
         # Inicializa las señales dependiendo de cual sea el dominio
-        if self.domain is domains.SIMULATION:
+        if self.domain is Domains.SIMULATION:
             self.signal_manager = SimulationSignalManager.get_instance()
             self.signal_manager.get_data_signal.connect(
-                self.request_data_from_interface)
+                self.request_objective_data)
             self.signal_manager.actual_position_signal.connect(
                 self.update_simulation)
-        elif self.domain is domains.PHYSICAL:
+        elif self.domain is Domains.PHYSICAL:
             self.signal_manager = PhysicalSignalManager.get_instance()
             self.signal_manager.get_data_signal.connect(
-                self.request_data_from_interface)
+                self.request_objective_data)
             self.signal_manager.actual_position_signal.connect(
                 self.update_robot)
         else:
             raise Exception("El dominio proporcionado no existe.")
 
-    def request_data_from_interface(self):
-        """ Envia los datos al simulador dependiendo de la fuente seleccionada
+    def request_objective_data(self):
+        """ Solicita los datos objetivos de los motores, es decir, los ángulos a los que se desea
+            mover cada motor, estos datos pueden tener diferentes fuentes como lo son los slider, 
+            los cuales se obtienen con la función __get_sliders_data().
+
+            Estos datos se entregan en forma de una lista de seis elementos, los cuales dependiendo
+            del dominio en que se encuentren serán entregados en radianes o en grados, para la 
+            simulación se utilizan radianes y para el robot físico se utilizan grados.
         """
-        if self.mode is modes.SLIDERS:
-            if self.domain is domains.SIMULATION:
+        if self.mode is Modes.SLIDERS:
+            if self.domain is Domains.SIMULATION:
                 self.signal_manager.update_pybullet_signal.emit(
                     self.__get_sliders_data())
-            elif self.domain is domains.PHYSICAL:
+            elif self.domain is Domains.PHYSICAL:
                 self.signal_manager.send_to_robot.emit(
                     self.__get_sliders_data())
 
     def __get_sliders_data(self):
-        if self.units is units.DEG:
+        if self.units is Units.DEG:
             return SlidersWidget.get_sliders_state()
-        if self.units is units.RAD:
-            return control_utils.deg_to_rad(SlidersWidget.get_sliders_state())
+        if self.units is Units.RAD:
+            return deg_to_rad(SlidersWidget.get_sliders_state())
 
+    @pyqtSlot(list)
     def update_simulation(self, actual_positions):
-        """ Envia los datos al modelo 3D de QtQuick los cuales deben estar en grados
+        """ Esta función es un slot de pyqt es decir esta conectada a la señal de activación 
+            actual_position_signal la cual al hacer el emit activa esta función con los datos
+            actual_position los cuales se reciben en radianes ya que provienen de pybullet y deben
+            ser convertidos a grados luego se emite esta trasformación al modelo 3D de qtQuick
+            y a los gráficos de pyqtgraph
 
         Args:
             actual_positions (list): Posiciones actuales de los motores del robot de pybullet
         """
-        pos = control_utils.rad_to_deg(actual_positions)
+        pos = rad_to_deg(actual_positions)
         self.signal_manager.update_robot_signal.emit(pos)
         self.signal_manager.update_graph_signal.emit(pos)
 
+    @pyqtSlot(list)
     def update_robot(self, actual_positions):
-        """ Envia los datos al graficador el cual es una lista de 6 posiciones indicando el angulo 
+        """ Envía los datos al graficador el cual es una lista de 6 posiciones indicando el angulo 
         actual de cada motor
 
         Args:
-            actual_positions (list): Posiciones actuales de los motores del robot fisico
+            actual_positions (list): Posiciones actuales de los motores del robot físico
         """
         self.signal_manager.update_graph_signal.emit(actual_positions)
-
-    def set_mode(self, mode: modes):
-        """ Permite redefinir el modo de ejecucion, es decir, cambiar la fuente de los datos 
-            objetivos para el robot
-
-        Args:
-            mode (modes): modo que debe estar entre el enum modes
-        """
-        self.mode = mode
-
-    def set_units(self, unit: units):
-        """ Permite redefinir las unidades en las que se obtienen los datos entre radianes y grados
-
-        Args:
-            unit (units): unidades manejadas que deben estar presentes en el enum units
-        """
-        self.units = unit

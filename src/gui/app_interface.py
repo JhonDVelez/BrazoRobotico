@@ -3,11 +3,9 @@ from ctypes import wintypes
 from qframelesswindow import FramelessMainWindow
 from PyQt6.QtWidgets import QMessageBox, QVBoxLayout, QWidget, QLabel, QApplication
 from PyQt6.QtCore import QAbstractNativeEventFilter, QCoreApplication, QTimer
-from gui.main_window.main_init_mixin import MainInitMixin
-from gui.main_window.main_actions_mixin import MainActionsMixin
-from gui.main_window.main_menu_mixin import MainMenuMixin
-from gui.main_window.main_theme_mixin import MainThemeMixin, ThemeManager
-from gui.main_window.main_title_bar_mixin import MainTitleBarMixin
+from .main_window import (MainInitMixin, MainActionsMixin, ThemeManager,
+                          MainMenuMixin, MainThemeMixin, MainTitleBarMixin)
+
 
 WM_DEVICECHANGE = 0x0219
 DBT_DEVICEARRIVAL = 0x8000
@@ -17,7 +15,9 @@ os.environ["QT_LOGGING_RULES"] = "qt.qpa.window=false"
 
 class MainInterface(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuMixin,
                     MainThemeMixin):
-    """ Ventana principal de la interfaz 
+    """ Ventana principal de la interfaz la cual hereda todos los mixin los cuales solo almacenan
+        los métodos utilizados en la interfaz como estructura de las diferentes secciones, widgets
+        y el comportamiento de estos.
     """
 
     def __init__(self, quick3d, robot_id):
@@ -132,7 +132,7 @@ class DeviceEventFilter(QAbstractNativeEventFilter):
         self.callback = callback
 
     def nativeEventFilter(self, eventType, message):
-        """ Sobreescritura del metodo de manejo de eventos de ventana para barra de titulo 
+        """ Sobrescritura del método de manejo de eventos de ventana para barra de titulo 
             personalizada
         """
         msg = wintypes.MSG.from_address(message.__int__())

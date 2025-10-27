@@ -1,4 +1,3 @@
-import os
 from PyQt6.QtWidgets import QWidget, QSizePolicy, QPushButton, QGridLayout, QLabel, QSlider
 from PyQt6.QtWidgets import QSpinBox, QVBoxLayout
 from PyQt6.QtCore import Qt, QSize
@@ -279,6 +278,9 @@ class SlidersWidget(QWidget):
         return cls.sliders_status
 
     def set_pose_1(self):
+        """ Pose por defecto, se proporcionan los ángulos de los 6 motores, tener en cuenta que para
+            el spinbox el rango es de -150 a 150 mientras que para el slider es de 0 a 300
+        """
         self.spin_box_1.setValue(-90)
         self.spin_box_2.setValue(-30)
         self.spin_box_3.setValue(-70)
@@ -287,6 +289,9 @@ class SlidersWidget(QWidget):
         self.spin_box_6.setValue(-60)
 
     def set_pose_2(self):
+        """ Pose por defecto, se proporcionan los ángulos de los 6 motores, tener en cuenta que para
+            el spinbox el rango es de -150 a 150 mientras que para el slider es de 0 a 300
+        """
         self.spin_box_1.setValue(-90)
         self.spin_box_2.setValue(-40)
         self.spin_box_3.setValue(-80)
@@ -295,6 +300,9 @@ class SlidersWidget(QWidget):
         self.spin_box_6.setValue(21)
 
     def set_pose_3(self):
+        """ Pose por defecto, se proporcionan los ángulos de los 6 motores, tener en cuenta que para
+            el spinbox el rango es de -150 a 150 mientras que para el slider es de 0 a 300
+        """
         self.spin_box_1.setValue(-40)
         self.spin_box_2.setValue(-10)
         self.spin_box_3.setValue(-44)
@@ -303,6 +311,9 @@ class SlidersWidget(QWidget):
         self.spin_box_6.setValue(21)
 
     def set_pose_4(self):
+        """ Pose por defecto, se proporcionan los ángulos de los 6 motores, tener en cuenta que para
+            el spinbox el rango es de -150 a 150 mientras que para el slider es de 0 a 300
+        """
         self.spin_box_1.setValue(10)
         self.spin_box_2.setValue(-60)
         self.spin_box_3.setValue(-60)

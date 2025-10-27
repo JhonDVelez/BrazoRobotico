@@ -1,0 +1,410 @@
+@startuml classes_MiProyecto
+set namespaceSeparator none
+class "CameraChessBoard" as src.vision.camera_chessboard.CameraChessBoard {
+  camera : CameraControl
+  corners : NoneType
+  detector : ChessboardDetector
+  camera_off()
+  camera_on()
+  get_coordinates(frame: np.ndarray) -> Optional[np.ndarray]
+  get_video_frame()
+}
+class "CameraControl" as src.vision.camera.CameraControl {
+  camera_ready : bool
+  cap : NoneType, Optional[cv2.VideoCapture]
+  default_fps : int
+  default_height : int
+  default_width : int
+  auto_gamma_correction(img, mid_gray)
+  camera_is_on()
+  camera_off()
+  camera_on() -> bool
+  take_frame()
+  toggle_camera()
+}
+class "CameraInterface" as src.gui.camera_interface.CameraInterface {
+  app_running : NoneType
+  image_label
+  image_path_b : str
+  image_path_r : str
+  main_layout
+  parent
+  pixmap
+  process_running : bool
+  theme_manager : NoneType
+  video_button
+  video_worker : NoneType, VideoWorker
+  on_frame_ready(pixmap: QPixmap)
+  on_video_error(error_message)
+  pause_video()
+  resume_video()
+  start_video()
+  stop_video()
+  toggle_video()
+}
+class "ChessboardDetector" as src.vision.chessboard.ChessboardDetector {
+  board_size
+  criteria : tuple
+  detect_corners(frame)
+  draw_grid(frame, corners, show_labels, border_labels_only)
+}
+class "CompletePreloader" as src.main.CompletePreloader {
+  dummy_parent : NoneType
+  preloaded_container : NoneType
+  preloaded_view : NoneType
+  qml_path : str
+  urdf_path : str
+  window_container : NoneType
+  cleanup_preload_resources()
+  create_parent_widget()
+  create_window_container(quick_view, parent)
+  preload_complete_quick3d_setup()
+  preload_pybullet()
+  safe_initial_render()
+}
+class "DataFlow" as src.data.controller.DataFlow {
+  actual_pos : NoneType
+  domain : domains
+  mode : modes
+  signal_manager : NoneType
+  source_pos : NoneType
+  units : units
+  request_data_from_interface()
+  set_mode(mode: modes)
+  set_units(unit: units)
+  update_simulation(actual_positions)
+}
+class "DeviceEventFilter" as src.gui.app_interface.DeviceEventFilter {
+  callback
+  nativeEventFilter(eventType, message)
+}
+class "GraphWidget" as src.gui.graph_worker.GraphWidget {
+  batch_size : int
+  display_window : int
+  graph_widget : GraphicsLayoutWidget
+  motor_1
+  motor_2
+  motor_3
+  motor_4
+  motor_5
+  motor_6
+  signal_manager : NoneType
+  update_buffer : list
+  update_timer
+  buffer_update(data)
+  set_display_window(window_size)
+}
+class "ImageUtilsMixin" as src.gui.main_window.image_utils_mixin.ImageUtilsMixin {
+  pixmap
+  load_image()
+  resizeEvent(event: QResizeEvent)
+  set_pixmap(pixmap: QPixmap)
+  showEvent(event)
+  toggle_theme(dark_t)
+}
+class "MainActionsMixin" as src.gui.main_window.main_actions_mixin.MainActionsMixin {
+  camera_paused : bool
+  connected_to_robot : bool
+  hab_simulation : NoneType, bool
+  stopped : bool
+  connect_robot()
+  pause()
+  reset()
+  start()
+  stop()
+  toggle_activation_model_event()
+  toggle_visibility_camera_event()
+  toggle_visibility_model_event()
+}
+class "MainInitMixin" as src.gui.main_window.main_init_mixin.MainInitMixin {
+  barContentLayout
+  cameraBox
+  camera_interface : CameraInterface
+  contentSplitter
+  control_app_widget
+  controlsBox
+  graph_layout
+  graphsBox
+  gridLayout
+  horizontalLayout
+  main_widget
+  modelBox
+  openbotv : robotWorker
+  pause_button
+  pause_icon
+  reset_button
+  reset_icon
+  robot_controller : DataFlow
+  sim_graph_interface : graphInterface
+  sim_layout
+  simulation_interface : SimInterface
+  slider_widget : SlidersWidget
+  start_button
+  start_icon
+  stop_button
+  stop_icon
+  verticalLayout_2
+  visualSplitter
+  widget
+  center_window()
+  init_camera()
+  init_controls()
+  init_graphics()
+  init_openbotv(com: str)
+  init_simulation()
+  setup_ui(main_widget)
+}
+class "MainInterface" as src.gui.app_interface.MainInterface {
+  actual_theme
+  camera_paused : bool
+  central_widget
+  com : NoneType
+  com_connected_label
+  connected_to_robot : bool
+  dark_theme : bool
+  hab_simulation : bool
+  preloaded_data
+  robot_id
+  simulation_interface : NoneType
+  stopped : bool
+  theme_manager : NoneType
+  title_bar : MainTitleBarMixin
+  closeEvent(event)
+  setup_connections()
+}
+class "MainMenuMixin" as src.gui.main_window.main_menu_mixin.MainMenuMixin {
+  camera_action
+  com : NoneType
+  com_group
+  com_submenu
+  connect_action
+  laser_b
+  laser_w
+  logo_label
+  menu_bar
+  mode_menu
+  model_action
+  moon_icon
+  openbotv : NoneType
+  robot_controller : NoneType
+  robot_menu
+  simulation_action
+  simulation_menu
+  sliders_action
+  sun_icon
+  theme_action
+  vista_menu
+  com_checkable_change(checked)
+  create_actions()
+  create_menu()
+  create_status_bar()
+  get_com_ports()
+}
+class "MainThemeMixin" as src.gui.main_window.main_theme_mixin.MainThemeMixin {
+  actual_theme : NoneType
+  theme_change
+  load_dark_theme()
+  load_light_theme()
+  toggle_theme_event()
+  update_theme(scheme: Qt.ColorScheme)
+}
+class "MainTitleBarMixin" as src.gui.main_window.main_title_bar_mixin.MainTitleBarMixin {
+  buttons_frame
+  left_container
+  left_layout
+  parent_class
+  title_label
+  title_layout
+  balance_containers()
+  resizeEvent(event)
+  set_title(title)
+}
+class "PhysicalSignalManager" as src.data.control_utils.PhysicalSignalManager {
+  send_to_robot
+  get_instance()
+}
+class "PhysicsWorker" as src.simulation.physics_worker.PhysicsWorker {
+  max_velocity : NoneType, float
+  model_ogl : NoneType
+  physic : NoneType, RobotArmPhysics
+  signal_manager : NoneType
+  target_position_prev : list
+  timer : NoneType
+  update_model
+  get_data()
+  pause()
+  run()
+  set_max_velocity(max_vel)
+  stop()
+  update_simulation(target_positions)
+}
+class "PreloadedContainer" as src.main.PreloadedContainer {
+  is_ready : bool
+  quick_view
+  window_container
+}
+class "RobotArmPhysics" as src.simulation.physics_pybullet.RobotArmPhysics {
+  initial_states : list
+  joint_indices : list
+  joint_names : list
+  joint_positions : list
+  joint_velocities : list
+  robot_id : NoneType
+  robot_loaded
+  get_joint_positions()
+  get_robot_id() -> int
+  get_robot_info()
+  load_models(robot_id)
+  reset_simulation()
+  set_joint_positions(positions, max_velocity)
+  step_simulation()
+}
+class "SignalManager" as src.data.control_utils.SignalManager {
+  actual_position_signal
+  get_data_signal
+  update_graph_signal
+  update_robot_signal
+}
+class "SimInterface" as src.gui.simulation_interface.SimInterface {
+  controller : DataFlow
+  image_label
+  image_path_b : str
+  image_path_r : str
+  parent
+  physics_worker : PhysicsWorker
+  pixmap
+  preloaded_container : NoneType
+  process_running : bool
+  quick_view : NoneType
+  robot_id
+  sim_worker : NoneType, SimWorker
+  theme_manager : NoneType
+  v_layout
+  window_container : NoneType
+  closeEvent(event)
+  pause_simulation()
+  start_simulation()
+  stop_simulation()
+}
+class "SimWorker" as src.gui.simulation_worker.SimWorker {
+  direction_rotation : list
+  hwnd : NoneType
+  joint_names : list
+  root_object
+  signal_manager : NoneType
+  timer : NoneType
+  update_simulation(joint_positions)
+}
+class "SimulationSignalManager" as src.data.control_utils.SimulationSignalManager {
+  update_pybullet_signal
+  get_instance()
+}
+class "SlidersWidget" as src.gui.sliders_interface.SlidersWidget {
+  button_container
+  buttons_widget
+  container
+  instance : NoneType
+  label
+  label_3
+  label_4
+  label_5
+  label_6
+  label_7
+  parent
+  pose_1_button
+  pose_2_button
+  pose_3_button
+  pose_4_button
+  slider_1
+  slider_2
+  slider_3
+  slider_4
+  slider_5
+  slider_6
+  sliders_status : list
+  spin_box_1
+  spin_box_2
+  spin_box_3
+  spin_box_4
+  spin_box_5
+  spin_box_6
+  vertical_layout
+  widget
+  get_sliders_state() -> list[int]
+  reset_values()
+  restart_sliders()
+  set_pose_1()
+  set_pose_2()
+  set_pose_3()
+  set_pose_4()
+  update_class_status()
+}
+class "ThemeManager" as src.gui.main_window.main_theme_mixin.ThemeManager {
+  theme_changed
+  emit_theme_change(dark_t: bool)
+  get_instance()
+}
+class "VideoWorker" as src.gui.camera_worker.VideoWorker {
+  camera_chess_board : CameraChessBoard, NoneType
+  camera_index : int
+  error_occurred
+  frame_ready
+  pause()
+  resume()
+  run()
+  stop()
+}
+class "domains" as src.data.control_utils.domains {
+  name
+}
+class "graphInterface" as src.gui.graph_interface.graphInterface {
+  graph_layout
+  graph_object : GraphWidget
+  graph_widget : GraphicsLayoutWidget
+  image_label
+  image_path_b : str
+  image_path_r : str
+  pixmap
+  process_running : bool
+  theme_manager : NoneType
+  timer
+}
+class "modes" as src.data.control_utils.modes {
+  name
+}
+class "robotWorker" as src.robot.openbotv_worker.robotWorker {
+  CM904 : Serial
+  comandos : list
+  signal_manager : NoneType
+  timer
+  get_data_from_interface(datos)
+  request_data()
+  run()
+  send_data_to_robot(valorm)
+  stop()
+}
+class "units" as src.data.control_utils.units {
+  name
+}
+class "upgradableGraph" as src.gui.graph_worker.upgradableGraph {
+  buffer_full : bool
+  buffer_size : int
+  curve
+  display_window
+  graph_widget
+  plot_item
+  write_index : int
+  y : ndarray
+  add_data(data)
+  set_display_window(window_size)
+  update_plot()
+}
+src.data.control_utils.PhysicalSignalManager --|> src.data.control_utils.SignalManager
+src.data.control_utils.SimulationSignalManager --|> src.data.control_utils.SignalManager
+src.gui.graph_worker.upgradableGraph --* src.gui.graph_worker.GraphWidget : motor_1
+src.gui.graph_worker.upgradableGraph --* src.gui.graph_worker.GraphWidget : motor_2
+src.gui.graph_worker.upgradableGraph --* src.gui.graph_worker.GraphWidget : motor_3
+src.gui.graph_worker.upgradableGraph --* src.gui.graph_worker.GraphWidget : motor_4
+src.gui.graph_worker.upgradableGraph --* src.gui.graph_worker.GraphWidget : motor_5
+src.gui.graph_worker.upgradableGraph --* src.gui.graph_worker.GraphWidget : motor_6
+@enduml

@@ -1,23 +1,44 @@
-import numpy as np
+""" Este modulo provee diferentes herramientas para la comunicación entre la interfaz, 
+    el procesamiento de datos y el robot, tanto la simulación como el robot físico.
+
+    Las clases modes, units y domains permiten conocer el contexto de los datos que se transmiten
+    asi como su origen el tratamiento que se realiza y su objetivo.
+
+    Las clases SignalManager permiten una comunicación bidireccional entre la interfaz 
+    y el controlador asi como entre el robot y el controlador.
+
+    Las clases deg_to_rad y rad_to_deg realizan la conversion de posiciones angulares entre
+    radianes y grados o viceversa.
+"""
 from enum import Enum
+import numpy as np
 from PyQt6.QtCore import pyqtSignal, QObject
 
 
-class modes(Enum):
+class Modes(Enum):
+    """ Define el origen de los datos en la interfaz como los sliders que proporcionan el 
+        angulo objetivo o las coordenadas que provee la cámara.
+    """
     SLIDERS = 1
 
 
-class units(Enum):
+class Units(Enum):
+    """ Define el tipo de unidades que requiere el robot ya sea radianes o grados tanto para 
+        simulación como para el físico.
+    """
     DEG = 1
     RAD = 2
 
 
-class domains(Enum):
+class Domains(Enum):
+    """ El dominio identifica si el controlador y el signal manager se conectan con el robot físico
+        o con la simulación.
+    """
     SIMULATION = 1
     PHYSICAL = 2
 
 
-class SignalManager(QObject):
+class _SignalManager(QObject):
     """ Gestor centralizado de señales para comunicación entre threads
     """
     get_data_signal = pyqtSignal()
@@ -26,8 +47,8 @@ class SignalManager(QObject):
     update_graph_signal = pyqtSignal(list)
 
 
-class SimulationSignalManager(SignalManager):
-    """ SignalManager específico para simulacion
+class SimulationSignalManager(_SignalManager):
+    """ SignalManager específico para simulación
     """
     update_pybullet_signal = pyqtSignal(list)
 
@@ -35,12 +56,18 @@ class SimulationSignalManager(SignalManager):
 
     @classmethod
     def get_instance(cls):
+        """ Permite obtener una única instancia del objeto evitando que se generen multiples señales
+            de comunicación. En caso de que no haya ninguna instancia entonces se crea una nueva.
+
+        Returns:
+            SimulationSignalManager: instancia única de la clase
+        """
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
 
 
-class PhysicalSignalManager(SignalManager):
+class PhysicalSignalManager(_SignalManager):
     """ SignalManager específico para robot físico
     """
     send_to_robot = pyqtSignal(list)
@@ -49,6 +76,12 @@ class PhysicalSignalManager(SignalManager):
 
     @classmethod
     def get_instance(cls):
+        """ Permite obtener una única instancia del objeto evitando que se generen multiples señales
+            de comunicación. En caso de que no haya ninguna instancia entonces se crea una nueva.
+
+        Returns:
+            PhysicalSignalManager: instancia única de la clase
+        """
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance

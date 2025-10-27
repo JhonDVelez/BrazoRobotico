@@ -1,3 +1,6 @@
+""" Clase principal main donde se realiza la carga de datos necesarios en la splash screen ademas
+    de la creación de la ventana principal de la interfaz y la muestra en pantalla.
+"""
 import os
 import sys
 import time
@@ -8,7 +11,7 @@ from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtQuick import QQuickView
 from PyQt6.QtCore import QUrl, Qt
 from qdarktheme.qtpy.QtWidgets import QSplashScreen
-from gui.app_interface import MainInterface
+from gui import MainInterface
 
 
 class PreloadedContainer:

@@ -7,15 +7,19 @@ import qdarktheme.dist.dark
 import qdarktheme.dist.dark.stylesheet
 import qdarktheme.dist.light
 import qdarktheme.dist.light.stylesheet
-from gui.main_window.theme_stylesheet import dark, light
+from .theme_stylesheet import dark_style, light_style
 
 
 class MainThemeMixin:
+    """ Mixin donde se gestionan los temas, colores, cambio entre claro y oscuro tanto de forma
+        manual con el botón o de forma automática con el tema de windows.
+    """
     theme_change = pyqtSignal(str)
     actual_theme = None
 
     def update_theme(self, scheme: Qt.ColorScheme):
-        """Se ejecuta cada vez que cambia el tema del sistema"""
+        """ Se ejecuta cada vez que cambia el tema del sistema
+        """
         if scheme == Qt.ColorScheme.Dark:
             self.load_dark_theme()
         elif scheme == Qt.ColorScheme.Light:
@@ -34,7 +38,9 @@ class MainThemeMixin:
         self.update_theme(self.actual_theme)
 
     def load_dark_theme(self):
-        qdarktheme.dist.dark.stylesheet.STYLE_SHEET = dark.STYLE_SHEET
+        """ Modificaciones para el tema oscuro de qdarktheme.
+        """
+        qdarktheme.dist.dark.stylesheet.STYLE_SHEET = dark_style
         stylesheet = qdarktheme.load_stylesheet("dark")
         svg_path = (Path(__file__).resolve().parent.parent.parent.parent /
                     "src/gui/main_window/theme_stylesheet/svg/radio_button_checked_r.svg").as_posix()
@@ -61,7 +67,9 @@ class MainThemeMixin:
             pg.mkColor((32, 33, 36)))
 
     def load_light_theme(self):
-        qdarktheme.dist.light.stylesheet.STYLE_SHEET = light.STYLE_SHEET
+        """ Modificaciones para el tema claro de qdarktheme.
+        """
+        qdarktheme.dist.light.stylesheet.STYLE_SHEET = light_style
         stylesheet = qdarktheme.load_stylesheet("light")
         svg_path = (Path(__file__).resolve().parent.parent.parent.parent /
                     "src/gui/main_window/theme_stylesheet/svg/radio_button_checked_b.svg").as_posix()
@@ -91,6 +99,9 @@ class MainThemeMixin:
 
 
 class ThemeManager(QObject):
+    """ Gestor de tema encargado de producir la señal necesaria para cambiar de colores y de 
+        imágenes según se necesite.
+    """
     theme_changed = pyqtSignal(bool)
     _instance = None
 

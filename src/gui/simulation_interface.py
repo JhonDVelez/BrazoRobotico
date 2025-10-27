@@ -6,9 +6,8 @@ from PyQt6.QtGui import QPixmap
 from gui.simulation_worker import SimWorker
 from gui.main_window.main_theme_mixin import ThemeManager
 from gui.main_window.image_utils_mixin import ImageUtilsMixin
-from simulation.physics_worker import PhysicsWorker
-from data.control_utils import units, modes, domains
-from data.controller import DataFlow
+from simulation import PhysicsWorker
+from data import Units, Modes, Domains, DataFlow
 
 
 class SimInterface(ImageUtilsMixin):
@@ -107,11 +106,12 @@ class SimInterface(ImageUtilsMixin):
         self.physics_worker.set_max_velocity(1.2)
 
         self.controller = DataFlow(
-            modes.SLIDERS, units.RAD, domains.SIMULATION)
+            Modes.SLIDERS, Units.RAD, Domains.SIMULATION)
         self.controller.start()
 
     def start_simulation(self):
-        """Inicia la simulación con recursos ya precargados - INSTANTÁNEO"""
+        """ Inicia la simulación con recursos ya precargados
+        """
         if not self.window_container or not self.quick_view:
             print("Error: Contenedor precargado no disponible")
             return
@@ -133,12 +133,14 @@ class SimInterface(ImageUtilsMixin):
             print(f"Error iniciando simulación: {e}")
 
     def pause_simulation(self):
-        """Pausa la simulación"""
+        """ Pausa la simulación
+        """
         if self.physics_worker:
             self.physics_worker.pause()
 
     def stop_simulation(self):
-        """Para la simulación"""
+        """ Para la simulación
+        """
         self.process_running = False
 
         if self.sim_worker:
@@ -152,7 +154,8 @@ class SimInterface(ImageUtilsMixin):
         self.image_label.show()
 
     def closeEvent(self, event):
-        """Limpieza al cerrar"""
+        """ Limpieza al cerrar
+        """
         if self.process_running:
             self.stop_simulation()
         if self.sim_worker:

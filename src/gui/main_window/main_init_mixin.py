@@ -1,18 +1,25 @@
+""" En este modulo se definen los widgets y secciones de la interfaz principal, contenedores, 
+    comportamiento de estos, tamaño y conexiones, asi como la inicializaron de algunas de estas
+    como por ejemplo la inicializaron de la cámara
+"""
 import os
 from PyQt6.QtWidgets import QVBoxLayout, QGridLayout, QSplitter, QGroupBox, QPushButton, QApplication
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QSizePolicy
 from PyQt6.QtGui import QIcon
-from PyQt6.QtCore import QSize, Qt, QRect
-from data.control_utils import modes, units, domains
-from data.controller import DataFlow
-from gui.camera_interface import CameraInterface
-from gui.sliders_interface import SlidersWidget
-from gui.simulation_interface import SimInterface
-from gui.graph_interface import graphInterface
-from robot.openbotv_worker import robotWorker
+from PyQt6.QtCore import QSize, Qt
+from data import Modes, Units, Domains
+from data import DataFlow
+from robot import RobotWorker
+from ..camera_interface import CameraInterface
+from ..sliders_interface import SlidersWidget
+from ..simulation_interface import SimInterface
+from ..graph_interface import GraphInterface
 
 
 class MainInitMixin:
+    """ Mixin donde se tienen las funciones de inicialización de las distintas partes de la 
+        interfaz
+    """
 
     def setup_ui(self, main_widget):
         """
@@ -215,16 +222,24 @@ class MainInitMixin:
         self.sim_layout.addWidget(self.simulation_interface)
 
     def init_openbotv(self, com: str):
+        """ Inicializa la conexión con el microcontrolador asi como la inicialización del 
+        controlador
+
+        Args:
+            com (str): Puerto de comunicación serial seleccionado
+        """
         self.robot_controller = DataFlow(
-            modes.SLIDERS, units.DEG, domains.PHYSICAL
+            Modes.SLIDERS, Units.DEG, Domains.PHYSICAL
         )
 
-        self.openbotv = robotWorker(com)
+        self.openbotv = RobotWorker(com)
         self.openbotv.start()
 
         self.connect_action.setEnabled(False)
 
     def init_graphics(self):
+        """ Inicialización del contenedor para los gráficos tipo osciloscopio
+        """
         if not self.graphsBox.layout():
             graph_layout = QVBoxLayout(self.graphsBox)
             graph_layout.setContentsMargins(0, 0, 0, 0)
@@ -232,10 +247,12 @@ class MainInitMixin:
 
         self.graphsBox.setStyleSheet("""padding: 0px;""")
 
-        self.graph_interface = graphInterface()
+        self.graph_interface = GraphInterface()
         self.graphsBox.layout().addWidget(self.graph_interface)
 
     def center_window(self):
+        """ Centra la interfaz en pantalla cuando esta se inicia en modo ventana
+        """
         screen = QApplication.primaryScreen()
         screen_geometry = screen.geometry()
         x = (screen_geometry.width() - self.width()) // 2

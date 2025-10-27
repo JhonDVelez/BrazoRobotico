@@ -23,8 +23,8 @@ View3D {
         }
 
         // Opciones FXAA, SMAA, SSAA, ProgressiveAA
-        antialiasingMode: SceneEnvironment.SSAA
-        antialiasingQuality: SceneEnvironment.VeryHigh
+        //antialiasingMode: SceneEnvironment.SSAA
+        //antialiasingQuality: SceneEnvironment.VeryHigh
         
         tonemapMode: SceneEnvironment.TonemapModeAces 
     }

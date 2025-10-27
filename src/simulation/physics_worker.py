@@ -43,7 +43,7 @@ class PhysicsWorker(QThread):
         """ Ciclo principal del subproceso el cual actualiza el robot cada n milisegundos
         """
         self._running = True
-        self.set_max_velocity(5.5)
+        self.set_max_velocity(5.55)
         # Si esta pausado actualiza activa nuevamente el ciclo
         if self._paused:
             self._paused = False

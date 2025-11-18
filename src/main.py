@@ -86,7 +86,8 @@ class CompletePreloader:
             if not self.preloaded_view.isVisible():
                 self.preloaded_view.show()
                 QGuiApplication.processEvents()
-                self.preloaded_view.hide()
+                if sys.platform == "win32":
+                    self.preloaded_view.hide()
 
             self.window_container = self.create_window_container(
                 self.preloaded_view,

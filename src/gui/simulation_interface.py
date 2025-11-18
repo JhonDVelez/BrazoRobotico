@@ -1,13 +1,13 @@
 import os
-from PyQt6.QtWidgets import QVBoxLayout, QLabel, QSizePolicy
-from PyQt6.QtCore import Qt
-from PyQt6.QtQuick import QQuickView
-from PyQt6.QtGui import QPixmap
-from gui.simulation_worker import SimWorker
-from gui.main_window.main_theme_mixin import ThemeManager
-from gui.main_window.image_utils_mixin import ImageUtilsMixin
-from simulation import PhysicsWorker
 from data import Units, Modes, Domains, DataFlow
+from simulation import PhysicsWorker
+from gui.main_window.image_utils_mixin import ImageUtilsMixin
+from gui.main_window.main_theme_mixin import ThemeManager
+from gui.simulation_worker import SimWorker
+from PyQt6.QtGui import QPixmap
+from PyQt6.QtQuick import QQuickView
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QVBoxLayout, QLabel, QSizePolicy
 
 
 class SimInterface(ImageUtilsMixin):
@@ -45,7 +45,6 @@ class SimInterface(ImageUtilsMixin):
 
         # Integrar contenedor precargado
         self.__integrate_preloaded_container()
-
         self.__setup_controller()
 
     def __setup_static_image(self):
@@ -91,12 +90,16 @@ class SimInterface(ImageUtilsMixin):
                 )
                 self.quick_view.setResizeMode(
                     QQuickView.ResizeMode.SizeRootObjectToView)
+            else:
+                print("Error de configuracion de vista")
 
             # Inicializar worker de física
             root_object = self.quick_view.rootObject()
             if root_object:
                 self.sim_worker = SimWorker(root_object, self.robot_id)
                 self.sim_worker.start()
+            else:
+                print("Error de inicializacion del worker")
 
         except Exception as e:
             print(f"Error integrando contenedor precargado: {e}")

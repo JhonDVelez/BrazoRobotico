@@ -1,3 +1,4 @@
+import sys
 from typing import Optional
 import math
 import numpy as np
@@ -30,9 +31,15 @@ class CameraControl:
             self.__release_camera()
 
             # Usar DirectShow en Windows para mejor performance
-            self.cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
-            if not self.cap or not self.cap.isOpened():
-                self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+            if sys.platform == "win32":
+                self.cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+                if not self.cap or not self.cap.isOpened():
+                    self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+            elif sys.platform == "linux":
+                self.cap = cv2.VideoCapture(1, cv2.CAP_V4L2)
+                if not self.cap or not self.cap.isOpened():
+                    # Si falla, intenta con el índice 0
+                    self.cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
 
             if not self.cap or not self.cap.isOpened():
                 raise IOError("No se pudo abrir la cámara")

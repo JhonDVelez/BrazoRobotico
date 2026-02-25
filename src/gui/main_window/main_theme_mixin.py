@@ -63,8 +63,8 @@ class MainThemeMixin:
         self.theme_action.setIcon(self.sun_icon)
         self.graph_interface.sim_graph_object.graph_widget.setBackground(
             pg.mkColor((32, 33, 36)))
-        self.graph_interface.phy_graph_object.graph_widget.setBackground(
-            pg.mkColor((32, 33, 36)))
+        # self.graph_interface.phy_graph_object.graph_widget.setBackground(
+        #     pg.mkColor((32, 33, 36)))
 
     def load_light_theme(self):
         """ Modificaciones para el tema claro de qdarktheme.

@@ -8,17 +8,17 @@ from data import SimulationSignalManager, PhysicalSignalManager, Domains
 
 
 class GraphWorker(QThread):
-    """ Hilo de procesamiento de los gráficos definiendo estructura, estilo, ubicacion y 
-        su nombre asi como el tipo de señal que activará la actualización
+    """ Hilo de procesamiento de los gráficos definiendo estructura, estilo, ubicación y 
+        conexiones con los managers de señales.
     """
 
-    def __init__(self, domain, display_window=1000):
+    def __init__(self, display_window=1000):
         super().__init__()
         self.display_window = display_window
-        self.__setup_ui(domain)
+        self.__setup_ui()
         self.__setup_connections()
 
-    def __setup_ui(self, domain):
+    def __setup_ui(self):
         # Crear widget de gráficos con márgenes en cero
         self.graph_widget = pg.GraphicsLayoutWidget(show=False, title="Graph")
         self.graph_widget.setContentsMargins(0, 0, 0, 0)
@@ -32,35 +32,26 @@ class GraphWorker(QThread):
         # pg.setConfigOption('useOpenGL', True)
 
         # Crear gráficos individuales
-        self.motor_1 = upgradableGraph(self.graph_widget, "motor 1", [
-                                       0, 0], self.display_window)
-        self.motor_2 = upgradableGraph(self.graph_widget, "motor 2", [
-                                       0, 1], self.display_window)
-        self.motor_3 = upgradableGraph(self.graph_widget, "motor 3", [
-                                       1, 0], self.display_window)
-        self.motor_4 = upgradableGraph(self.graph_widget, "motor 4", [
-                                       1, 1], self.display_window)
-        self.motor_5 = upgradableGraph(self.graph_widget, "motor 5", [
-                                       2, 0], self.display_window)
-        self.motor_6 = upgradableGraph(self.graph_widget, "motor 6", [
-                                       2, 1], self.display_window)
+        self.motors = []
+        for i in range(6):
+            row = i // 2
+            col = i % 2
+            motor = upgradableGraph(
+                self.graph_widget,
+                f"motor {i+1}",
+                [row, col],
+                self.display_window
+            )
+            self.motors.append(motor)
 
-        self.motor_1.start()
-        self.motor_2.start()
-        self.motor_3.start()
-        self.motor_4.start()
-        self.motor_5.start()
-        self.motor_6.start()
-
-        # Configurar signal manager según dominio
-        if domain is Domains.SIMULATION:
-            self.signal_manager = SimulationSignalManager.get_instance()
-        elif domain is Domains.PHYSICAL:
-            self.signal_manager = PhysicalSignalManager.get_instance()
+        # Managers independientes
+        self.sim_signal_manager = SimulationSignalManager.get_instance()
+        self.phy_signal_manager = PhysicalSignalManager.get_instance()
 
         # Buffer para acumular actualizaciones
-        self.update_buffer = []
-        self.batch_size = 10
+        self.sim_update_buffer = []
+        self.phy_update_buffer = []
+        self.phy_temp_data = []
 
         # Timer para actualizaciones periódicas
         self.update_timer = QTimer()
@@ -69,48 +60,69 @@ class GraphWorker(QThread):
         self.update_timer.start()
 
     def __setup_connections(self):
-        self.signal_manager.update_graph_signal.connect(self.buffer_update)
+        self.sim_signal_manager.update_graph_signal.connect(
+            self.sim_buffer_update)
+        self.phy_signal_manager.data_recibed.connect(
+            self.phy_buffer_update)
 
-    def buffer_update(self, data):
-        """Acumula datos en buffer en lugar de actualizar inmediatamente"""
-        self.update_buffer.append(data)
+    def sim_buffer_update(self, data):
+        self.sim_update_buffer.append(data)
+
+    def phy_buffer_update(self, pos_data, temp_data):
+        self.phy_update_buffer.append(pos_data)
+        self.phy_temp_data.append(temp_data)
 
     def _process_buffer(self):
-        """Procesa el buffer acumulado"""
-        if not self.update_buffer:
+
+        # Si no hay datos de ningún tipo
+        if not self.sim_update_buffer and not self.phy_update_buffer:
+            for motor in self.motors:
+                motor.show_no_data()
             return
 
-        for data in self.update_buffer:
-            self.motor_1.add_data(data[0])
-            self.motor_2.add_data(data[1])
-            self.motor_3.add_data(data[2])
-            self.motor_4.add_data(data[3])
-            self.motor_5.add_data(data[4])
-            self.motor_6.add_data(data[5])
+        # Procesar simulación
+        for sim_data in self.sim_update_buffer:
+            for motor, value in zip(self.motors, sim_data):
+                motor.add_sim(value)
 
-        self.update_buffer.clear()
+        # Procesar físico (si existe)
+        for phy_data, temp_data in zip(self.phy_update_buffer, self.phy_temp_data):
+            for motor, pos_value, temp_value in zip(self.motors, phy_data, temp_data):
+                motor.add_phy(pos_value, temp_value)
 
-        self.motor_1.update_plot()
-        self.motor_2.update_plot()
-        self.motor_3.update_plot()
-        self.motor_4.update_plot()
-        self.motor_5.update_plot()
-        self.motor_6.update_plot()
+        # Actualizar visualización
+        for motor in self.motors:
+            motor.update_plot()
+
+        self.sim_update_buffer.clear()
+        self.phy_update_buffer.clear()
 
 
-class upgradableGraph(QThread):
-    """ Hilo de procesamiento para el procesamiento y actualización de cada gráfico individual.
+class upgradableGraph:
+    """
+    Clase encargada de manejar el buffer circular y la visualización
+    tipo osciloscopio para una señal doble (Sim + Físico).
     """
 
     def __init__(self, graph_widget, title, pos, display_window=1000):
         super().__init__()
         self.graph_widget = graph_widget
 
+        # Parámetros de buffer
         self.buffer_size = 10000
         self.display_window = min(display_window, self.buffer_size)
-        self.y = np.zeros(self.buffer_size, dtype=np.float32)
-        self.x_data = np.arange(-self.display_window/2,
-                                self.display_window/2, dtype=np.float32)
+
+        # Buffers independientes
+        self.y_sim = np.zeros(self.buffer_size, dtype=np.float32)
+        self.y_phy = np.zeros(self.buffer_size, dtype=np.float32)
+        self.temp_phy = ""
+
+        # Eje X fijo centrado (comportamiento osciloscopio)
+        self.x_data = np.arange(
+            -self.display_window / 2,
+            self.display_window / 2,
+            dtype=np.float32
+        )
 
         self.write_index = 0
         self.buffer_full = False
@@ -136,20 +148,49 @@ class upgradableGraph(QThread):
             padding=0.0
         )
 
-        pen = pg.mkPen(color=(24, 201, 167), width=3)
+        # Curvas independientes
+        pen_sim = pg.mkPen(color=(24, 201, 167), width=3)
+        pen_phy = pg.mkPen(color=(255, 100, 100), width=2)
 
-        self.curve = self.plot_item.plot(pen=pen, skipFiniteCheck=True)
+        self.curve_sim = self.plot_item.plot(
+            pen=pen_sim, skipFiniteCheck=True)
+        self.curve_phy = self.plot_item.plot(
+            pen=pen_phy, skipFiniteCheck=True)
 
-    def add_data(self, data):
-        """ Agrega un dato al buffer circular
-        """
-        self.y[self.write_index] = data
+        # Texto cuando no hay señal
+        self.temp_text = pg.TextItem(self.temp_phy, anchor=(1, 0))
+        self.plot_item.addItem(self.temp_text)
+
+        self.plot_item.getViewBox().sigRangeChanged.connect(self._update_text_pos)
+        self._update_text_pos()  # Posición inicial
+
+    def _update_text_pos(self):
+        vb = self.plot_item.getViewBox()
+        x_range, y_range = vb.viewRange()
+        # Posicionar en esquina superior derecha con un pequeño margen
+        x_pos = x_range[1]  # extremo derecho
+        y_pos = y_range[1]  # extremo superior
+        self.temp_text.setPos(x_pos, y_pos)
+
+    def add_phy(self, pos_value, temp_value):
+        self.y_phy[self.write_index] = pos_value
+        self.temp_phy = temp_value
+
+    def add_sim(self, value):
+        self.y_sim[self.write_index] = value
+
         self.write_index += 1
 
         if self.write_index >= self.buffer_size:
             self.write_index = 0
             self.buffer_full = True
 
+    # Mostrar mensaje cuando no hay ejecución
+    def show_no_data(self):
+        self.curve_sim.clear()
+        self.curve_phy.clear()
+
+    # Actualización con desplazamiento lateral
     def update_plot(self):
         """ Actualiza la visualización en modo roll
         """
@@ -166,38 +207,54 @@ class upgradableGraph(QThread):
             if self.write_index <= self.display_window:
                 x_offset = self.display_window - self.write_index
 
-                y_data = self.y[:self.write_index]
-                self.curve.setData(
-                    x=self.x_data[x_offset:], y=y_data, skipFiniteCheck=True)
+                y_sim_data = self.y_sim[:self.write_index]
+                y_phy_data = self.y_phy[:self.write_index]
+                self.temp_text.setText(f"{self.temp_phy}")
+
+                self.curve_sim.setData(
+                    x=self.x_data[x_offset:], y=y_sim_data)
+                self.curve_phy.setData(
+                    x=self.x_data[x_offset:], y=y_phy_data)
+
             else:
                 start_idx = self.write_index - self.display_window
-                y_data = self.y[start_idx:self.write_index]
-                self.curve.setData(x=self.x_data, y=y_data,
-                                   skipFiniteCheck=True)
+
+                y_sim_data = self.y_sim[start_idx:self.write_index]
+                y_phy_data = self.y_phy[start_idx:self.write_index]
+
+                self.curve_sim.setData(
+                    self.x_data, y_sim_data, skipFiniteCheck=True)
+                self.curve_phy.setData(
+                    self.x_data, y_phy_data, skipFiniteCheck=True)
+
         else:
             # Buffer lleno: extraer los últimos display_window puntos
 
-            if self.display_window >= self.buffer_size:
-                # Mostrar todo el buffer
-                temp = np.concatenate([
-                    self.y[self.write_index:],
-                    self.y[:self.write_index]
-                ])
-                self.curve.setData(temp, skipFiniteCheck=True)
-            else:
-                # Calcular el índice de inicio en el buffer circular
-                if self.write_index >= self.display_window:
-                    start_idx = self.write_index - self.display_window
-                    y_data = self.y[start_idx:self.write_index]
-                else:
-                    # Ventana cruza el límite del buffer circular
-                    wrap_amount = self.display_window - self.write_index
-                    y_data = np.concatenate([
-                        self.y[-wrap_amount:],  # Final del buffer
-                        self.y[:self.write_index]  # Inicio del buffer
-                    ])
+            if self.write_index >= self.display_window:
+                start_idx = self.write_index - self.display_window
 
-                self.curve.setData(x=self.x_data, y=y_data,
-                                   skipFiniteCheck=True)
+                y_sim_data = self.y_sim[start_idx:self.write_index]
+                y_phy_data = self.y_phy[start_idx:self.write_index]
+
+            else:
+                wrap_amount = self.display_window - self.write_index
+
+                y_sim_data = np.concatenate([
+                    self.y_sim[-wrap_amount:],
+                    self.y_sim[:self.write_index]
+                ])
+                y_phy_data = np.concatenate([
+                    self.y_phy[-wrap_amount:],
+                    self.y_phy[:self.write_index]
+                ])
+
+            self.curve_sim.setData(self.x_data, y_sim_data)
+            self.curve_phy.setData(self.x_data, y_phy_data)
+
+        # Mantener eje centrado (efecto osciloscopio)
         vb = self.plot_item.getViewBox()
-        vb.setXRange(-self.display_window/2, self.display_window/2, padding=0)
+        vb.setXRange(
+            -self.display_window/2,
+            self.display_window/2,
+            padding=0
+        )

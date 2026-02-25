@@ -12,7 +12,7 @@
 """
 from enum import Enum
 import numpy as np
-from PyQt6.QtCore import pyqtSignal, QObject
+from PyQt6.QtCore import pyqtSignal, QObject, QTimer
 
 
 class Modes(Enum):
@@ -42,7 +42,8 @@ class _SignalManager(QObject):
     """ Gestor centralizado de señales para comunicación entre threads
     """
     get_data_signal = pyqtSignal()
-    actual_position_signal = pyqtSignal(list)
+    sensor_position_signal = pyqtSignal(list)
+    model_position_signal = pyqtSignal(list)
     update_robot_signal = pyqtSignal(list)
     update_graph_signal = pyqtSignal(list)
 
@@ -51,6 +52,7 @@ class SimulationSignalManager(_SignalManager):
     """ SignalManager específico para simulación
     """
     update_pybullet_signal = pyqtSignal(list)
+    update_model_signal = pyqtSignal(list)
 
     _instance = None
 
@@ -70,7 +72,9 @@ class SimulationSignalManager(_SignalManager):
 class PhysicalSignalManager(_SignalManager):
     """ SignalManager específico para robot físico
     """
+    is_connected = False
     send_to_robot = pyqtSignal(list)
+    data_recibed = pyqtSignal(list, list)
 
     _instance = None
 
@@ -87,6 +91,67 @@ class PhysicalSignalManager(_SignalManager):
         return cls._instance
 
 
+class GlobalTimer(QObject):
+    sync_tick = pyqtSignal()
+    update_tick = pyqtSignal()
+    model_tick = pyqtSignal()
+
+    _instance = None
+    _initialized = False
+
+    @classmethod
+    def get_instance(cls):
+        """ Permite obtener una única instancia del objeto evitando que se generen multiples señales
+            de sincronización. En caso de que no haya ninguna instancia entonces se crea una nueva.
+
+        Returns:
+            GlobalTimer: instancia única de la clase
+        """
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    def __init__(self):
+        if GlobalTimer._initialized:
+            return
+        super().__init__()
+        self._timer = QTimer()
+        self._timer.setInterval(4)  # Mayor frecuencia para precisión
+        self._timer.timeout.connect(self._tick)
+        self._timer.start()
+
+        self._sync_counter = 0
+        self._model_counter = 0
+        GlobalTimer._initialized = True
+
+        self.signal_manager = PhysicalSignalManager.get_instance()
+
+    def _tick(self):
+        self._sync_counter += 1
+        self._model_counter += 1
+
+        if self._model_counter >= 8:
+            self.model_tick.emit()
+            self._model_counter = 0
+
+        if self._sync_counter >= 25 and not self.signal_manager.is_connected:  # Cada 100ms
+            self.sync_tick.emit()
+            self._sync_counter = 0
+        else:  # No emitir update_tick si ya emitimos model_tick
+            self.update_tick.emit()
+
+    def start(self):
+        if not self._timer.isActive():
+            self._timer.start()
+
+    def stop(self):
+        if self._timer.isActive():
+            self._timer.stop()
+
+    def is_running(self) -> bool:
+        return self._timer.isActive()
+
+
 def deg_to_rad(pos):
     """ Obtiene los valores objetivos de los slider/spinBox y los convierte a radianes
 
@@ -94,7 +159,8 @@ def deg_to_rad(pos):
         NDArray: Array de valores objetivos en radianes
     """
     if pos is None:
-        pos = []
+        pos = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        return np.array(pos)
     return np.deg2rad(np.array(pos))
 
 

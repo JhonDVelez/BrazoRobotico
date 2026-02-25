@@ -106,7 +106,6 @@ class SimInterface(ImageUtilsMixin):
 
     def __setup_controller(self):
         self.physics_worker = PhysicsWorker(self.robot_id)
-        self.physics_worker.set_max_velocity(1.2)
 
         self.controller = DataFlow(
             Modes.SLIDERS, Units.RAD, Domains.SIMULATION)

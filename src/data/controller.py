@@ -25,16 +25,18 @@
         └──⮞ PhysicalSignalManager ⭢ GraphWorker (Agrega los datos al graficador)
     ```
 """
+import numpy as np
 from PyQt6.QtCore import QThread
 from pyqtgraph.Qt.QtCore import pyqtSlot
 from gui.sliders_interface import SlidersWidget
 from data import deg_to_rad, rad_to_deg
-from data import PhysicalSignalManager, Modes, Units, Domains, SimulationSignalManager
+from data import PhysicalSignalManager, Modes, Units, Domains, SimulationSignalManager, GlobalTimer
 
 
 class DataFlow(QThread):
     """ Clase que actúa como controlador de datos entre la interfaz y la simulación o el 
-        robot físico
+        robot físico, permitiendo un mejor manejo del flujo de datos entre las diferentes secciones
+        de la aplicación.
     """
 
     def __init__(self, mode: Modes, unit: Units, domain: Domains) -> None:
@@ -45,19 +47,20 @@ class DataFlow(QThread):
         self.units = unit
         self.signal_manager = None
         self.domain = domain
+        self.sync_timer = GlobalTimer.get_instance()
+        self.sync_timer.sync_tick.connect(self.request_objective_data)
+        self.sync_timer.start()
 
         # Inicializa las señales dependiendo de cual sea el dominio
         if self.domain is Domains.SIMULATION:
             self.signal_manager = SimulationSignalManager.get_instance()
-            self.signal_manager.get_data_signal.connect(
-                self.request_objective_data)
-            self.signal_manager.actual_position_signal.connect(
-                self.update_simulation)
+            self.signal_manager.sensor_position_signal.connect(
+                self.update_simulation_graph)
+            self.signal_manager.model_position_signal.connect(
+                self.update_simulation_model)
         elif self.domain is Domains.PHYSICAL:
             self.signal_manager = PhysicalSignalManager.get_instance()
-            self.signal_manager.get_data_signal.connect(
-                self.request_objective_data)
-            self.signal_manager.actual_position_signal.connect(
+            self.signal_manager.sensor_position_signal.connect(
                 self.update_robot)
         else:
             raise Exception("El dominio proporcionado no existe.")
@@ -68,8 +71,11 @@ class DataFlow(QThread):
             los cuales se obtienen con la función __get_sliders_data().
 
             Estos datos se entregan en forma de una lista de seis elementos, los cuales dependiendo
-            del dominio en que se encuentren serán entregados en radianes o en grados, para la 
-            simulación se utilizan radianes y para el robot físico se utilizan grados.
+            del dominio en que se encuentren serán entregados en radianes o en grados:
+            ```
+                - La simulación con pybullet utiliza radianes.
+                - El robot físico Openbotv-V1 utiliza grados.
+            ```
         """
         if self.mode is Modes.SLIDERS:
             if self.domain is Domains.SIMULATION:
@@ -80,13 +86,35 @@ class DataFlow(QThread):
                     self.__get_sliders_data())
 
     def __get_sliders_data(self):
+        """ Obtiene los datos provenientes de la interfaz para los ángulos objetivos definidos con
+            los sliders, se reciben como una lista de seis posiciones y dependiendo de lo requerido
+            según el dominio de ejecución, se realiza la transformación a radianes o se retorna en 
+            grados como los proporciona la interfaz.
+
+        Returns:
+            NDArray: Arreglo con las posiciones objetivos configuradas en la interfaz
+        """
         if self.units is Units.DEG:
-            return SlidersWidget.get_sliders_state()
+            return np.array(SlidersWidget.get_sliders_state())
         if self.units is Units.RAD:
             return deg_to_rad(SlidersWidget.get_sliders_state())
 
     @pyqtSlot(list)
-    def update_simulation(self, actual_positions):
+    def update_simulation_graph(self, actual_positions):
+        """ Esta función es un slot de pyqt es decir esta conectada a la señal de activación 
+            actual_position_signal la cual al hacer el emit activa esta función con los datos
+            actual_position los cuales se reciben en radianes ya que provienen de pybullet y deben
+            ser convertidos a grados luego se emite esta trasformación al modelo 3D de qtQuick
+            y a los gráficos de pyqtgraph
+
+        Args:
+            actual_positions (list): Posiciones actuales de los motores del robot de pybullet
+        """
+        pos = rad_to_deg(actual_positions)
+        self.signal_manager.update_graph_signal.emit(pos)
+
+    @pyqtSlot(list)
+    def update_simulation_model(self, actual_positions):
         """ Esta función es un slot de pyqt es decir esta conectada a la señal de activación 
             actual_position_signal la cual al hacer el emit activa esta función con los datos
             actual_position los cuales se reciben en radianes ya que provienen de pybullet y deben
@@ -98,7 +126,6 @@ class DataFlow(QThread):
         """
         pos = rad_to_deg(actual_positions)
         self.signal_manager.update_robot_signal.emit(pos)
-        self.signal_manager.update_graph_signal.emit(pos)
 
     @pyqtSlot(list)
     def update_robot(self, actual_positions):

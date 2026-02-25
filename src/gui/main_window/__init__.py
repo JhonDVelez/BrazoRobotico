@@ -1,4 +1,5 @@
-"""_summary_
+""" Paquete de mixin donde se define el comportamiento y estructura de la interfaz principal asi 
+    como los elementos que contiene.
 """
 
 from .image_utils_mixin import ImageUtilsMixin

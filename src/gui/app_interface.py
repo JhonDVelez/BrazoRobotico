@@ -43,7 +43,7 @@ class MainInterface(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMe
         # Barra de título
         self.create_menu()
         self.title_bar = MainTitleBarMixin(self)
-        # necesario para arrastrar/min/max
+        # necesario para acciones de ventana como arrastrar/min/max
         self.setTitleBar(self.title_bar)
         layout.addWidget(self.title_bar)
 

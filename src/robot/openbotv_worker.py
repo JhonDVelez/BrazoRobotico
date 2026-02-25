@@ -1,19 +1,42 @@
+from calendar import c
+
 import serial
+import re
 from PyQt6.QtCore import QThread, QTimer
-from data import PhysicalSignalManager
+from data import PhysicalSignalManager, GlobalTimer
 
 
-class RobotWorker(QThread):
+class RobotSerial:
+    _instance = None
+    cm904 = None
+
+    @classmethod
+    def get_instance(cls, com: str):
+        """ Permite obtener una única instancia del objeto evitando que se generen multiples señales
+            de comunicación. En caso de que no haya ninguna instancia entonces se crea una nueva.
+
+        Returns:
+            PhysicalSignalManager: instancia única de la clase
+        """
+        if cls._instance is None:
+            cls._instance = cls()
+        if cls.cm904 is None:
+            cls.cm904 = serial.Serial(com, 9600, timeout=1)
+        return cls._instance
+
+
+class RobotWriterWorker(QThread):
     """ Hilo de trabajo para el envió y recepción de datos del openbotv v1 físico
     """
 
     def __init__(self, com: str):
         super().__init__()
-        self.CM904 = serial.Serial(com, 9600, timeout=2)
-        self.signal_manager = PhysicalSignalManager.get_instance()
+        robot_serial = RobotSerial.get_instance(com)
+        self.cm904 = robot_serial.cm904
 
+        self.signal_manager = PhysicalSignalManager.get_instance()
         # Conectar señal de interfaz → slot local
-        self.signal_manager.send_to_robot.connect(self.get_data_from_interface)
+        self.signal_manager.send_to_robot.connect(self.send_data_to_robot)
 
     def run(self):
         """ Inicia el ciclo de solicitud de datos a la interfaz y el envió de datos al robot
@@ -57,18 +80,9 @@ class RobotWorker(QThread):
             index (int): Posición actual del comando a enviar
         """
         if index < len(self.comandos):
-            self.CM904.write(self.comandos[index].encode())
+            self.cm904.write(self.comandos[index].encode())
             # espera 5 ms y luego llama al siguiente
             QTimer.singleShot(5, lambda: self._enviar_comando(index + 1))
-
-    def get_data_from_interface(self, datos):
-        """ Datos obtenidos de la interfaz, recibidos mediante la señal 'send_to_robot'
-
-        Args:
-            datos (list): Ángulos objetivos proporcionados por la interfaz.
-        """
-        # print(f"[RobotWorker] Recibido desde interfaz: {datos}")
-        self.send_data_to_robot(datos)
 
     def stop(self):
         """ Detiene el envío de datos al robot.
@@ -77,3 +91,53 @@ class RobotWorker(QThread):
             self.timer.stop()
         self.quit()
         self.wait()
+
+
+class RobotReaderWorker(QThread):
+
+    def __init__(self, com: str):
+        super().__init__()
+        robot_serial = RobotSerial.get_instance(com)
+        self.cm904 = robot_serial.cm904
+
+        self.signal_manager = PhysicalSignalManager.get_instance()
+        self.signal_manager.is_connected = True
+
+        self.sync_timer = GlobalTimer.get_instance()
+        self._running = True
+
+    def run(self):
+        """Equivalente al serial_reader_thread original"""
+        while self._running:
+            try:
+                if self.cm904.in_waiting > 0:
+                    line = self.cm904.readline().decode('ascii', errors='ignore').strip()
+
+                    if not line or ";" not in line:
+                        continue
+
+                    posiciones = [None] * 6
+                    temperaturas = [None] * 6
+
+                    for i, char in enumerate(['A', 'B', 'C', 'D', 'E', 'F']):
+                        pos_match = re.search(rf"{char}(\d+)", line)
+                        temp_match = re.search(rf"T{char}(\d+)", line)
+                        if pos_match:
+                            posiciones[i] = int(pos_match.group(1))
+                        if temp_match:
+                            temperaturas[i] = int(temp_match.group(1))
+
+                    # Envía la señal para que inicie la solicitud de datos a pybullet
+                    self.sync_timer.sync_tick.emit()
+                    # Envía datos a las gráficas
+                    self.signal_manager.data_received.emit(
+                        posiciones, temperaturas)
+
+            except serial.SerialException:
+                break
+
+    def stop(self):
+        self._running = False
+        self.cm904.close()
+        self.signal_manager.is_connected = False
+        self.wait()  # Espera a que el hilo termine limpiamente

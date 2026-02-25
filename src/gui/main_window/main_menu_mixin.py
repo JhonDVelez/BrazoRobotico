@@ -5,7 +5,7 @@ from PyQt6.QtGui import QAction, QKeySequence, QIcon, QPixmap, QActionGroup
 from PyQt6.QtWidgets import QMenuBar, QSizePolicy, QLabel, QStatusBar
 from PyQt6.QtCore import Qt
 from serial.tools import list_ports
-from robot.openbotv_worker import RobotWorker
+from robot.openbotv_worker import RobotWriterWorker
 from data import DataFlow
 
 
@@ -168,7 +168,7 @@ class MainMenuMixin:
 
         if getattr(self, "openbotv", None):
             try:
-                if isinstance(self.openbotv, RobotWorker):
+                if isinstance(self.openbotv, RobotWriterWorker):
                     self.openbotv.exit()
                     self.openbotv.wait()
                     self.openbotv.deleteLater()

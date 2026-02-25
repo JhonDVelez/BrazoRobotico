@@ -14,6 +14,7 @@ STYLE_SHEET = """
  * Copyright (c) 2013-2014 Colin Duquesnoy
  * Copyright (c) 2021- Yunosuke Ohsugi
  * ==========================================================================================
+ * Some colors and layout spacing has been modified for OpenbotV Control Lab
  */
 * {
     padding: 0px;

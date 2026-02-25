@@ -9,7 +9,8 @@ from .control_utils import (
     Modes,
     Units,
     rad_to_deg,
-    deg_to_rad)
+    deg_to_rad,
+    GlobalTimer)
 from .controller import DataFlow
 
 __all__ = [
@@ -21,4 +22,5 @@ __all__ = [
     "rad_to_deg",
     "deg_to_rad",
     "DataFlow",
+    "GlobalTimer"
 ]

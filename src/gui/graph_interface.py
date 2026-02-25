@@ -36,13 +36,13 @@ class GraphInterface(ImageUtilsMixin):
         graph_layout.setSpacing(0)
 
         # Crear objetos de gráficos
-        self.sim_graph_object = GraphWorker(Domains.SIMULATION, 1000)
+        self.sim_graph_object = GraphWorker(1000)
         self.sim_graph_widget = self.sim_graph_object.graph_widget
         self.sim_graph_object.start()
 
-        self.phy_graph_object = GraphWorker(Domains.PHYSICAL, 1000)
-        self.phy_graph_widget = self.phy_graph_object.graph_widget
-        self.phy_graph_object.start()
+        # self.phy_graph_object = GraphWorker(Domains.PHYSICAL, 1000)
+        # self.phy_graph_widget = self.phy_graph_object.graph_widget
+        # self.phy_graph_object.start()
 
         # Configurar rutas de imágenes
         self.image_path_r = os.path.join(os.path.dirname(
@@ -52,16 +52,16 @@ class GraphInterface(ImageUtilsMixin):
         self.pixmap = QPixmap(self.image_path_r)
 
         # Configura el radio button para el cambio de graficos visible
-        radio_style = """QRadioButton::indicator {margin-left: 0px;}"""
-        self.sim_radio_button = QRadioButton("Simulación")
-        self.sim_radio_button.setStyleSheet(radio_style)
-        self.sim_radio_button.setChecked(True)
-        self.phy_radio_button = QRadioButton("Robot")
-        self.phy_radio_button.setStyleSheet(radio_style)
+        # radio_style = """QRadioButton::indicator {margin-left: 0px;}"""
+        # self.sim_radio_button = QRadioButton("Simulación")
+        # self.sim_radio_button.setStyleSheet(radio_style)
+        # self.sim_radio_button.setChecked(True)
+        # self.phy_radio_button = QRadioButton("Robot")
+        # self.phy_radio_button.setStyleSheet(radio_style)
 
         self.selector_layout = QHBoxLayout()
-        self.selector_layout.addWidget(self.sim_radio_button)
-        self.selector_layout.addWidget(self.phy_radio_button)
+        # self.selector_layout.addWidget(self.sim_radio_button)
+        # self.selector_layout.addWidget(self.phy_radio_button)
         self.selector_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.selector_layout.setSpacing(10)
         graph_layout.addLayout(self.selector_layout)
@@ -77,42 +77,43 @@ class GraphInterface(ImageUtilsMixin):
         # Agregar widgets al layout
         graph_layout.addWidget(self.image_label)
         graph_layout.addWidget(self.sim_graph_widget)
-        graph_layout.addWidget(self.phy_graph_widget)
+        # graph_layout.addWidget(self.phy_graph_widget)
 
         # Ocultar widgets de gráficos inicialmente
-        self.phy_graph_widget.hide()
+        # self.phy_graph_widget.hide()
         self.sim_graph_widget.hide()
-        self.sim_radio_button.hide()
-        self.phy_radio_button.hide()
+        # self.sim_radio_button.hide()
+        # self.phy_radio_button.hide()
 
     def __setup_connections(self):
         self.theme_manager.theme_changed.connect(self.toggle_theme)
-        self.sim_radio_button.toggled.connect(self.update_visible_graph)
-        self.phy_radio_button.toggled.connect(self.update_visible_graph)
+        # self.sim_radio_button.toggled.connect(self.update_visible_graph)
+        # self.phy_radio_button.toggled.connect(self.update_visible_graph)
 
     def start(self):
         """ Inicia la visualization de las gráficas ocultando la imagen.
         """
         self.image_label.hide()
-        self.sim_radio_button.show()
-        self.phy_radio_button.show()
-        self.update_visible_graph()
+        # self.sim_radio_button.show()
+        # self.phy_radio_button.show()
+        # self.update_visible_graph()
+        self.sim_graph_widget.show()
 
     def stop(self):
-        """ Oculta todos los widgets y las gráficas y muestra la imagen.
+        """ Oculta todos los widgets y las gráficas y muestra lagv imagen.
         """
-        self.phy_graph_widget.hide()
+        # self.phy_graph_widget.hide()
         self.sim_graph_widget.hide()
-        self.sim_radio_button.hide()
-        self.phy_radio_button.hide()
+        # self.sim_radio_button.hide()
+        # self.phy_radio_button.hide()
         self.image_label.show()
 
-    def update_visible_graph(self):
-        """ Actualiza visibilidad según el radio activo
-        """
-        if self.sim_radio_button.isChecked():
-            self.phy_graph_widget.hide()
-            self.sim_graph_widget.show()
-        elif self.phy_radio_button.isChecked():
-            self.sim_graph_widget.hide()
-            self.phy_graph_widget.show()
+    # def update_visible_graph(self):
+    #     """ Actualiza visibilidad según el radio activo
+    #     """
+    #     if self.sim_radio_button.isChecked():
+    #         self.phy_graph_widget.hide()
+    #         self.sim_graph_widget.show()
+    #     elif self.phy_radio_button.isChecked():
+    #         self.sim_graph_widget.hide()
+    #         self.phy_graph_widget.show()

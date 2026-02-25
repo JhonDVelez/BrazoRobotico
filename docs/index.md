@@ -22,6 +22,7 @@ Aquí encontrara la documentation necesaria para el uso de la aplicación y la e
 
 La interfaz cuenta con 
 
+<!-- 
 | Tema Claro | Tema Oscuro |
 |-------------|-------------|
 | ![Tema claro](assets/images/Home/interface_light.png "Tema Claro") | ![Tema oscuro](assets/images/Home/interface_dark.png "Tema Oscuro") |
@@ -29,6 +30,7 @@ La interfaz cuenta con
 
 ```plantuml
 !include assets/diagrams/openbot_architecture.puml
+-->
 
 
 

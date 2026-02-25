@@ -235,8 +235,8 @@ class MainInitMixin:
         self.openbotv = RobotWriterWorker(com)
         self.openbotv.start()
 
-        self.openbotv = RobotReaderWorker(com)
-        self.openbotv.start()
+        # self.openbotv = RobotReaderWorker(com)
+        # self.openbotv.start()
 
         self.connect_action.setEnabled(False)
 

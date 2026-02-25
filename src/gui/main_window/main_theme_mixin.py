@@ -94,8 +94,8 @@ class MainThemeMixin:
         self.theme_action.setIcon(self.moon_icon)
         self.graph_interface.sim_graph_object.graph_widget.setBackground(
             pg.mkColor((248, 249, 250)))
-        self.graph_interface.phy_graph_object.graph_widget.setBackground(
-            pg.mkColor((248, 249, 250)))
+        # self.graph_interface.phy_graph_object.graph_widget.setBackground(
+        #     pg.mkColor((248, 249, 250)))
 
 
 class ThemeManager(QObject):

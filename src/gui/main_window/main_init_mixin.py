@@ -18,21 +18,19 @@ from ..graph_interface import GraphInterface
 
 class MainInitMixin:
     """ Mixin donde se tienen las funciones de inicialización de las distintas partes de la 
-        interfaz
+        interfaz. Separa la lógica de construcción de la GUI de la lógica de eventos.
     """
 
     def setup_ui(self, main_widget):
         """
-        Configura la UI en el widget proporcionado (ya no en MainWindow directamente)
-
-        Args:
-            main_widget: El widget donde se configurará la interfaz
+        Configura la jerarquía de widgets y layouts en el widget contenedor proporcionado.
         """
         self.main_widget = main_widget
         self.main_widget.setObjectName("MainWidget")
         self.main_widget.setMinimumSize(QSize(400, 400))
         self.main_widget.resize(QSize(1280, 720))
 
+        # Configuración de política de tamaño
         sizePolicy = QSizePolicy(
             QSizePolicy.Policy.Preferred,
             QSizePolicy.Policy.Preferred
@@ -41,30 +39,30 @@ class MainInitMixin:
         sizePolicy.setVerticalStretch(3)
         self.main_widget.setSizePolicy(sizePolicy)
 
-        # ========== LAYOUT PRINCIPAL ==========
+        # ========== LAYOUT PRINCIPAL (Rejilla) ==========
         self.gridLayout = QGridLayout(self.main_widget)
         self.gridLayout.setObjectName("gridLayout")
-        # Añadir margen superior para evitar superposición con title bar
         self.gridLayout.setContentsMargins(5, 5, 5, 5)
 
         self.barContentLayout = QVBoxLayout()
         self.barContentLayout.setObjectName("barContentLayout")
         self.barContentLayout.setStretch(0, 16)
 
-        # ========== SPLITTER PRINCIPAL ==========
+        # ========== SPLITTER PRINCIPAL (División Horizontal) ==========
         self.contentSplitter = QSplitter(parent=self.main_widget)
         self.contentSplitter.setOrientation(Qt.Orientation.Horizontal)
         self.contentSplitter.setObjectName("contentSplitter")
         self.contentSplitter.setHandleWidth(8)
         self.contentSplitter.setContentsMargins(0, 0, 0, 0)
 
-        # ---- Visual Splitter ----
+        # ---- Visual Splitter (División Vertical Izquierda) ----
         self.visualSplitter = QSplitter(parent=self.contentSplitter)
         self.visualSplitter.setOrientation(Qt.Orientation.Vertical)
         self.visualSplitter.setObjectName("visualSplitter")
         self.visualSplitter.setHandleWidth(8)
         self.visualSplitter.setContentsMargins(0, 0, 0, 0)
 
+        # Contenedores (GroupBoxes)
         self.modelBox = QGroupBox(parent=self.visualSplitter)
         self.modelBox.setTitle("")
         self.modelBox.setObjectName("modelBox")
@@ -73,71 +71,55 @@ class MainInitMixin:
         self.cameraBox.setTitle("")
         self.cameraBox.setObjectName("cameraBox")
 
+        # Contenedor de Telemetría (Gráficas)
         self.graphsBox = QGroupBox(parent=self.contentSplitter)
         self.graphsBox.setTitle("")
         self.graphsBox.setObjectName("graphsBox")
         self.graphsBox.setContentsMargins(0, 0, 0, 0)
         graphsBox_sizePolicy = QSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        graphsBox_sizePolicy.setHorizontalStretch(0)
-        graphsBox_sizePolicy.setVerticalStretch(0)
         self.graphsBox.setSizePolicy(graphsBox_sizePolicy)
 
+        # Contenedor de Mandos
         self.controlsBox = QGroupBox(parent=self.contentSplitter)
         self.controlsBox.setTitle("")
-        self.controlsBox.setAlignment(
-            Qt.AlignmentFlag.AlignBottom |
-            Qt.AlignmentFlag.AlignLeading |
-            Qt.AlignmentFlag.AlignLeft
-        )
         self.controlsBox.setObjectName("controlsBox")
 
         self.verticalLayout_2 = QVBoxLayout(self.controlsBox)
         self.verticalLayout_2.setSpacing(0)
         self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout_2.setObjectName("verticalLayout_2")
-
+        
         self.widget = QWidget(parent=self.controlsBox)
         self.widget.setObjectName("widget")
 
         self.horizontalLayout = QHBoxLayout(self.widget)
         self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
-        self.horizontalLayout.setObjectName("horizontalLayout")
 
-        # Botones de control
+        # Botones de Control
         self.start_button = QPushButton(parent=self.widget)
-        sizePolicy_fixed = QSizePolicy(
-            QSizePolicy.Policy.Fixed,
-            QSizePolicy.Policy.Fixed
-        )
+        sizePolicy_fixed = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.start_button.setSizePolicy(sizePolicy_fixed)
         self.start_button.setMaximumSize(QSize(42, 42))
         self.start_button.setObjectName("start_button")
         self.horizontalLayout.addWidget(self.start_button)
 
         self.pause_button = QPushButton(parent=self.widget)
-        self.pause_button.setSizePolicy(sizePolicy_fixed)
         self.pause_button.setMaximumSize(QSize(42, 42))
-        self.pause_button.setText("")
         self.pause_button.setObjectName("pause_button")
         self.horizontalLayout.addWidget(self.pause_button)
 
         self.stop_button = QPushButton(parent=self.widget)
-        self.stop_button.setSizePolicy(sizePolicy_fixed)
         self.stop_button.setMaximumSize(QSize(42, 42))
-        self.stop_button.setText("")
         self.stop_button.setObjectName("stop_button")
         self.horizontalLayout.addWidget(self.stop_button)
 
         self.reset_button = QPushButton(parent=self.widget)
-        self.reset_button.setSizePolicy(sizePolicy_fixed)
         self.reset_button.setMaximumSize(QSize(42, 42))
         self.reset_button.setObjectName("reset_button")
         self.horizontalLayout.addWidget(self.reset_button)
 
         self.verticalLayout_2.addWidget(self.widget)
 
-        # Añadir splitter principal al layout
         self.barContentLayout.addWidget(self.contentSplitter)
         self.gridLayout.addLayout(self.barContentLayout, 0, 0, 1, 1)
 
@@ -145,9 +127,6 @@ class MainInitMixin:
         self.visualSplitter.setSizes([100, 100])
 
     def init_camera(self):
-        """ Inicializa la interfaz de la cámara y agrega el widget de video
-        """
-        # Limpiar cameraBox y agregar layout si no existe
         if not self.cameraBox.layout():
             layout = QVBoxLayout(self.cameraBox)
             layout.setContentsMargins(0, 0, 0, 0)
@@ -158,9 +137,6 @@ class MainInitMixin:
         self.camera_interface.video_button.hide()
 
     def init_controls(self):
-        """ Inicializa la interfaz de controladores con sliders que indica el
-           angulo objetivo de cada motor del robot
-        """
         self.slider_widget = SlidersWidget(self)
         self.controlsBox.layout().addWidget(self.slider_widget)
 
@@ -170,89 +146,55 @@ class MainInitMixin:
             layout.setContentsMargins(0, 0, 0, 0)
             self.control_app_widget.setLayout(layout)
 
-        self.start_icon = QIcon(os.path.join(os.path.dirname(__file__),
-                                             "..", "icons", "play.png"))
-        self.pause_icon = QIcon(os.path.join(os.path.dirname(__file__),
-                                             "..", "icons", "pause.png"))
-        self.stop_icon = QIcon(os.path.join(os.path.dirname(__file__),
-                                            "..", "icons", "stop.png"))
-        self.reset_icon = QIcon(os.path.join(os.path.dirname(__file__),
-                                             "..", "icons", "refresh.png"))
+        # Iconos
+        self.start_icon = QIcon(os.path.join(os.path.dirname(__file__), "..", "icons", "play.png"))
+        self.pause_icon = QIcon(os.path.join(os.path.dirname(__file__), "..", "icons", "pause.png"))
+        self.stop_icon = QIcon(os.path.join(os.path.dirname(__file__), "..", "icons", "stop.png"))
+        self.reset_icon = QIcon(os.path.join(os.path.dirname(__file__), "..", "icons", "refresh.png"))
 
         self.start_button.setIcon(self.start_icon)
-        self.start_button.setStyleSheet(
-            "background-color: #3B963F")  # Boton color verde
-
+        self.start_button.setStyleSheet("background-color: #3B963F")
         self.reset_button.setIcon(self.reset_icon)
-        self.reset_button.setStyleSheet(
-            "background-color: #777777")  # Boton color gris
-
         self.stop_button.setIcon(self.stop_icon)
-        self.stop_button.setStyleSheet(
-            "background-color: #F74220")  # Boton color rojo
-
+        self.stop_button.setStyleSheet("background-color: #F74220")
         self.pause_button.setIcon(self.pause_icon)
-        self.pause_button.setStyleSheet(
-            "background-color: #777777")  # Boton color gris
 
         self.control_app_widget.layout().addWidget(self.start_button)
         self.control_app_widget.layout().addWidget(self.pause_button)
         self.control_app_widget.layout().addWidget(self.stop_button)
         self.control_app_widget.layout().addWidget(self.reset_button)
-
         self.controlsBox.layout().addWidget(self.control_app_widget)
 
         self.pause_button.hide()
         self.stop_button.hide()
 
     def init_simulation(self):
-        """ Inicializa la interfaz de la simulación creando el layout y realizando ajustes para una
-            correcta adición a esta.
-        """
         if not self.modelBox.layout():
             self.sim_layout = QVBoxLayout(self.modelBox)
             self.sim_layout.setContentsMargins(0, 0, 0, 0)
             self.modelBox.setLayout(self.sim_layout)
 
-        self.simulation_interface = SimInterface(
-            self, self.preloaded_data, self.robot_id)
-        self.simulation_interface.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.simulation_interface.setMinimumSize(QSize(0, 0))
+        self.simulation_interface = SimInterface(self, self.preloaded_data, self.robot_id)
+        self.simulation_interface.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.sim_layout.addWidget(self.simulation_interface)
 
-    def init_openbotv(self, com: str):
-        """ Inicializa la conexión con el microcontrolador asi como la inicialización del 
-        controlador
-
-        Args:
-            com (str): Puerto de comunicación serial seleccionado
-        """
-        self.robot_controller = DataFlow(
-            Modes.SLIDERS, Units.DEG, Domains.PHYSICAL
-        )
-
-        self.openbotv = RobotWorker(com)
-        self.openbotv.start()
-
-        self.connect_action.setEnabled(False)
-
     def init_graphics(self):
-        """ Inicialización del contenedor para los gráficos tipo osciloscopio
-        """
+        """ Configura el módulo de visualización de datos en tiempo real. """
+        # CAMBIO: Definir self.graphLayout para que sea accesible desde app_interface.py
         if not self.graphsBox.layout():
-            graph_layout = QVBoxLayout(self.graphsBox)
-            graph_layout.setContentsMargins(0, 0, 0, 0)
-            self.graphsBox.setLayout(graph_layout)
+            self.graphLayout = QVBoxLayout(self.graphsBox)
+            self.graphLayout.setContentsMargins(0, 0, 0, 0)
+            self.graphsBox.setLayout(self.graphLayout)
 
         self.graphsBox.setStyleSheet("""padding: 0px;""")
 
+        # Instanciación del widget de gráficos original
         self.graph_interface = GraphInterface()
-        self.graphsBox.layout().addWidget(self.graph_interface)
+        
+        # Lo añadimos al layout. Nota: app_interface.py añadirá el canvas aquí también.
+        self.graphLayout.addWidget(self.graph_interface)
 
     def center_window(self):
-        """ Centra la interfaz en pantalla cuando esta se inicia en modo ventana
-        """
         screen = QApplication.primaryScreen()
         screen_geometry = screen.geometry()
         x = (screen_geometry.width() - self.width()) // 2

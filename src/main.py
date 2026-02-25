@@ -4,6 +4,7 @@
 import os
 import sys
 import time
+import threading 
 import pybullet as p
 import pybullet_data
 from PyQt6.QtGui import QGuiApplication, QPixmap, QFont, QIcon
@@ -11,266 +12,138 @@ from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtQuick import QQuickView
 from PyQt6.QtCore import QUrl, Qt
 from qdarktheme.qtpy.QtWidgets import QSplashScreen
-from gui import MainInterface
 
+# Importación de la interfaz principal corregida
+from gui.app_interface import MainInterface
+
+# ==========================================================================
+#         SISTEMA DE TELEMETRÍA GLOBAL (Compartido por toda la App)
+# ==========================================================================
+# Definimos esto a nivel de módulo para que sea el "punto de verdad" único.
+telemetry = {
+    'history_pos': [[] for _ in range(6)],
+    'history_temp': [[] for _ in range(6)],
+    'lock': threading.Lock(), # Crucial para evitar que el Worker y Matplotlib choquen
+    'running': True
+}
 
 class PreloadedContainer:
-    """ Contenedor que encapsula la vista precargada y su window container
-    """
-
+    """ Contenedor de datos que encapsula la vista de QtQuick (QML). """
     def __init__(self, quick_view, window_container):
         self.quick_view = quick_view
         self.window_container = window_container
         self.is_ready = True
 
-
 class CompletePreloader:
-    def __init__(self, qml: str, urdf: str):
+    """ Clase encargada de la lógica de precarga de recursos (3D y Físicas). """
+    def __init__(self, qml: str, urdf: str, splash_ref):
         self.urdf_path = urdf
         self.qml_path = qml
+        self.splash = splash_ref
         self.dummy_parent = None
-        self.preloaded_view = None
-        self.preloaded_container = None
-        self.window_container = None
 
     def create_parent_widget(self):
-        """Crea un widget padre temporal para el proceso de precarga"""
-        splash.showMessage(
-            "Creando contenedor temporal",
+        self.splash.showMessage(
+            "Creando contenedor temporal...",
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
             Qt.GlobalColor.white
         )
-
         try:
-            # Widget padre temporal para la precarga
             self.dummy_parent = QWidget()
-            self.dummy_parent.resize(800, 600)
-            self.dummy_parent.setWindowFlags(
-                Qt.WindowType.Tool |
-                Qt.WindowType.FramelessWindowHint
-            )
-            self.dummy_parent.setAttribute(
-                Qt.WidgetAttribute.WA_DontShowOnScreen, True)
-
+            self.dummy_parent.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
             return True
-
         except Exception as e:
             print(f"Error creando widget padre: {e}")
             return False
 
     def preload_complete_quick3d_setup(self):
-        """ Precarga QQuickView + WindowContainer + Renderizado
-        """
-        if not self.create_parent_widget():
-            return None
+        if not self.create_parent_widget(): return None
 
-        splash.showMessage(
-            "Cargando QML y creando vista 3D",
+        self.splash.showMessage(
+            "Cargando motor gráfico QML...",
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
             Qt.GlobalColor.white
         )
 
         try:
-            self.preloaded_view = QQuickView()
-            self.preloaded_view.setFlag(Qt.WindowType.WindowStaysOnBottomHint)
-            self.preloaded_view.setResizeMode(
-                QQuickView.ResizeMode.SizeRootObjectToView)
-            self.preloaded_view.resize(512, 288)
-            self.preloaded_view.setSource(QUrl.fromLocalFile(self.qml_path))
+            view = QQuickView()
+            view.setResizeMode(QQuickView.ResizeMode.SizeRootObjectToView)
+            view.setSource(QUrl.fromLocalFile(self.qml_path))
 
-            for _ in range(3):
+            # Forzar el procesamiento de eventos para que el motor QML arranque
+            for i in range(3):
                 QGuiApplication.processEvents()
                 time.sleep(0.1)
 
-            self.preloaded_view.create()
-            if not self.preloaded_view.isVisible():
-                self.preloaded_view.show()
-                QGuiApplication.processEvents()
-                if sys.platform == "win32":
-                    self.preloaded_view.hide()
-
-            self.window_container = self.create_window_container(
-                self.preloaded_view,
-                self.dummy_parent
-            )
-
-            splash.showMessage(
-                "Renderizando y cacheando recursos",
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
-                Qt.GlobalColor.white
-            )
-            self.safe_initial_render()
-            container = PreloadedContainer(
-                self.preloaded_view, self.window_container)
-
-            splash.showMessage(
-                "Vista 3D completamente precargada",
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
-                Qt.GlobalColor.white
-            )
-
-            return container
-
+            container = QWidget.createWindowContainer(view, self.dummy_parent)
+            container.setMinimumSize(160, 120)
+            
+            return PreloadedContainer(view, container)
         except Exception as e:
-            print(f"Error en precarga completa: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"Error en precarga QML: {e}")
             return None
-
-    def create_window_container(self, quick_view, parent):
-        """ Crea el window container durante la precarga
-        """
-        try:
-            from PyQt6.QtWidgets import QWidget
-
-            if hasattr(QWidget, 'createWindowContainer'):
-                # Configurar flags apropiados
-                container = QWidget.createWindowContainer(
-                    quick_view,
-                    parent,
-                    Qt.WindowType.Widget
-                )
-
-                if container:
-                    container.resize(160, 120)
-                    container.setMinimumSize(160, 120)
-                    for _ in range(3):
-                        QGuiApplication.processEvents()
-                        time.sleep(0.05)
-                    return container
-                else:
-                    print("Error: createWindowContainer retornó None")
-                    return None
-            else:
-                print("Error: createWindowContainer no disponible")
-                return None
-
-        except Exception as e:
-            print(f"Error creando window container en precarga: {e}")
-            import traceback
-            traceback.print_exc()
-            return None
-
-    def safe_initial_render(self):
-        """Renderizado inicial seguro para cachear recursos"""
-        try:
-            # Renderizado para cachear recursos
-            for i in range(5):
-                splash.showMessage(
-                    f"Cacheando recursos 3D ({i+1}/5)",
-                    Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
-                    Qt.GlobalColor.white
-                )
-                self.preloaded_view.update()
-                QGuiApplication.processEvents()
-                time.sleep(0.2)
-        except Exception as e:
-            print(f"Error en renderizado inicial: {e}")
 
     def preload_pybullet(self):
-        """ Carga PyBullet
-        """
-        splash.showMessage(
-            "Inicializando motor de físicas",
+        self.splash.showMessage(
+            "Inicializando motor de físicas PyBullet...",
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
             Qt.GlobalColor.white
         )
-
         try:
             p.connect(p.DIRECT)
             p.setGravity(0, 0, -9.81)
-            p.setTimeStep(1./240.)
-
             p.setAdditionalSearchPath(pybullet_data.getDataPath())
-
-            splash.showMessage(
-                "Creando mundo de simulación",
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
-                Qt.GlobalColor.white
-            )
-
-            # Crear entorno
-            plane_id = p.createCollisionShape(p.GEOM_PLANE)
-            ground_id = p.createMultiBody(0, plane_id)
-
-            splash.showMessage(
-                "Cargando robot URDF",
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
-                Qt.GlobalColor.white
-            )
-
-            # Cargar robot
-            robot_id = p.loadURDF(
-                self.urdf_path,
-                basePosition=[0, 0, 0],
-                baseOrientation=p.getQuaternionFromEuler([0, 0, 0]),
-                useFixedBase=True,
-                flags=p.URDF_USE_INERTIA_FROM_FILE | p.URDF_ENABLE_CACHED_GRAPHICS_SHAPES
-            )
+            
+            p.createMultiBody(0, p.createCollisionShape(p.GEOM_PLANE))
+            robot_id = p.loadURDF(self.urdf_path, useFixedBase=True)
             p.stepSimulation()
-
             return robot_id
-
         except Exception as e:
             print(f"Error en PyBullet: {e}")
             return None
 
-    def cleanup_preload_resources(self):
-        """ Limpia solo los recursos temporales de precarga
-        """
-        try:
-            # Solo eliminar el widget padre temporal
-            if self.dummy_parent:
-                self.dummy_parent.deleteLater()
-                self.dummy_parent = None
-        except Exception as e:
-            print(f"Error en cleanup: {e}")
-
-
 if __name__ == '__main__':
+    # Configuración básica de la App
     app = QApplication(sys.argv)
     app.setStyle('fusion')
-    app.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__),
-                                         "gui", "img", 'laser_w.png')))
+    
+    # --- RUTA DE RECURSOS ---
+    # Usamos rutas absolutas basadas en la ubicación de este archivo
+    base_dir = os.path.dirname(__file__)
+    img_path = os.path.join(base_dir, "gui", "img", "openbotv_v1.png")
+    qml_path = os.path.join(base_dir, "simulation", "simulation.qml")
+    urdf_path = os.path.join(base_dir, "simulation", "urdf", 'openbot_v1.urdf')
 
-    # Splash screen
-    img_path = os.path.join(os.path.dirname(__file__),
-                            "gui", "img", "openbotv_v1.png")
-    splash_pix = QPixmap(img_path).scaled(800, 450)
+    # --- SPLASH SCREEN ---
+    splash_pix = QPixmap(img_path).scaled(800, 450, Qt.AspectRatioMode.KeepAspectRatio)
     splash = QSplashScreen(splash_pix)
-    font = QFont("Arial", 12, QFont.Weight.Medium)
-    splash.setFont(font)
-
-    splash.showMessage(
-        "Iniciando precarga completa de recursos",
-        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
-        Qt.GlobalColor.white
-    )
     splash.show()
     app.processEvents()
 
-    # Rutas
-    qml_path = os.path.join(os.path.dirname(__file__),
-                            "simulation", "simulation.qml")
-    urdf_path = os.path.join(os.path.dirname(__file__),
-                             "simulation", "urdf", 'openbot_v1.urdf')
-
-    preloader = CompletePreloader(qml_path, urdf_path)
+    # --- PROCESO DE PRECARGA ---
+    preloader = CompletePreloader(qml_path, urdf_path, splash)
     preloaded_container = preloader.preload_complete_quick3d_setup()
     pybullet_robot = preloader.preload_pybullet()
 
     if preloaded_container and pybullet_robot:
         splash.showMessage(
-            "Iniciando interfaz",
+            "Ensamblando interfaz principal...",
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
             Qt.GlobalColor.white
         )
-        window = MainInterface(preloaded_container, pybullet_robot)
-        window.setWindowTitle("OpenBotv-v1")
-        preloader.cleanup_preload_resources()
-
+        
+        # Instanciamos la ventana pasando la bolsa de telemetría global
+        window = MainInterface(preloaded_container, pybullet_robot, telemetry)
+        window.setWindowTitle("OpenBotv - Control & Telemetry")
+        
+        # Limpieza y visualización
+        if preloader.dummy_parent:
+            preloader.dummy_parent.deleteLater()
+            
         window.showMaximized()
-        window.raise_()
-        window.activateWindow()
         splash.finish(window)
+    else:
+        print("Error crítico: No se pudieron cargar los recursos necesarios.")
+        sys.exit(1)
+        
     sys.exit(app.exec())

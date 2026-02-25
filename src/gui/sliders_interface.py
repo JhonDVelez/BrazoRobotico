@@ -4,12 +4,15 @@ from PyQt6.QtCore import Qt, QSize
 
 
 class SlidersWidget(QWidget):
-    """ Clase de gui para los controles deslizantes
+    """ Clase de gui para los controles deslizantes (Sliders) y cajas numéricas (SpinBoxes)
+        que permiten el control articular manual del robot.
 
     Args:
-        QWidget (QWidget): Define que la clase es de tipo widget para pyqt
+        QWidget (QWidget): Define que la clase es de tipo widget para pyqt.
     """
+    # Variable de clase para almacenar la posición de los 6 motores (estado global)
     sliders_status = [150, 150, 150, 150, 150, 150]
+    # Referencia a la instancia activa para permitir acceso desde métodos de clase
     instance = None
 
     def __init__(self, parent):
@@ -20,23 +23,26 @@ class SlidersWidget(QWidget):
         self.__setup_connections()
 
     def __setup_ui(self):
-        """ Configura la interfaz de usuario del widget de video
+        """ Configura la interfaz de usuario, organizando los controles en una cuadrícula.
         """
         self.setObjectName("Form")
         self.resize(381, 691)
         self.setWindowTitle("Form")
 
-        # Layout principal
+        # Layout principal vertical que contiene el bloque de sliders y el bloque de botones
         self.vertical_layout = QVBoxLayout(self)
         self.vertical_layout.setObjectName("verticalLayout")
 
-        # Widget con sliders y spinboxes
+        # --- SECCIÓN DE CONTROLES ARTICULARES ---
         self.widget = QWidget(self)
         self.widget.setObjectName("widget")
-        self.container = QGridLayout(self.widget)
+        self.container = QGridLayout(self.widget) # Rejilla para alinear Etiqueta | Slider | SpinBox
         self.container.setObjectName("gridLayout_3")
 
-        # θ1
+        # Configuración de los 6 motores (θ1 a θ6)
+        # Cada motor tiene un Slider (para movimiento rápido) y un SpinBox (para precisión)
+        
+        # θ1: Base del robot
         self.label = QLabel("θ1", self.widget)
         self.label.setMaximumSize(QSize(100, 16777215))
         self.container.addWidget(self.label, 0, 0)
@@ -44,7 +50,7 @@ class SlidersWidget(QWidget):
         self.slider_1 = QSlider(Qt.Orientation.Horizontal, self.widget)
         self.slider_1.setMinimum(50)
         self.slider_1.setMaximum(250)
-        self.slider_1.setValue(150)
+        self.slider_1.setValue(150) # Punto central/Home
         self.container.addWidget(self.slider_1, 0, 1)
 
         self.spin_box_1 = QSpinBox(self.widget)
@@ -56,7 +62,7 @@ class SlidersWidget(QWidget):
         self.spin_box_1.setValue(0)
         self.container.addWidget(self.spin_box_1, 0, 2)
 
-        # θ2
+        # θ2: Hombro
         self.label_3 = QLabel("θ2", self.widget)
         self.container.addWidget(self.label_3, 1, 0)
 
@@ -67,15 +73,12 @@ class SlidersWidget(QWidget):
         self.container.addWidget(self.slider_2, 1, 1)
 
         self.spin_box_2 = QSpinBox(self.widget)
-        self.spin_box_2.setSizePolicy(QSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
-        self.spin_box_2.setMaximumSize(QSize(100, 16777215))
         self.spin_box_2.setMinimum(-80)
         self.spin_box_2.setMaximum(50)
         self.spin_box_2.setValue(0)
         self.container.addWidget(self.spin_box_2, 1, 2)
 
-        # θ3
+        # θ3: Codo
         self.label_4 = QLabel("θ3", self.widget)
         self.container.addWidget(self.label_4, 2, 0)
 
@@ -86,15 +89,12 @@ class SlidersWidget(QWidget):
         self.container.addWidget(self.slider_3, 2, 1)
 
         self.spin_box_3 = QSpinBox(self.widget)
-        self.spin_box_3.setSizePolicy(QSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
-        self.spin_box_3.setMaximumSize(QSize(100, 16777215))
         self.spin_box_3.setMinimum(-100)
         self.spin_box_3.setMaximum(100)
         self.spin_box_3.setValue(0)
         self.container.addWidget(self.spin_box_3, 2, 2)
 
-        # θ4
+        # θ4: Muñeca (Giro)
         self.label_5 = QLabel("θ4", self.widget)
         self.container.addWidget(self.label_5, 3, 0)
 
@@ -105,15 +105,12 @@ class SlidersWidget(QWidget):
         self.container.addWidget(self.slider_4, 3, 1)
 
         self.spin_box_4 = QSpinBox(self.widget)
-        self.spin_box_4.setSizePolicy(QSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
-        self.spin_box_4.setMaximumSize(QSize(100, 16777215))
         self.spin_box_4.setMinimum(-100)
         self.spin_box_4.setMaximum(100)
         self.spin_box_4.setValue(0)
         self.container.addWidget(self.spin_box_4, 3, 2)
 
-        # θ5
+        # θ5: Muñeca (Elevación)
         self.label_6 = QLabel("θ5", self.widget)
         self.container.addWidget(self.label_6, 4, 0)
 
@@ -124,15 +121,12 @@ class SlidersWidget(QWidget):
         self.container.addWidget(self.slider_5, 4, 1)
 
         self.spin_box_5 = QSpinBox(self.widget)
-        self.spin_box_5.setSizePolicy(QSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
-        self.spin_box_5.setMaximumSize(QSize(100, 16777215))
         self.spin_box_5.setMinimum(0)
         self.spin_box_5.setMaximum(50)
         self.spin_box_5.setValue(0)
         self.container.addWidget(self.spin_box_5, 4, 2)
 
-        # θ6
+        # θ6: Gripper / Pinza
         self.label_7 = QLabel("θ6", self.widget)
         self.container.addWidget(self.label_7, 5, 0)
 
@@ -143,18 +137,14 @@ class SlidersWidget(QWidget):
         self.container.addWidget(self.slider_6, 5, 1)
 
         self.spin_box_6 = QSpinBox(self.widget)
-        self.spin_box_6.setSizePolicy(QSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
-        self.spin_box_6.setMaximumSize(QSize(100, 16777215))
         self.spin_box_6.setMinimum(-112)
         self.spin_box_6.setMaximum(21)
         self.spin_box_6.setValue(0)
         self.container.addWidget(self.spin_box_6, 5, 2)
 
-        # Añadir el primer widget al layout principal
         self.vertical_layout.addWidget(self.widget)
 
-        # Widget con botones
+        # --- SECCIÓN DE BOTONES DE POSES PREDEFINIDAS ---
         self.buttons_widget = QWidget(self)
         self.buttons_widget.setObjectName("buttonsWidget")
         self.buttons_widget.setMaximumSize(QSize(16777215, 100))
@@ -173,75 +163,78 @@ class SlidersWidget(QWidget):
         self.pose_4_button = QPushButton("Pose 4", self.buttons_widget)
         self.button_container.addWidget(self.pose_4_button, 1, 1)
 
-        # Añadir el widget de botones al layout principal
         self.vertical_layout.addWidget(self.buttons_widget)
         self.setSizePolicy(QSizePolicy.Policy.Expanding,
                            QSizePolicy.Policy.Expanding)
         self.setMinimumSize(120, 160)
 
     def __setup_connections(self):
-        """Configura las conexiones de eventos
+        """ Configura la lógica bidireccional entre Sliders y SpinBoxes.
+            Asegura que al mover uno, el otro se actualice proporcionalmente.
         """
 
-        # Se establece una relacion donde el valor del slider es el del spinbox - 150
-        # Es decir, el rango del slider es de 0 a 300, mientras el del spinbox es de -150 a 150.
-        # Esto hace que se vean en la interfaz valores de -150 a 150 pero al robot se le envian
-        # de 0 a 300
+        # Lógica de mapeo: 
+        # El Slider opera en un rango absoluto (ej. 0 a 300) para el control del robot.
+        # El SpinBox muestra un valor relativo (offset de -150) para la lectura humana.
+        
+        # Conexiones para Motor 1
         self.slider_1.valueChanged.connect(
             lambda value: self.spin_box_1.setValue(value - 150))
         self.spin_box_1.valueChanged.connect(
             lambda value: self.slider_1.setValue(value + 150))
 
+        # Conexiones para Motor 2
         self.slider_2.valueChanged.connect(
             lambda value: self.spin_box_2.setValue(value - 150))
         self.spin_box_2.valueChanged.connect(
             lambda value: self.slider_2.setValue(value + 150))
 
+        # Conexiones para Motor 3
         self.slider_3.valueChanged.connect(
             lambda value: self.spin_box_3.setValue(value - 150))
         self.spin_box_3.valueChanged.connect(
             lambda value: self.slider_3.setValue(value + 150))
 
+        # Conexiones para Motor 4
         self.slider_4.valueChanged.connect(
             lambda value: self.spin_box_4.setValue(value - 150))
         self.spin_box_4.valueChanged.connect(
             lambda value: self.slider_4.setValue(value + 150))
 
+        # Conexiones para Motor 5
         self.slider_5.valueChanged.connect(
             lambda value: self.spin_box_5.setValue(value - 150))
         self.spin_box_5.valueChanged.connect(
             lambda value: self.slider_5.setValue(value + 150))
 
+        # Conexiones para Motor 6
         self.slider_6.valueChanged.connect(
             lambda value: self.spin_box_6.setValue(value - 150))
         self.spin_box_6.valueChanged.connect(
             lambda value: self.slider_6.setValue(value + 150))
 
+        # Registro de cualquier cambio en la variable de clase 'sliders_status'
         self.slider_1.valueChanged.connect(self.update_class_status)
         self.spin_box_1.valueChanged.connect(self.update_class_status)
-
         self.slider_2.valueChanged.connect(self.update_class_status)
         self.spin_box_2.valueChanged.connect(self.update_class_status)
-
         self.slider_3.valueChanged.connect(self.update_class_status)
         self.spin_box_3.valueChanged.connect(self.update_class_status)
-
         self.slider_4.valueChanged.connect(self.update_class_status)
         self.spin_box_4.valueChanged.connect(self.update_class_status)
-
         self.slider_5.valueChanged.connect(self.update_class_status)
         self.spin_box_5.valueChanged.connect(self.update_class_status)
-
         self.slider_6.valueChanged.connect(self.update_class_status)
         self.spin_box_6.valueChanged.connect(self.update_class_status)
 
+        # Conexión de botones de poses predefinidas
         self.pose_1_button.clicked.connect(self.set_pose_1)
         self.pose_2_button.clicked.connect(self.set_pose_2)
         self.pose_3_button.clicked.connect(self.set_pose_3)
         self.pose_4_button.clicked.connect(self.set_pose_4)
 
     def update_class_status(self):
-        """ Actualiza los valores almacenados de los slider/spinBox (estan conectados)
+        """ Sincroniza los valores actuales de la UI con la variable de estado global.
         """
         SlidersWidget.sliders_status = [
             self.slider_1.value(),
@@ -253,7 +246,7 @@ class SlidersWidget(QWidget):
         ]
 
     def reset_values(self):
-        """ Regresa a su estado original los valores de los slider/spinBox (estan conectados)
+        """ Restablece todos los controles a la posición central (150).
         """
         self.slider_1.setValue(150)
         self.slider_2.setValue(150)
@@ -264,22 +257,24 @@ class SlidersWidget(QWidget):
 
     @classmethod
     def restart_sliders(cls):
-        """ Metodo de clase que no requiere instancia de la clase para su ejecucion, 
-            encargada de reiniciar los sliders a su posicion inicial
+        """ Método estático para reiniciar los sliders desde cualquier parte del programa
+            sin necesitar una referencia directa a la instancia.
         """
         if cls.instance is not None:
             cls.instance.reset_values()
 
     @classmethod
     def get_sliders_state(cls) -> list[int]:
-        """ Metodo de clase que no requiere instancia de la clase para su ejecucion, 
-            encargada de obtener los valores almacenados de los sliders
+        """ Recupera el estado actual de los 6 motores. Usado por el flujo de datos.
         """
         return cls.sliders_status
 
+    # --- DEFINICIÓN DE POSES PRECONFIGURADAS ---
+    # Nota: Se asignan valores al SpinBox, lo que automáticamente actualiza el Slider
+    # debido a las conexiones bidireccionales definidas en __setup_connections.
+
     def set_pose_1(self):
-        """ Pose por defecto, se proporcionan los ángulos de los 6 motores, tener en cuenta que para
-            el spinbox el rango es de -150 a 150 mientras que para el slider es de 0 a 300
+        """ Configura el robot en la Pose 1 (Posición de descanso/orientación inicial).
         """
         self.spin_box_1.setValue(-90)
         self.spin_box_2.setValue(-30)
@@ -289,8 +284,7 @@ class SlidersWidget(QWidget):
         self.spin_box_6.setValue(-60)
 
     def set_pose_2(self):
-        """ Pose por defecto, se proporcionan los ángulos de los 6 motores, tener en cuenta que para
-            el spinbox el rango es de -150 a 150 mientras que para el slider es de 0 a 300
+        """ Configura el robot en la Pose 2 (Extensión frontal).
         """
         self.spin_box_1.setValue(-90)
         self.spin_box_2.setValue(-40)
@@ -300,8 +294,7 @@ class SlidersWidget(QWidget):
         self.spin_box_6.setValue(21)
 
     def set_pose_3(self):
-        """ Pose por defecto, se proporcionan los ángulos de los 6 motores, tener en cuenta que para
-            el spinbox el rango es de -150 a 150 mientras que para el slider es de 0 a 300
+        """ Configura el robot en la Pose 3 (Recogida lateral).
         """
         self.spin_box_1.setValue(-40)
         self.spin_box_2.setValue(-10)
@@ -311,8 +304,7 @@ class SlidersWidget(QWidget):
         self.spin_box_6.setValue(21)
 
     def set_pose_4(self):
-        """ Pose por defecto, se proporcionan los ángulos de los 6 motores, tener en cuenta que para
-            el spinbox el rango es de -150 a 150 mientras que para el slider es de 0 a 300
+        """ Configura el robot en la Pose 4 (Posición de trabajo elevada).
         """
         self.spin_box_1.setValue(10)
         self.spin_box_2.setValue(-60)

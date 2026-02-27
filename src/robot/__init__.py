@@ -3,9 +3,8 @@
     adecuadamente, asi como filtrado y verificación de datos para evitar errores.
 """
 
-from .openbotv_worker import RobotWriterWorker, RobotReaderWorker
+from .openbotv_worker import RobotWorker
 
 __all__ = [
-    "RobotWriterWorker",
-    "RobotReaderWorker"
+    "RobotWorker"
 ]

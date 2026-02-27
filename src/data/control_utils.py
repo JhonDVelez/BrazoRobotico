@@ -95,7 +95,6 @@ class GlobalTimer(QObject):
     sync_tick = pyqtSignal()
     update_tick = pyqtSignal()
     model_tick = pyqtSignal()
-    data_request_signal = pyqtSignal()
 
     _instance = None
     _initialized = False
@@ -141,7 +140,7 @@ class GlobalTimer(QObject):
             self._sync_counter = 0
         else:  # No emitir update_tick si ya emitimos model_tick
             self.update_tick.emit()
-        
+
         if self._data_request >= 4:
             self.data_request_signal.emit()
             self._data_request = 0

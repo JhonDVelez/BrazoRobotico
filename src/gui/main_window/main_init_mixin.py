@@ -9,7 +9,7 @@ from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QSize, Qt
 from data import Modes, Units, Domains
 from data import DataFlow
-from robot import RobotWriterWorker, RobotReaderWorker
+from robot import RobotWorker
 from ..camera_interface import CameraInterface
 from ..sliders_interface import SlidersWidget
 from ..simulation_interface import SimInterface
@@ -232,7 +232,7 @@ class MainInitMixin:
             Modes.SLIDERS, Units.DEG, Domains.PHYSICAL
         )
 
-        self.openbotv = RobotWriterWorker(com)
+        self.openbotv = RobotWorker(com)
         self.openbotv.start()
 
         # self.openbotv = RobotReaderWorker(com)

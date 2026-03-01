@@ -195,6 +195,23 @@ Node {
                                     material_006_material
                                 ]
                             }
+                            Node {
+                                id: endEffectorTip
+                                position: Qt.vector3d(5, 157, 0)
+
+                                // Punto visible en la punta
+                                Model {
+                                    source: "#Sphere"
+                                    scale: Qt.vector3d(0.07, 0.07, 0.07)  // compensando el 0.001 de base_link
+                                    materials: [
+                                        PrincipledMaterial {
+                                            baseColor: "#44ff44"
+                                            roughness: 0.2
+                                            lighting: PrincipledMaterial.NoLighting
+                                        }
+                                    ]
+                                }
+                            }
                         }
                     }
                 }
@@ -209,6 +226,5 @@ Node {
             ]
         }
     }
-
-    // Animations:
+    property alias endEffector: endEffectorTip 
 }

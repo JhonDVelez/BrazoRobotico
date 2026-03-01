@@ -36,122 +36,52 @@ class SlidersWidget(QWidget):
         self.container = QGridLayout(self.widget)
         self.container.setObjectName("gridLayout_3")
 
-        # θ1
-        self.label = QLabel("θ1", self.widget)
-        self.label.setMaximumSize(QSize(100, 16777215))
-        self.container.addWidget(self.label, 0, 0)
+        # Configuración de cada θ: (label, slider_min, slider_max, slider_val, spin_min, spin_max)
+        theta_config = [
+            ("θ1", 50,  250),
+            ("θ2", 70,  200),
+            ("θ3", 50,  200),
+            ("θ4", 50,  250),
+            ("θ5", 150, 250),
+            ("θ6", 38,  171)
+        ]
 
-        self.slider_1 = QSlider(Qt.Orientation.Horizontal, self.widget)
-        self.slider_1.setMinimum(50)
-        self.slider_1.setMaximum(250)
-        self.slider_1.setValue(150)
-        self.container.addWidget(self.slider_1, 0, 1)
+        label_names = ["label", "label_3", "label_4",
+                       "label_5", "label_6", "label_7"]
+        slider_names = ["slider_1", "slider_2",
+                        "slider_3", "slider_4", "slider_5", "slider_6"]
+        spinbox_names = ["spin_box_1", "spin_box_2",
+                         "spin_box_3", "spin_box_4", "spin_box_5", "spin_box_6"]
 
-        self.spin_box_1 = QSpinBox(self.widget)
-        self.spin_box_1.setSizePolicy(QSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
-        self.spin_box_1.setMaximumSize(QSize(100, 16777215))
-        self.spin_box_1.setMinimum(-100)
-        self.spin_box_1.setMaximum(100)
-        self.spin_box_1.setValue(0)
-        self.container.addWidget(self.spin_box_1, 0, 2)
+        for row, (text, s_min, s_max) in enumerate(theta_config):
+            s_val = 150  # Valor inicial o central
+            sb_min = s_min - s_val
+            sb_max = s_max - s_val
+            # Label
+            label = QLabel(text, self.widget)
+            label.setMaximumSize(QSize(100, 16777215))
+            setattr(self, label_names[row], label)
+            self.container.addWidget(label, row, 0)
 
-        # θ2
-        self.label_3 = QLabel("θ2", self.widget)
-        self.container.addWidget(self.label_3, 1, 0)
+            # Slider
+            slider = QSlider(Qt.Orientation.Horizontal, self.widget)
+            slider.setMinimum(s_min)
+            slider.setMaximum(s_max)
+            slider.setValue(s_val)
+            setattr(self, slider_names[row], slider)
+            self.container.addWidget(slider, row, 1)
 
-        self.slider_2 = QSlider(Qt.Orientation.Horizontal, self.widget)
-        self.slider_2.setMinimum(70)
-        self.slider_2.setMaximum(200)
-        self.slider_2.setValue(150)
-        self.container.addWidget(self.slider_2, 1, 1)
+            # SpinBox
+            spin = QSpinBox(self.widget)
+            spin.setSizePolicy(QSizePolicy(
+                QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
+            spin.setMaximumSize(QSize(100, 16777215))
+            spin.setMinimum(sb_min)
+            spin.setMaximum(sb_max)
+            spin.setValue(0)
+            setattr(self, spinbox_names[row], spin)
+            self.container.addWidget(spin, row, 2)
 
-        self.spin_box_2 = QSpinBox(self.widget)
-        self.spin_box_2.setSizePolicy(QSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
-        self.spin_box_2.setMaximumSize(QSize(100, 16777215))
-        self.spin_box_2.setMinimum(-80)
-        self.spin_box_2.setMaximum(50)
-        self.spin_box_2.setValue(0)
-        self.container.addWidget(self.spin_box_2, 1, 2)
-
-        # θ3
-        self.label_4 = QLabel("θ3", self.widget)
-        self.container.addWidget(self.label_4, 2, 0)
-
-        self.slider_3 = QSlider(Qt.Orientation.Horizontal, self.widget)
-        self.slider_3.setMinimum(50)
-        self.slider_3.setMaximum(200)
-        self.slider_3.setValue(150)
-        self.container.addWidget(self.slider_3, 2, 1)
-
-        self.spin_box_3 = QSpinBox(self.widget)
-        self.spin_box_3.setSizePolicy(QSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
-        self.spin_box_3.setMaximumSize(QSize(100, 16777215))
-        self.spin_box_3.setMinimum(-100)
-        self.spin_box_3.setMaximum(100)
-        self.spin_box_3.setValue(0)
-        self.container.addWidget(self.spin_box_3, 2, 2)
-
-        # θ4
-        self.label_5 = QLabel("θ4", self.widget)
-        self.container.addWidget(self.label_5, 3, 0)
-
-        self.slider_4 = QSlider(Qt.Orientation.Horizontal, self.widget)
-        self.slider_4.setMinimum(50)
-        self.slider_4.setMaximum(250)
-        self.slider_4.setValue(150)
-        self.container.addWidget(self.slider_4, 3, 1)
-
-        self.spin_box_4 = QSpinBox(self.widget)
-        self.spin_box_4.setSizePolicy(QSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
-        self.spin_box_4.setMaximumSize(QSize(100, 16777215))
-        self.spin_box_4.setMinimum(-100)
-        self.spin_box_4.setMaximum(100)
-        self.spin_box_4.setValue(0)
-        self.container.addWidget(self.spin_box_4, 3, 2)
-
-        # θ5
-        self.label_6 = QLabel("θ5", self.widget)
-        self.container.addWidget(self.label_6, 4, 0)
-
-        self.slider_5 = QSlider(Qt.Orientation.Horizontal, self.widget)
-        self.slider_5.setMinimum(150)
-        self.slider_5.setMaximum(250)
-        self.slider_5.setValue(150)
-        self.container.addWidget(self.slider_5, 4, 1)
-
-        self.spin_box_5 = QSpinBox(self.widget)
-        self.spin_box_5.setSizePolicy(QSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
-        self.spin_box_5.setMaximumSize(QSize(100, 16777215))
-        self.spin_box_5.setMinimum(0)
-        self.spin_box_5.setMaximum(50)
-        self.spin_box_5.setValue(0)
-        self.container.addWidget(self.spin_box_5, 4, 2)
-
-        # θ6
-        self.label_7 = QLabel("θ6", self.widget)
-        self.container.addWidget(self.label_7, 5, 0)
-
-        self.slider_6 = QSlider(Qt.Orientation.Horizontal, self.widget)
-        self.slider_6.setMinimum(38)
-        self.slider_6.setMaximum(171)
-        self.slider_6.setValue(150)
-        self.container.addWidget(self.slider_6, 5, 1)
-
-        self.spin_box_6 = QSpinBox(self.widget)
-        self.spin_box_6.setSizePolicy(QSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
-        self.spin_box_6.setMaximumSize(QSize(100, 16777215))
-        self.spin_box_6.setMinimum(-112)
-        self.spin_box_6.setMaximum(21)
-        self.spin_box_6.setValue(0)
-        self.container.addWidget(self.spin_box_6, 5, 2)
-
-        # Añadir el primer widget al layout principal
         self.vertical_layout.addWidget(self.widget)
 
         # Widget con botones
@@ -161,19 +91,18 @@ class SlidersWidget(QWidget):
         self.button_container = QGridLayout(self.buttons_widget)
         self.button_container.setObjectName("gridLayout")
 
-        self.pose_1_button = QPushButton("Pose 1", self.buttons_widget)
-        self.button_container.addWidget(self.pose_1_button, 0, 0)
+        button_config = [
+            ("pose_1_button", "Pose 1", 0, 0),
+            ("pose_2_button", "Pose 2", 0, 1),
+            ("pose_3_button", "Pose 3", 1, 0),
+            ("pose_4_button", "Pose 4", 1, 1),
+        ]
 
-        self.pose_2_button = QPushButton("Pose 2", self.buttons_widget)
-        self.button_container.addWidget(self.pose_2_button, 0, 1)
+        for attr, text, row, col in button_config:
+            btn = QPushButton(text, self.buttons_widget)
+            setattr(self, attr, btn)
+            self.button_container.addWidget(btn, row, col)
 
-        self.pose_3_button = QPushButton("Pose 3", self.buttons_widget)
-        self.button_container.addWidget(self.pose_3_button, 1, 0)
-
-        self.pose_4_button = QPushButton("Pose 4", self.buttons_widget)
-        self.button_container.addWidget(self.pose_4_button, 1, 1)
-
-        # Añadir el widget de botones al layout principal
         self.vertical_layout.addWidget(self.buttons_widget)
         self.setSizePolicy(QSizePolicy.Policy.Expanding,
                            QSizePolicy.Policy.Expanding)

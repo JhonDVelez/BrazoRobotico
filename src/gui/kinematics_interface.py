@@ -1,3 +1,4 @@
+import numpy as np
 from PyQt6.QtWidgets import QWidget, QSizePolicy, QPushButton, QGridLayout, QLabel, QSlider
 from PyQt6.QtWidgets import QSpinBox, QVBoxLayout
 from PyQt6.QtCore import Qt, QSize
@@ -74,13 +75,13 @@ class KinematicsWidget(QWidget):
             self.spin_box_1.value(), self.spin_box_2.value(), self.spin_box_3.value(), 0)
         q_deg = rad_to_deg(best_q.flatten())
         KinematicsWidget.kinematics_status = [
-            q_deg[0] + 150.0,
-            -q_deg[1] + 150.0,
-            -q_deg[2] + 150.0,
+            np.abs(q_deg[0] + 150.0),
+            np.abs(q_deg[1] - 150.0),
+            np.abs(q_deg[2] - 150.0),
             150.0,
-            q_deg[3] + 150.0,
+            np.abs(q_deg[3] + 150.0),
             171]
-        print(KinematicsWidget.kinematics_status)
+        # print(KinematicsWidget.kinematics_status)
 
     @classmethod
     def get_kinematics_state(cls) -> list[int]:

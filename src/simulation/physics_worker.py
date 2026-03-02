@@ -81,7 +81,7 @@ class PhysicsWorker(QThread):
                     self.target_position_prev = self.target_position
                 # Actualiza la simulation si la diferencia entre los ángulos objetivos y los ángulos
                 # actuales es mayor o igual a 0.01 rad o 0.573°
-                if any(abs(x - y) >= 0.01 for x, y in zip(self.target_position, self.physic.get_joint_positions())):
+                if any(abs(x - y) >= 0.001 for x, y in zip(self.target_position, self.physic.get_joint_positions())):
                     self.physic.step_simulation()
 
     @pyqtSlot()

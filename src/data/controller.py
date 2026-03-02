@@ -28,8 +28,6 @@
 import numpy as np
 from PyQt6.QtCore import QThread
 from pyqtgraph.Qt.QtCore import pyqtSlot
-from gui.sliders_interface import SlidersWidget
-from gui.kinematics_interface import KinematicsWidget
 from data import deg_to_rad, rad_to_deg
 from data import PhysicalSignalManager, Modes, Units, Domains, SimulationSignalManager, GlobalTimer
 
@@ -69,6 +67,14 @@ class DataFlow(QThread):
         else:
             raise Exception("El dominio proporcionado no existe.")
 
+        # Lazy import para evitar ciclo circular
+        try:
+            from gui.sliders_interface import SlidersWidget
+            if SlidersWidget.instance is not None:
+                SlidersWidget.instance.mode_changed.connect(
+                    self.signal_manager.change_mode_signal)
+        except Exception:
+            pass
         self.signal_manager.change_mode_signal.connect(self.change_mode)
 
     def request_objective_data_simulation(self):
@@ -120,6 +126,7 @@ class DataFlow(QThread):
         Returns:
             NDArray: Arreglo con las posiciones objetivos configuradas en la interfaz
         """
+        from gui.sliders_interface import SlidersWidget
         if self.units is Units.DEG:
             return np.array(SlidersWidget.get_sliders_state())
         if self.units is Units.RAD:
@@ -134,10 +141,22 @@ class DataFlow(QThread):
         Returns:
             NDArray: Arreglo con las posiciones objetivos configuradas en la interfaz
         """
+        from gui.kinematics_interface import KinematicsWidget
+        kin_vals = KinematicsWidget.get_kinematics_state()
+
+        # Intentar actualizar los sliders de la interfaz si existe la instancia
+        try:
+            from gui.sliders_interface import SlidersWidget
+            if SlidersWidget.instance is not None and kin_vals is not None:
+                SlidersWidget.instance.set_values(kin_vals)
+            self.change_mode(Modes.KINEMATIC)
+        except Exception:
+            pass
+
         if self.units is Units.DEG:
-            return np.array(KinematicsWidget.get_kinematics_state())
+            return np.array(kin_vals)
         if self.units is Units.RAD:
-            return deg_to_rad(KinematicsWidget.get_kinematics_state())
+            return deg_to_rad(kin_vals)
 
     @pyqtSlot(list)
     def update_simulation_graph(self, actual_positions):

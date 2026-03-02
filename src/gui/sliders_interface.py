@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QSizePolicy, QPushButton, QGridLayout, QLabel, QSlider
 from PyQt6.QtWidgets import QSpinBox, QVBoxLayout, QHBoxLayout
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QSize, pyqtSignal
+from data import Modes
 
 
 class SlidersWidget(QWidget):
@@ -9,6 +10,7 @@ class SlidersWidget(QWidget):
     Args:
         QWidget (QWidget): Define que la clase es de tipo widget para pyqt
     """
+    mode_changed = pyqtSignal(object)
     sliders_status = [150, 150, 150, 150, 150, 150]
     instance = None
 
@@ -38,11 +40,11 @@ class SlidersWidget(QWidget):
 
         # Configuración de cada θ: (label, slider_min, slider_max, slider_val, spin_min, spin_max)
         theta_config = [
-            ("θ1", 50,  250),
-            ("θ2", 70,  200),
-            ("θ3", 50,  200),
-            ("θ4", 50,  250),
-            ("θ5", 150, 250),
+            ("θ1", 60,  240),
+            ("θ2", 60,  240),
+            ("θ3", 60,  240),
+            ("θ4", 60,  240),
+            ("θ5", 60,  240),
             ("θ6", 38,  171)
         ]
 
@@ -185,10 +187,11 @@ class SlidersWidget(QWidget):
     def update_class_status(self):
         """ Actualiza los valores almacenados de los slider/spinBox (estan conectados)
         """
+        self.mode_changed.emit(Modes.SLIDERS)
         SlidersWidget.sliders_status = [
             self.slider_1.value(),
-            self.slider_2.value(),
-            self.slider_3.value(),
+            -self.spin_box_2.value()+150,
+            -self.spin_box_3.value()+150,
             self.slider_4.value(),
             self.slider_5.value(),
             self.slider_6.value(),
@@ -216,6 +219,36 @@ class SlidersWidget(QWidget):
     def get_sliders_state(cls) -> list[int]:
         """ Metodo de clase que no requiere instancia de la clase para su ejecucion, 
             encargada de obtener los valores almacenados de los sliders
+        """
+        return cls.sliders_status
+
+    def set_values(self, values: list[int]):
+        """Actualizar los sliders/spinboxes desde una lista de 6 valores.
+
+        Se espera que `values` contenga los valores en el mismo formato que usan los
+        `spin_box` (ej. -150..150). Este método actualiza los `spin_box` para que
+        las conexiones existentes sincronicen los `slider` automáticamente.
+        """
+        if values is None:
+            return
+        try:
+            # Asegurar longitud mínima
+            vals = list(values)
+            if len(vals) < 6:
+                return
+            self.slider_1.setValue(int(vals[0]))
+            self.spin_box_2.setValue(int(-vals[1]+150))
+            self.spin_box_3.setValue(int(-vals[2]+150))
+            self.slider_4.setValue(int(vals[3]))
+            self.slider_5.setValue(int(vals[4]))
+            self.slider_6.setValue(int(vals[5]))
+        except Exception:
+            pass
+
+    @classmethod
+    def set_sliders_state(cls) -> list[int]:
+        """ Metodo de clase que no requiere instancia de la clase para su ejecucion, 
+            encargada de cambiar los valores almacenados de los sliders
         """
         return cls.sliders_status
 

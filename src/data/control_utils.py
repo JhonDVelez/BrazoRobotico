@@ -20,6 +20,7 @@ class Modes(Enum):
         angulo objetivo o las coordenadas que provee la cámara.
     """
     SLIDERS = 1
+    KINEMATIC = 2
 
 
 class Units(Enum):
@@ -46,12 +47,13 @@ class _SignalManager(QObject):
     model_position_signal = pyqtSignal(list)
     update_robot_signal = pyqtSignal(list)
     update_graph_signal = pyqtSignal(list)
+    update_pybullet_signal = pyqtSignal(list)
+    change_mode_signal = pyqtSignal(object)
 
 
 class SimulationSignalManager(_SignalManager):
     """ SignalManager específico para simulación
     """
-    update_pybullet_signal = pyqtSignal(list)
     update_model_signal = pyqtSignal(list)
 
     _instance = None
@@ -74,7 +76,7 @@ class PhysicalSignalManager(_SignalManager):
     """
     is_connected = False
     send_to_robot = pyqtSignal(list)
-    data_recibed = pyqtSignal(list, list)
+    data_received = pyqtSignal(list, list)
 
     _instance = None
 
@@ -92,9 +94,13 @@ class PhysicalSignalManager(_SignalManager):
 
 
 class GlobalTimer(QObject):
-    sync_tick = pyqtSignal()
+    # Pulso de sincronización
+    sync_simulation_tick = pyqtSignal()
+    # Actualiza la simulación y envía datos a la gráfica
     update_tick = pyqtSignal()
+    # Solicita datos para 3D mas rápido que el de la gráfica para fluidez
     model_tick = pyqtSignal()
+    sync_robot_tick = pyqtSignal()
 
     _instance = None
     _initialized = False
@@ -122,7 +128,6 @@ class GlobalTimer(QObject):
 
         self._sync_counter = 0
         self._model_counter = 0
-        self._data_request = 0
         GlobalTimer._initialized = True
 
         self.signal_manager = PhysicalSignalManager.get_instance()
@@ -131,19 +136,18 @@ class GlobalTimer(QObject):
         self._sync_counter += 1
         self._model_counter += 1
 
-        if self._model_counter >= 8:
+        if self._model_counter >= 4:
             self.model_tick.emit()
             self._model_counter = 0
 
-        if self._sync_counter >= 25 and not self.signal_manager.is_connected:  # Cada 100ms
-            self.sync_tick.emit()
+        if self._sync_counter >= 25:  # Cada 100ms
+            if not self.signal_manager.is_connected:
+                self.sync_simulation_tick.emit()
+            else:
+                self.sync_robot_tick.emit()
             self._sync_counter = 0
         else:  # No emitir update_tick si ya emitimos model_tick
             self.update_tick.emit()
-
-        if self._data_request >= 4:
-            self.data_request_signal.emit()
-            self._data_request = 0
 
     def start(self):
         if not self._timer.isActive():

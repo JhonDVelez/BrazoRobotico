@@ -59,8 +59,11 @@ Node {
         id: material_005_material
         objectName: "Material.005"
         baseColorMap: _6_texture
-        roughness: 0.4
-        clearcoatAmount: 0.13
+        roughness: 0.2
+        metalness: 0.0
+        specularAmount: 0.5
+        clearcoatAmount: 0.3
+        clearcoatRoughnessAmount: 0.1
         indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
@@ -69,8 +72,11 @@ Node {
         id: material_001_material
         objectName: "Material.001"
         baseColorMap: _5_texture
-        roughness: 0.4
-        clearcoatAmount: 0.13
+        roughness: 0.2
+        metalness: 0.0
+        specularAmount: 0.5
+        clearcoatAmount: 0.3
+        clearcoatRoughnessAmount: 0.1
         indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
@@ -79,8 +85,11 @@ Node {
         id: material_002_material
         objectName: "Material.002"
         baseColorMap: _4_texture
-        roughness: 0.4
-        clearcoatAmount: 0.13
+        roughness: 0.2
+        metalness: 0.0
+        specularAmount: 0.5
+        clearcoatAmount: 0.3
+        clearcoatRoughnessAmount: 0.1
         indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
@@ -89,8 +98,11 @@ Node {
         id: material_003_material
         objectName: "Material.003"
         baseColorMap: _3_texture
-        roughness: 0.4
-        clearcoatAmount: 0.13
+        roughness: 0.2
+        metalness: 0.0
+        specularAmount: 0.5
+        clearcoatAmount: 0.3
+        clearcoatRoughnessAmount: 0.1
         indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
@@ -99,8 +111,11 @@ Node {
         id: material_004_material
         objectName: "Material.004"
         baseColorMap: _2_texture
-        roughness: 0.4
-        clearcoatAmount: 0.13
+        roughness: 0.2
+        metalness: 0.0
+        specularAmount: 0.5
+        clearcoatAmount: 0.3
+        clearcoatRoughnessAmount: 0.1
         indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
@@ -109,8 +124,11 @@ Node {
         id: material_007_material
         objectName: "Material.007"
         baseColorMap: _1_texture
-        roughness: 0.4
-        clearcoatAmount: 0.13
+        roughness: 0.2
+        metalness: 0.0
+        specularAmount: 0.5
+        clearcoatAmount: 0.3
+        clearcoatRoughnessAmount: 0.1
         indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
@@ -119,8 +137,11 @@ Node {
     PrincipledMaterial {
         id: material_006_material
         objectName: "Material.006"
-        roughness: 0.4
-        clearcoatAmount: 0.13
+        roughness: 0.2
+        metalness: 0.0
+        specularAmount: 0.5
+        clearcoatAmount: 0.3
+        clearcoatRoughnessAmount: 0.1
         indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
@@ -129,11 +150,14 @@ Node {
         id: material_008_material
         objectName: "Material.008"
         baseColorMap: _6_texture
-        roughness: 0.4
+        roughness: 0.2
+        metalness: 0.0
+        specularAmount: 0.5
+        clearcoatAmount: 0.3
+        clearcoatRoughnessAmount: 0.1
+        indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
-        clearcoatAmount: 0.13
-        indexOfRefraction: 1.45
     }
 
     // Nodes:

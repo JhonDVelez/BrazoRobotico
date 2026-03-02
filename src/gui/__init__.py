@@ -10,6 +10,8 @@ from .graph_worker import GraphWorker
 from .simulation_interface import SimInterface
 from .simulation_worker import SimWorker
 from .sliders_interface import SlidersWidget
+from .kinematics_interface import KinematicsWidget
+from .kinematics_worker import KinematicsWorker
 
 __all__ = [
     "MainInterface",
@@ -19,5 +21,7 @@ __all__ = [
     "GraphWorker",
     "SimInterface",
     "SimWorker",
-    "SlidersWidget"
+    "SlidersWidget",
+    "KinematicsWidget",
+    "KinematicsWorker"
 ]

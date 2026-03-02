@@ -58,6 +58,8 @@ class MainInterface(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMe
         self.init_graphics()
         self.setup_connections()
 
+        self.cameraBox.hide()
+
         # Carga tema dependiendo de la configuracion de tema de windows
         self.actual_theme = QApplication.instance().styleHints().colorScheme()
         self.update_theme(self.actual_theme)

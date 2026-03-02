@@ -22,13 +22,20 @@ View3D {
         lightProbe: Texture {
             textureData: ProceduralSkyTextureData {
                 textureQuality: ProceduralSkyTextureData.SkyTextureQualityHigh
+                groundHorizonColor: "lightgray"
+                groundCurve: 0.2
             }
         }
-        InfiniteGrid { gridInterval: 0.01 }
+        InfiniteGrid { 
+            gridInterval: 0.01
+        }
         tonemapMode: SceneEnvironment.TonemapModeAces
+        antialiasingMode: SceneEnvironment.MSAA
+        antialiasingQuality: SceneEnvironment.VeryHigh
     }
 
     DirectionalLight {
+        visible: true
         eulerRotation.x: -45
         eulerRotation.y: 45
     }
@@ -36,12 +43,13 @@ View3D {
     Node {
         id: originNode
         position: Qt.vector3d(0, 0.25, 0)
-        eulerRotation: Qt.vector3d(-20, -135, 0)
+        eulerRotation: Qt.vector3d(-20, 135, 0)
         PerspectiveCamera {
             id: cameraNode
-            position: Qt.vector3d(0, 0, 0.6)
+            position: Qt.vector3d(0.1, 0, 1.3)
             clipFar: 10
             clipNear: 0.05
+            fieldOfView: 30
         }
     }
 
@@ -126,9 +134,10 @@ View3D {
         anchors.left: parent.left
         anchors.margins: 10
         onClicked: {
+            position: 
             originNode.position = Qt.vector3d(0, 0.25, 0)
-            originNode.eulerRotation = Qt.vector3d(-20, -135, 0)
-            cameraNode.position = Qt.vector3d(0, 0, 0.6)
+            originNode.eulerRotation = Qt.vector3d(-20, 135, 0)
+            cameraNode.position = Qt.vector3d(0.1, 0, 1.3)
         }
     }
 }

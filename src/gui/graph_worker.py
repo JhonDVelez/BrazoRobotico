@@ -62,7 +62,7 @@ class GraphWorker(QThread):
     def __setup_connections(self):
         self.sim_signal_manager.update_graph_signal.connect(
             self.sim_buffer_update)
-        self.phy_signal_manager.data_recibed.connect(
+        self.phy_signal_manager.data_received.connect(
             self.phy_buffer_update)
 
     def sim_buffer_update(self, data):

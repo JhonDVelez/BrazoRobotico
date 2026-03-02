@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QWidget, QSizePolicy, QPushButton, QGridLayout, QLabel, QSlider
-from PyQt6.QtWidgets import QSpinBox, QVBoxLayout
+from PyQt6.QtWidgets import QSpinBox, QVBoxLayout, QHBoxLayout
 from PyQt6.QtCore import Qt, QSize
 
 
@@ -53,39 +53,52 @@ class SlidersWidget(QWidget):
         spinbox_names = ["spin_box_1", "spin_box_2",
                          "spin_box_3", "spin_box_4", "spin_box_5", "spin_box_6"]
 
-        for row, (text, s_min, s_max) in enumerate(theta_config):
-            s_val = 150  # Valor inicial o central
+        for i, (text, s_min, s_max) in enumerate(theta_config):
+            s_val = 150
             sb_min = s_min - s_val
             sb_max = s_max - s_val
+
+            # Posición en cuadrícula 3 columnas x 2 filas
+            grid_row = i // 3
+            grid_col = i % 3
+
+            # Sub-widget horizontal para cada grupo
+            group_widget = QWidget(self.widget)
+            group_layout = QHBoxLayout(group_widget)
+            group_layout.setContentsMargins(0, 0, 0, 0)
+
             # Label
-            label = QLabel(text, self.widget)
-            label.setMaximumSize(QSize(100, 16777215))
-            setattr(self, label_names[row], label)
-            self.container.addWidget(label, row, 0)
+            label = QLabel(text, group_widget)
+            label.setMaximumSize(QSize(30, 30))
+            setattr(self, label_names[i], label)
+            group_layout.addWidget(label)
 
             # Slider
-            slider = QSlider(Qt.Orientation.Horizontal, self.widget)
+            slider = QSlider(Qt.Orientation.Horizontal, group_widget)
             slider.setMinimum(s_min)
             slider.setMaximum(s_max)
             slider.setValue(s_val)
-            setattr(self, slider_names[row], slider)
-            self.container.addWidget(slider, row, 1)
+            slider.setMaximumSize(QSize(400, 30))
+            setattr(self, slider_names[i], slider)
+            group_layout.addWidget(slider)
 
             # SpinBox
-            spin = QSpinBox(self.widget)
+            spin = QSpinBox(group_widget)
             spin.setSizePolicy(QSizePolicy(
                 QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
-            spin.setMaximumSize(QSize(100, 16777215))
+            spin.setMaximumSize(QSize(60, 30))
             spin.setMinimum(sb_min)
             spin.setMaximum(sb_max)
             spin.setValue(0)
-            setattr(self, spinbox_names[row], spin)
-            self.container.addWidget(spin, row, 2)
+            setattr(self, spinbox_names[i], spin)
+            group_layout.addWidget(spin)
+
+            self.container.addWidget(group_widget, grid_row, grid_col)
 
         self.vertical_layout.addWidget(self.widget)
 
         # Widget con botones
-        self.buttons_widget = QWidget(self)
+        self.buttons_widget = QWidget()
         self.buttons_widget.setObjectName("buttonsWidget")
         self.buttons_widget.setMaximumSize(QSize(16777215, 100))
         self.button_container = QGridLayout(self.buttons_widget)
@@ -103,7 +116,7 @@ class SlidersWidget(QWidget):
             setattr(self, attr, btn)
             self.button_container.addWidget(btn, row, col)
 
-        self.vertical_layout.addWidget(self.buttons_widget)
+        # self.vertical_layout.addWidget(self.buttons_widget) # Agrega o quita los botones de pose
         self.setSizePolicy(QSizePolicy.Policy.Expanding,
                            QSizePolicy.Policy.Expanding)
         self.setMinimumSize(120, 160)

@@ -29,6 +29,7 @@ import numpy as np
 from PyQt6.QtCore import QThread
 from pyqtgraph.Qt.QtCore import pyqtSlot
 from gui.sliders_interface import SlidersWidget
+from gui.kinematics_interface import KinematicsWidget
 from data import deg_to_rad, rad_to_deg
 from data import PhysicalSignalManager, Modes, Units, Domains, SimulationSignalManager, GlobalTimer
 
@@ -48,7 +49,6 @@ class DataFlow(QThread):
         self.signal_manager = None
         self.domain = domain
         self.sync_timer = GlobalTimer.get_instance()
-        self.sync_timer.sync_tick.connect(self.request_objective_data)
         self.sync_timer.start()
 
         # Inicializa las señales dependiendo de cual sea el dominio
@@ -58,14 +58,20 @@ class DataFlow(QThread):
                 self.update_simulation_graph)
             self.signal_manager.model_position_signal.connect(
                 self.update_simulation_model)
+            self.sync_timer.sync_simulation_tick.connect(
+                self.request_objective_data_simulation)
         elif self.domain is Domains.PHYSICAL:
             self.signal_manager = PhysicalSignalManager.get_instance()
             self.signal_manager.sensor_position_signal.connect(
                 self.update_robot)
+            self.sync_timer.sync_robot_tick.connect(
+                self.request_objective_data_robot)
         else:
             raise Exception("El dominio proporcionado no existe.")
 
-    def request_objective_data(self):
+        self.signal_manager.change_mode_signal.connect(self.change_mode)
+
+    def request_objective_data_simulation(self):
         """ Solicita los datos objetivos de los motores, es decir, los ángulos a los que se desea
             mover cada motor, estos datos pueden tener diferentes fuentes como lo son los slider, 
             los cuales se obtienen con la función __get_sliders_data().
@@ -78,12 +84,32 @@ class DataFlow(QThread):
             ```
         """
         if self.mode is Modes.SLIDERS:
-            if self.domain is Domains.SIMULATION:
-                self.signal_manager.update_pybullet_signal.emit(
-                    self.__get_sliders_data())
-            elif self.domain is Domains.PHYSICAL:
-                self.signal_manager.send_to_robot.emit(
-                    self.__get_sliders_data())
+            self.signal_manager.update_pybullet_signal.emit(
+                self.__get_sliders_data())
+        elif self.mode is Modes.KINEMATIC:
+            self.signal_manager.update_pybullet_signal.emit(
+                self.__get_kinematics_data())
+
+    def request_objective_data_robot(self):
+        """ Solicita los datos objetivos de los motores, es decir, los ángulos a los que se desea
+            mover cada motor, estos datos pueden tener diferentes fuentes como lo son los slider, 
+            los cuales se obtienen con la función __get_sliders_data().
+
+            Estos datos se entregan en forma de una lista de seis elementos, los cuales dependiendo
+            del dominio en que se encuentren serán entregados en radianes o en grados:
+            ```
+                - La simulación con pybullet utiliza radianes.
+                - El robot físico Openbotv-V1 utiliza grados.
+            ```
+        """
+        if self.mode is Modes.SLIDERS:
+            new_data = self.__get_sliders_data()
+            self.signal_manager.send_to_robot.emit(new_data)
+            self.signal_manager.update_pybullet_signal.emit(new_data)
+        elif self.mode is Modes.KINEMATIC:
+            new_data = self.__get_kinematics_data()
+            self.signal_manager.send_to_robot.emit(new_data)
+            self.signal_manager.update_pybullet_signal.emit(new_data)
 
     def __get_sliders_data(self):
         """ Obtiene los datos provenientes de la interfaz para los ángulos objetivos definidos con
@@ -98,6 +124,20 @@ class DataFlow(QThread):
             return np.array(SlidersWidget.get_sliders_state())
         if self.units is Units.RAD:
             return deg_to_rad(SlidersWidget.get_sliders_state())
+
+    def __get_kinematics_data(self):
+        """ Obtiene los datos provenientes de la interfaz para los ángulos objetivos definidos con
+            los sliders, se reciben como una lista de seis posiciones y dependiendo de lo requerido
+            según el dominio de ejecución, se realiza la transformación a radianes o se retorna en 
+            grados como los proporciona la interfaz.
+
+        Returns:
+            NDArray: Arreglo con las posiciones objetivos configuradas en la interfaz
+        """
+        if self.units is Units.DEG:
+            return np.array(KinematicsWidget.get_kinematics_state())
+        if self.units is Units.RAD:
+            return deg_to_rad(KinematicsWidget.get_kinematics_state())
 
     @pyqtSlot(list)
     def update_simulation_graph(self, actual_positions):
@@ -135,4 +175,7 @@ class DataFlow(QThread):
         Args:
             actual_positions (list): Posiciones actuales de los motores del robot físico
         """
-        self.signal_manager.update_graph_signal.emit(actual_positions)
+        self.signal_manager.data_recibed.emit(actual_positions)
+
+    def change_mode(self, mode):
+        self.mode = mode

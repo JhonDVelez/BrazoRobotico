@@ -21,7 +21,7 @@ class MainMenuMixin:
         """ Define las acciones que tendrá el menu asi como sus atajos, texto de la barra de estado
             e iconos utilizados como botones.
         """
-        self.camera_action = QAction("Ocultar Cámara", self)
+        self.camera_action = QAction("Mostrar Cámara", self)
         self.camera_action.setShortcut(QKeySequence("Ctrl+j"))
         self.camera_action.setStatusTip("Mostrar/Ocultar la cámara")
 

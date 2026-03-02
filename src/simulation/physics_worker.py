@@ -88,6 +88,7 @@ class PhysicsWorker(QThread):
     def update_3d_model(self):
         """ Actualiza los ángulos de la simulación que se muestran en el modelo 3d de la interfaz.
         """
+        # print(self._elapsed.restart())  # Mostrar cada cuanto se entra en la función
         if self._running:
             self.signal_manager.model_position_signal.emit(
                 self.physic.get_joint_positions())

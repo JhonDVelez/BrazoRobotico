@@ -10,6 +10,7 @@ from PyQt6.QtCore import QSize, Qt
 from data import Modes, Units, Domains
 from data import DataFlow
 from robot import RobotWorker
+from ..kinematics_interface import KinematicsWidget
 from ..camera_interface import CameraInterface
 from ..sliders_interface import SlidersWidget
 from ..simulation_interface import SimInterface
@@ -65,6 +66,13 @@ class MainInitMixin:
         self.visualSplitter.setHandleWidth(8)
         self.visualSplitter.setContentsMargins(0, 0, 0, 0)
 
+        # ---- Controls Splitter ----
+        self.controlSplitter = QSplitter(parent=self.contentSplitter)
+        self.controlSplitter.setOrientation(Qt.Orientation.Vertical)
+        self.controlSplitter.setObjectName("ControlslSplitter")
+        self.controlSplitter.setHandleWidth(8)
+        self.controlSplitter.setContentsMargins(0, 0, 0, 0)
+
         self.modelBox = QGroupBox(parent=self.visualSplitter)
         self.modelBox.setTitle("")
         self.modelBox.setObjectName("modelBox")
@@ -73,7 +81,7 @@ class MainInitMixin:
         self.cameraBox.setTitle("")
         self.cameraBox.setObjectName("cameraBox")
 
-        self.graphsBox = QGroupBox(parent=self.contentSplitter)
+        self.graphsBox = QGroupBox(parent=self.controlSplitter)
         self.graphsBox.setTitle("")
         self.graphsBox.setObjectName("graphsBox")
         self.graphsBox.setContentsMargins(0, 0, 0, 0)
@@ -83,7 +91,7 @@ class MainInitMixin:
         graphsBox_sizePolicy.setVerticalStretch(0)
         self.graphsBox.setSizePolicy(graphsBox_sizePolicy)
 
-        self.controlsBox = QGroupBox(parent=self.contentSplitter)
+        self.controlsBox = QGroupBox(parent=self.controlSplitter)
         self.controlsBox.setTitle("")
         self.controlsBox.setAlignment(
             Qt.AlignmentFlag.AlignBottom |
@@ -92,20 +100,20 @@ class MainInitMixin:
         )
         self.controlsBox.setObjectName("controlsBox")
 
-        self.verticalLayout_2 = QVBoxLayout(self.controlsBox)
+        self.verticalLayout_2 = QGridLayout(self.controlsBox)
         self.verticalLayout_2.setSpacing(0)
         self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_2.setObjectName("verticalLayout_2")
 
-        self.widget = QWidget(parent=self.controlsBox)
-        self.widget.setObjectName("widget")
+        self.actions_widget = QWidget(parent=self.controlsBox)
+        self.actions_widget.setObjectName("widget")
 
-        self.horizontalLayout = QHBoxLayout(self.widget)
+        self.horizontalLayout = QHBoxLayout(self.actions_widget)
         self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout.setObjectName("horizontalLayout")
 
         # Botones de control
-        self.start_button = QPushButton(parent=self.widget)
+        self.start_button = QPushButton(parent=self.actions_widget)
         sizePolicy_fixed = QSizePolicy(
             QSizePolicy.Policy.Fixed,
             QSizePolicy.Policy.Fixed
@@ -115,34 +123,35 @@ class MainInitMixin:
         self.start_button.setObjectName("start_button")
         self.horizontalLayout.addWidget(self.start_button)
 
-        self.pause_button = QPushButton(parent=self.widget)
+        self.pause_button = QPushButton(parent=self.actions_widget)
         self.pause_button.setSizePolicy(sizePolicy_fixed)
         self.pause_button.setMaximumSize(QSize(42, 42))
         self.pause_button.setText("")
         self.pause_button.setObjectName("pause_button")
         self.horizontalLayout.addWidget(self.pause_button)
 
-        self.stop_button = QPushButton(parent=self.widget)
+        self.stop_button = QPushButton(parent=self.actions_widget)
         self.stop_button.setSizePolicy(sizePolicy_fixed)
         self.stop_button.setMaximumSize(QSize(42, 42))
         self.stop_button.setText("")
         self.stop_button.setObjectName("stop_button")
         self.horizontalLayout.addWidget(self.stop_button)
 
-        self.reset_button = QPushButton(parent=self.widget)
+        self.reset_button = QPushButton(parent=self.actions_widget)
         self.reset_button.setSizePolicy(sizePolicy_fixed)
         self.reset_button.setMaximumSize(QSize(42, 42))
         self.reset_button.setObjectName("reset_button")
         self.horizontalLayout.addWidget(self.reset_button)
 
-        self.verticalLayout_2.addWidget(self.widget)
+        self.verticalLayout_2.addWidget(self.actions_widget)
 
         # Añadir splitter principal al layout
         self.barContentLayout.addWidget(self.contentSplitter)
         self.gridLayout.addLayout(self.barContentLayout, 0, 0, 1, 1)
 
-        self.contentSplitter.setSizes([500, 500, 200])
+        self.contentSplitter.setSizes([400, 500])
         self.visualSplitter.setSizes([100, 100])
+        self.controlSplitter.setSizes([300, 100])
 
     def init_camera(self):
         """ Inicializa la interfaz de la cámara y agrega el widget de video
@@ -162,7 +171,7 @@ class MainInitMixin:
            angulo objetivo de cada motor del robot
         """
         self.slider_widget = SlidersWidget(self)
-        self.controlsBox.layout().addWidget(self.slider_widget)
+        self.controlsBox.layout().addWidget(self.slider_widget, 0, 0)
 
         self.control_app_widget = QWidget()
         if not self.control_app_widget.layout():
@@ -200,10 +209,13 @@ class MainInitMixin:
         self.control_app_widget.layout().addWidget(self.stop_button)
         self.control_app_widget.layout().addWidget(self.reset_button)
 
-        self.controlsBox.layout().addWidget(self.control_app_widget)
+        self.controlsBox.layout().addWidget(self.control_app_widget, 1, 0)
 
         self.pause_button.hide()
         self.stop_button.hide()
+
+        self.kinematics_widget = KinematicsWidget()
+        self.controlsBox.layout().addWidget(self.kinematics_widget, 0, 1)
 
     def init_simulation(self):
         """ Inicializa la interfaz de la simulación creando el layout y realizando ajustes para una
@@ -234,9 +246,6 @@ class MainInitMixin:
 
         self.openbotv = RobotWorker(com)
         self.openbotv.start()
-
-        # self.openbotv = RobotReaderWorker(com)
-        # self.openbotv.start()
 
         self.connect_action.setEnabled(False)
 

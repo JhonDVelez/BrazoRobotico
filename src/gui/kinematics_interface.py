@@ -81,7 +81,7 @@ class KinematicsWidget(QWidget):
             150.0,
             np.abs(q_deg[3] + 150.0),
             171]
-        # print(KinematicsWidget.kinematics_status)
+        # print(f"Cinematica: {KinematicsWidget.kinematics_status}")
 
     @classmethod
     def get_kinematics_state(cls) -> list[int]:

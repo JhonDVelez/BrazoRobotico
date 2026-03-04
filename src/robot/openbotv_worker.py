@@ -45,7 +45,7 @@ class RobotWorker(QThread):
         if not all(0 <= x <= 300 for x in valorm):
             print("Error de envío de datos: Valores fuera de rango")
             return
-
+        # print(f"Robot: {valorm}")
         # Limpiar buffer de entrada antes de enviar
         self.cm904.reset_input_buffer()
 

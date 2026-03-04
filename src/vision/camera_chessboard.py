@@ -50,7 +50,8 @@ class CameraChessBoard():
         out_frame = frame.copy()
         if self.corners is not None:
             try:
-                self.detector.draw_grid(out_frame, self.corners, False, False)
+                self.detector.draw_grid(
+                    out_frame, self.corners, False, False, True, 'tl', (25.0, 25.0))
             except Exception as e:
                 print(f"Error dibujando grid: {e}")
 
@@ -68,3 +69,35 @@ class CameraChessBoard():
         except RuntimeError as e:
             print(f"Error procesando frame: {e}")
             return frame
+
+    # ------------------------------------------------------------
+    def get_spatial_matrix(
+        self,
+        frame: np.ndarray,
+        origin: "str | tuple[int,int]" = "tl",
+        cell_size_mm: tuple[float, float] = (25.0, 25.0),
+    ) -> Optional[np.ndarray]:
+        """Devuelve las coordenadas físicas (mm) de la malla detectada.
+
+        El método asegura que haya habido una actualización de esquinas mediante
+        ``get_coordinates``; si no se detecta tablero retorna ``None``. El origen
+        puede ser especificado como una cadena entre ``'tl','tr','bl','br'`` ('top left', 
+        'top right', 'bottom left', 'bottom right')o directamente con índices de 
+        la matriz de esquinas.
+
+        Args:
+            frame: Imagen de la cámara como en ``get_coordinates``.
+            origin: Esquina elegida como (0,0) en la rejilla.
+            cell_size_mm: Dimensiones de cada casilla en milímetros.
+
+        Returns:
+            Matriz ``(rows,cols,2)`` de coordenadas físicas o ``None`` si no hay
+            tablero detectado.
+        """
+        # actualizar esquinas en caché
+        self.get_coordinates(frame)
+        if self.corners is None:
+            return None
+        return self.detector.to_physical_coordinates(
+            self.corners, origin, cell_size_mm
+        )

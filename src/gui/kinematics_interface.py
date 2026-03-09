@@ -63,14 +63,41 @@ class KinematicsWidget(QWidget):
         self.vertical_layout.addWidget(self.coordinates_button)
 
         self.kinematics_worker = KinematicsWorker()
+        # conectar salida de comandos calculados al estado estático usado por DataFlow
+        self.kinematics_worker.commands_ready.connect(self._update_status)
         self.kinematics_worker.start()
 
     def setup_connections(self):
         self.coordinates_button.clicked.connect(self.execute_kinematics)
 
+    def _update_status(self, status: list):
+        """Slot que recibe una lista de seis valores y actualiza el estado
+           estático que consulta DataFlow.__get_kinematics_data().
+        """
+        KinematicsWidget.kinematics_status = status
+
     def execute_kinematics(self):
+        """Inicia la secuencia de control cinemático realimentado.
+
+        El worker recibirá el objetivo cartesiando y, a partir de la telemetría
+        que llega por `PhysicalSignalManager.data_received`, irá calculando paso
+        a paso nuevos comandos hasta alcanzar la posición deseada.  Esta función
+        únicamente se encarga de fijar el modo y comunicar el objetivo al worker.
+        """
         PhysicalSignalManager.get_instance().change_mode_signal.emit(Modes.KINEMATIC)
         SimulationSignalManager.get_instance().change_mode_signal.emit(Modes.KINEMATIC)
+
+        # fijar objetivo en el worker; este comenzará a generar comandos en
+        # cuanto reciba la primera actualización de posición
+        self.kinematics_worker.set_target(
+            self.spin_box_1.value(),
+            self.spin_box_2.value(),
+            self.spin_box_3.value()
+        )
+
+        # opcional: también podemos proporcionar una primera estimación rápida
+        # para que los sliders muestren una posición razonable antes de recibir
+        # telemetría.  Usamos el método `ci` existente para ello.
         best_q, error = self.kinematics_worker.ci(
             self.spin_box_1.value(), self.spin_box_2.value(), self.spin_box_3.value(), 0)
         q_deg = rad_to_deg(best_q.flatten())
@@ -81,11 +108,15 @@ class KinematicsWidget(QWidget):
             150.0,
             np.abs(q_deg[3] + 150.0),
             171]
-        # print(f"Cinematica: {KinematicsWidget.kinematics_status}")
+        # la actualización definitiva vendrá desde el slot _update_status
 
     @classmethod
     def get_kinematics_state(cls) -> list[int]:
-        """ Metodo de clase que no requiere instancia de la clase para su ejecucion, 
-            encargada de obtener los valores almacenados de los sliders
+        """Metodo de clase que no requiere instancia para su ejecución.
+
+        Devuelve la lista de seis ángulos (en grados) que actualmente se
+        consideran como comandos para el robot.  En modo SLIDERS son los valores
+        de los deslizadores; en modo KINEMATIC el trabajador de cinemática realimentada
+        actualiza periódicamente este vector en función de la telemetría recibida.
         """
         return cls.kinematics_status

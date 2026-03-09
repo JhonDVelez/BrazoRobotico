@@ -32,7 +32,7 @@ class CameraChessBoard():
         if frame is None:
             return None
         try:
-            pre = self.camera.auto_gamma_correction(frame)
+            pre = self.camera.apply_histogram_equalization(frame)
         except Exception:
             pre = frame
 

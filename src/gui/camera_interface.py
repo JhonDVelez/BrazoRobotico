@@ -170,7 +170,11 @@ class CameraInterface(ImageUtilsMixin):
     def toggle_video(self):
         """ Alterna el estado de la captura de video.
         """
-        if not self.parent.cameraBox.isVisible() or not self.image_label.isEnabled():
+        if hasattr(self.parent, 'cameraBox'):
+            if not self.parent.cameraBox.isVisible():
+                return
+
+        if not self.image_label.isEnabled():
             return
 
         if self.process_running:

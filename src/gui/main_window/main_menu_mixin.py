@@ -17,13 +17,17 @@ class MainMenuMixin:
         self.robot_controller = None
         self.openbotv = None
 
-    def create_actions(self):
+    def create_main_actions(self):
         """ Define las acciones que tendrá el menu asi como sus atajos, texto de la barra de estado
             e iconos utilizados como botones.
         """
         self.camera_action = QAction("Mostrar Cámara", self)
         self.camera_action.setShortcut(QKeySequence("Ctrl+j"))
         self.camera_action.setStatusTip("Mostrar/Ocultar la cámara")
+
+        self.camera_calibration_action = QAction("Calibrar Cámara", self)
+        self.camera_calibration_action.setStatusTip(
+            "Abrir ventana de calibracion de cámara")
 
         self.model_action = QAction("Ocultar Modelo 3D", self)
         self.model_action.setShortcut(QKeySequence("Ctrl+k"))
@@ -52,10 +56,10 @@ class MainMenuMixin:
 
         # self.com_select_action = QAction()
 
-    def create_menu(self):
+    def create_main_menu(self):
         """ Define la estructura del menu y submenus basado en las acciones definidas.
         """
-        self.create_actions()
+        self.create_main_actions()
         self.menu_bar = QMenuBar()
         self.menu_bar.setFixedHeight(32)
         self.menu_bar.setContentsMargins(0, 0, 0, 0)
@@ -76,8 +80,9 @@ class MainMenuMixin:
 
         # Menús normales
         self.vista_menu = self.menu_bar.addMenu("&Vista")
-        self.vista_menu.addAction(self.camera_action)
         self.vista_menu.addAction(self.model_action)
+        self.vista_menu.addAction(self.camera_action)
+        self.vista_menu.addAction(self.camera_calibration_action)
 
         self.mode_menu = self.menu_bar.addMenu("&Modo")
         self.mode_menu.addAction(self.sliders_action)

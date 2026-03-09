@@ -111,6 +111,14 @@ class MainActionsMixin:
             self.modelBox.show()
             self.model_action.setText("Ocultar Modelo 3D")
 
+    def initiate_camera_calibration(self):
+        from ..calibration_window import CameraCalibrationWindow
+
+        self.camera_interface.stop_video()
+
+        self.calibration_window = CameraCalibrationWindow()
+        self.calibration_window.show()
+
     def toggle_activation_model_event(self):
         """ Habilita o deshabilita la visualización del modelo 3D de QtQuick mediante la acción en 
             la barra de menu.

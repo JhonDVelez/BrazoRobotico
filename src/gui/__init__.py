@@ -12,6 +12,7 @@ from .simulation_worker import SimWorker
 from .sliders_interface import SlidersWidget
 from .kinematics_interface import KinematicsWidget
 from .kinematics_worker import KinematicsWorker
+from .calibration_window import CameraCalibrationWindow
 
 __all__ = [
     "MainInterface",
@@ -23,5 +24,6 @@ __all__ = [
     "SimWorker",
     "SlidersWidget",
     "KinematicsWidget",
-    "KinematicsWorker"
+    "KinematicsWorker",
+    "CameraCalibrationWindow"
 ]

@@ -41,7 +41,7 @@ class MainInterface(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMe
         layout.setSpacing(0)
 
         # Barra de título
-        self.create_menu()
+        self.create_main_menu()
         self.title_bar = MainTitleBarMixin(self)
         # necesario para acciones de ventana como arrastrar/min/max
         self.setTitleBar(self.title_bar)
@@ -83,6 +83,9 @@ class MainInterface(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMe
             if hasattr(self, 'camera_action'):
                 self.camera_action.triggered.connect(
                     self.toggle_visibility_camera_event)
+            if hasattr(self, 'camera_calibration_action'):
+                self.camera_calibration_action.triggered.connect(
+                    self.initiate_camera_calibration)
 
         if hasattr(self, 'modelBox'):
             if hasattr(self, 'model_action'):

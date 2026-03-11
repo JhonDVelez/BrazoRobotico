@@ -10,16 +10,27 @@ class RobotWorker(QThread):
 
     def __init__(self, com: str):
         super().__init__()
-        self.cm904 = serial.Serial(com, 9600, timeout=1)
+        self.com = com
+        self.cm904 = None
         self._send_queue = queue.Queue()
         self._running = True
 
         self.signal_manager = PhysicalSignalManager.get_instance()
-        self.signal_manager.send_to_robot.connect(
-            self.enqueue_data)  # ya no bloquea
-        self.signal_manager.is_connected = True
+        self.signal_manager.send_to_robot.connect(self.enqueue_data)
+        # Intentar abrir el puerto serial, manejar errores sin crashear la app
+        try:
+            self.cm904 = serial.Serial(self.com, 9600, timeout=1)
+            self.signal_manager.is_connected = True
+        except (serial.SerialException, PermissionError, OSError) as e:
+            print(f"No se pudo abrir {self.com}: {e}")
+            self.cm904 = None
+            self.signal_manager.is_connected = False
 
         self.sync_timer = GlobalTimer.get_instance()
+        # Buffer para ensamblar tramas fragmentadas y estado último conocido
+        self._recv_buffer = ""
+        self._last_positions = [None] * 6
+        self._last_temperaturas = [None] * 6
 
     def enqueue_data(self, valorm):
         """Descarta comandos anteriores si el micro no ha respondido aún."""
@@ -46,55 +57,174 @@ class RobotWorker(QThread):
             print("Error de envío de datos: Valores fuera de rango")
             return
         # print(f"Robot: {valorm}")
+        # Verificar que el puerto esté abierto; intentar reconectar si es necesario
+        if self.cm904 is None or not getattr(self.cm904, 'is_open', False):
+            try:
+                self.cm904 = serial.Serial(self.com, 9600, timeout=1)
+                self.signal_manager.is_connected = True
+            except (serial.SerialException, PermissionError, OSError) as e:
+                print(f"No se pudo abrir {self.com} antes de enviar: {e}")
+                self.signal_manager.is_connected = False
+                return
+
         # Limpiar buffer de entrada antes de enviar
-        self.cm904.reset_input_buffer()
+        try:
+            self.cm904.reset_input_buffer()
+        except Exception as e:
+            print(f"Error limpiando buffer: {e}")
+            self.signal_manager.is_connected = False
+            self.cm904 = None
+            return
 
         # Envío serial
-        for i, char in enumerate(['A', 'B', 'C', 'D', 'E', 'F']):
-            val_pwm = round(valorm[i] * (1023 / 300))
-            self.cm904.write(f"{char}{val_pwm}\n".encode())
-            time.sleep(0.05)
+        try:
+            for i, char in enumerate(['A', 'B', 'C', 'D', 'E', 'F']):
+                val_pwm = round(valorm[i] * (1023 / 300))
+                self.cm904.write(f"{char}{val_pwm}\n".encode())
+                time.sleep(0.05)
+        except (serial.SerialException, OSError) as e:
+            print(f"Error al escribir en serial: {e}")
+            self.signal_manager.is_connected = False
+            try:
+                if self.cm904:
+                    self.cm904.close()
+            except Exception as e:
+                print(e)
+                pass
+            self.cm904 = None
+            return
 
         # Esperar respuesta con timeout
-        timeout = 2.0
-        start = time.time()
-        while not self.cm904.in_waiting:
-            if time.time() - start > timeout:
-                print("Timeout: el micro no respondió")
-                return
-            time.sleep(0.001)
+        # timeout = 2.0
+        # start = time.time()
+        # try:
+        #     while not self.cm904.in_waiting:
+        #         if time.time() - start > timeout:
+        #             print("Timeout: el micro no respondió")
+        #             return
+        #         # time.sleep(0.001)
+        # except Exception as e:
+        #     print(f"Error comprobando in_waiting: {e}")
+        #     self.signal_manager.is_connected = False
+        #     self.cm904 = None
+        #     return
 
-        # Lectura
+        # Lectura robusta: ensamblar tramas fragmentadas usando un buffer
         try:
-            line = self.cm904.readline().decode('ascii', errors='ignore').strip()
+            timeout = 2.0
+            start = time.time()
+            data = b""
+            # Leer hasta encontrar al menos un ';' o agotar timeout
+            while time.time() - start < timeout:
+                try:
+                    avail = self.cm904.in_waiting
+                except Exception as e:
+                    print(f"Error comprobando in_waiting: {e}")
+                    self.signal_manager.is_connected = False
+                    self.cm904 = None
+                    return
 
-            if not line or ";" not in line:
-                print(f"Respuesta inválida del micro: '{line}'")
+                if avail:
+                    chunk = self.cm904.read(avail)
+                    if chunk:
+                        data += chunk
+                        if b';' in data:
+                            break
+                else:
+                    time.sleep(0.01)
+
+            if not data:
+                print("Timeout: no se recibió respuesta")
                 return
 
-            posiciones = [None] * 6
-            temperaturas = [None] * 6
+            try:
+                s = data.decode('ascii', errors='ignore')
+            except Exception:
+                s = ''
 
-            for i, char in enumerate(['A', 'B', 'C', 'D', 'E', 'F']):
-                pos_match = re.search(rf"{char}(\d+)", line)
-                temp_match = re.search(rf"T{char}(\d+)", line)
+            # Añadir al buffer previo, separar por ';' y procesar tokens completos
+            combined = self._recv_buffer + s
+            parts = combined.split(';')
+            complete_tokens = parts[:-1]
+            self._recv_buffer = parts[-1]  # parte incompleta (si la hay)
+
+            # Procesar cada token; actualizar último estado parcial
+            for token in complete_tokens:
+                token = token.strip()
+                if not token:
+                    continue
+
+                # Buscar temp: formato T<LETTER><NUM>
+                temp_match = re.search(r'T([A-F])(\d+)', token)
+
+                # Buscar pos: preferimos letra delante, si no está inferimos desde temp
+                pos_match = re.match(r'([A-F])(\d+(?:\.\d+)?)', token)
+
+                pos_letter = None
+                pos_val = None
                 if pos_match:
-                    posiciones[i] = float(pos_match.group(1))
+                    pos_letter = pos_match.group(1)
+                    pos_val = pos_match.group(2)
+                else:
+                    # intentar extraer número antes de 'T' si existe
+                    m = re.search(r'(\d+(?:\.\d+)?)(?=T)', token)
+                    if m and temp_match:
+                        pos_val = m.group(1)
+                        pos_letter = temp_match.group(1)
+
+                if pos_letter and pos_val is not None:
+                    idx = ord(pos_letter) - ord('A')
+                    try:
+                        self._last_positions[idx] = float(pos_val)
+                    except Exception:
+                        pass
+
                 if temp_match:
-                    temperaturas[i] = int(temp_match.group(1))
+                    t_letter = temp_match.group(1)
+                    t_val = temp_match.group(2)
+                    idx = ord(t_letter) - ord('A')
+                    try:
+                        self._last_temperaturas[idx] = int(t_val)
+                    except Exception:
+                        pass
 
+            # Emitir snapshot con último estado conocido (copias para evitar mutación externa)
             self.sync_timer.sync_simulation_tick.emit()
-            self.signal_manager.data_received.emit(posiciones, temperaturas)
+            self.signal_manager.data_received.emit(self._last_positions.copy(), self._last_temperaturas.copy())
 
+        except (serial.SerialException, OSError) as e:
+            print(f"Error lectura (serial): {e}")
+            self.signal_manager.is_connected = False
+            try:
+                if self.cm904:
+                    self.cm904.close()
+            except Exception:
+                pass
+            self.cm904 = None
         except Exception as e:
             print(f"Error lectura: {e}")
+        #     self.signal_manager.is_connected = False
+        #     try:
+        #         if self.cm904:
+        #             self.cm904.close()
+        #     except Exception as e:
+        #         print(e)
+        #         pass
+        #     self.cm904 = None
+        # except Exception as e:
+        #     print(f"Error lectura: {e}")
 
     def request_data(self):
         self.signal_manager.get_data_signal.emit()
 
     def stop(self):
         self._running = False
-        self.cm904.close()
+        try:
+            if self.cm904 and getattr(self.cm904, 'is_open', False):
+                self.cm904.close()
+        except Exception as e:
+            print(e)
+            pass
         self.signal_manager.is_connected = False
         self.quit()
         self.wait()

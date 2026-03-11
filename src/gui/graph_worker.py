@@ -66,9 +66,18 @@ class GraphWorker(QThread):
             self.phy_buffer_update)
 
     def sim_buffer_update(self, data):
+        data[1] *= -1
+        data[2] *= -1
         self.sim_update_buffer.append(data)
 
     def phy_buffer_update(self, pos_data, temp_data):
+        pos_data[0] -= 150
+        pos_data[1] = -pos_data[1] + 150
+        pos_data[2] = -pos_data[2] + 150
+        pos_data[3] -= 150
+        pos_data[4] -= 150
+        pos_data[5] -= 150
+
         self.phy_update_buffer.append(pos_data)
         self.phy_temp_data.append(temp_data)
 

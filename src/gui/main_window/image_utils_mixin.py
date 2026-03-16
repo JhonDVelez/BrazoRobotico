@@ -3,7 +3,9 @@
     al iniciar la interfaz se muestra un brazo, una cámara y unas gráficas estas imágenes son
     son gestionadas aquí asi como su comportamiento frente al cambio de tamaño de ventana y el tema.
 """
-from PyQt6.QtGui import QPixmap, QResizeEvent
+import numpy as np
+import cv2
+from PyQt6.QtGui import QPixmap, QResizeEvent, QImage
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget
 
@@ -68,3 +70,56 @@ class ImageUtilsMixin(QWidget):
         """Se ejecuta cuando el widget se vuelve visible"""
         super().showEvent(event)
         self.load_image()
+
+    @classmethod
+    def numpy_to_qpixmap(cls, frame: np.ndarray) -> QPixmap:
+        """ Convierte frame numpy BGR a QPixmap
+        """
+        try:
+            # Asegurarse de uint8 contiguous
+            frame = np.ascontiguousarray(frame, dtype=np.uint8)
+
+            height, width, channels = frame.shape
+            if channels == 3:
+                bytes_per_line = channels * width
+                q_image = QImage(frame.data, width, height,
+                                 bytes_per_line, QImage.Format.Format_BGR888)
+                return QPixmap.fromImage(q_image)
+            else:
+                # si no es 3 canales, intentar convertir a BGR
+                bgr = cv2.cvtColor(
+                    frame, cv2.COLOR_RGBA2BGR) if channels == 4 else frame
+                bgr = np.ascontiguousarray(bgr)
+                bytes_per_line = 3 * width
+                q_image = QImage(bgr.data, width, height,
+                                 bytes_per_line, QImage.Format.Format_BGR888)
+                return QPixmap.fromImage(q_image)
+
+        except (AttributeError, ValueError, TypeError) as e:
+            print(f"El frame no cuenta con el formato adecuado: {e}")
+            return QPixmap()
+
+        except cv2.error as e:
+            print(f"Error de OpenCV en conversión de frame: {e}")
+            return QPixmap()
+
+    @classmethod
+    def qpixmap_a_numpy(cls, pixmap):
+        """ Convierte un QPixmap de PyQt6 a un array de OpenCV (numpy BGR).
+        """
+        # 1. Convertir QPixmap a QImage
+        qimg = pixmap.toImage()
+
+        # 2. Convertir QImage a formato RGBA8888 para asegurar compatibilidad
+        qimg = qimg.convertToFormat(QImage.Format.Format_RGBA8888)
+
+        width = qimg.width()
+        height = qimg.height()
+
+        # 3. Obtener los bits de la imagen y convertirlos a un array de NumPy
+        ptr = qimg.bits()
+        ptr.setsize(height * width * 4)
+        arr = np.array(ptr).reshape(height, width, 4)  # RGBA
+
+        # 4. Convertir de RGBA a BGR (formato estándar de OpenCV)
+        return cv2.cvtColor(arr, cv2.COLOR_RGBA2BGR)

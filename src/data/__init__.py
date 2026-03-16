@@ -12,6 +12,7 @@ from .control_utils import (
     deg_to_rad,
     GlobalTimer)
 from .controller import DataFlow
+from .config_manager import *
 
 __all__ = [
     "SimulationSignalManager",

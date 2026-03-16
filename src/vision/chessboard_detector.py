@@ -1,8 +1,9 @@
 import cv2
 import numpy as np
+from PyQt6.QtCore import QThread
 
 
-class ChessboardDetector:
+class ChessboardDetector(QThread):
     """Clase separada para detección de tableros de ajedrez.
 
     El detector mantiene datos precomputados para el tamaño de tablero
@@ -16,6 +17,7 @@ class ChessboardDetector:
             board_size (Tuple[int, int], optional): Tamaño del tablero de ajedrez
                 (filas, columnas). Por defecto es ``(7, 7)``.
         """
+        super().__init__()
         self.board_size = board_size
         self.criteria = (cv2.TERM_CRITERIA_EPS +
                          cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)

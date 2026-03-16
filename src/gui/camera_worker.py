@@ -1,115 +1,117 @@
 """ Modulo donde se implementa el hilo de procesamiento para la captura y el procesamiento de las 
     imágenes provenientes de la cámara
 """
+import threading
 import numpy as np
 import cv2
-from PyQt6.QtCore import QThread, pyqtSignal
-from PyQt6.QtGui import QPixmap, QImage
+from PyQt6.QtCore import QThread, pyqtSignal, QRunnable, QThreadPool
 from vision.camera_chessboard import CameraChessBoard
 
 
-class VideoWorker(QThread):
-    """ Worker thread para manejar la captura y procesamiento de video
+class FrameProcessRunnable(QRunnable):
+    """Runnable para procesar un frame en un thread pool y devolver resultado vía callback."""
+
+    def __init__(self, frame: np.ndarray, camera_chess_board: CameraChessBoard, callback, error_callback):
+        super().__init__()
+        self.frame = frame
+        self.camera_chess_board = camera_chess_board
+        self.callback = callback
+        self.error_callback = error_callback
+
+    def run(self):
+        try:
+            processed = self.camera_chess_board.get_coordinates(self.frame)
+            self.callback(processed if processed is not None else self.frame)
+        except Exception as e:
+            self.error_callback(f"Error procesando frame: {e}")
+
+
+class CameraWorker(QThread):
+    """ Worker thread para manejar la captura y procesamiento de video.
+
+    Captura en un hilo dedicado y usa un QThreadPool para procesar cada frame sin bloquear
+    el bucle de captura.
     """
 
-    # Señales para comunicación con el hilo principal
-    frame_ready = pyqtSignal(QPixmap)
+    frame_ready = pyqtSignal(object)  # numpy BGR frame
     error_occurred = pyqtSignal(str)
 
     def __init__(self, camera_index: int = 0):
         super().__init__()
         self.camera_index = camera_index
-        self.camera_chess_board = None
+        self.camera_chess_board = CameraChessBoard()
+        self.camera_chess_board.start()
 
-        # Control de hilo
+        self.thread_pool = QThreadPool()
+        self.thread_pool.setMaxThreadCount(1)
+
         self._running = True
         self._paused = False
-        # Inicializar cámara en el hilo de trabajo
-        self.camera_chess_board = CameraChessBoard()
+        self._busy = False
+        self._lock = threading.Lock()
 
     def run(self):
-        """ Bucle principal del hilo de video
-        """
         try:
-
             if not self.camera_chess_board.camera_on():
                 self.error_occurred.emit("No se pudo inicializar la cámara")
                 return
 
             while self._running:
-                if not self._running:
-                    break
-                if not self._paused:
-                    try:
-                        # Capturar y procesar frame
-                        frame = self.camera_chess_board.get_video_frame()
-                        if frame is not None:
-                            # Convertir a QPixmap en el hilo de trabajo
-                            pixmap = self.__numpy_to_qpixmap(frame)
-                            if not pixmap.isNull():
-                                self.frame_ready.emit(pixmap)
+                if self._paused:
+                    self.msleep(10)
+                    continue
 
-                    except (AttributeError, ValueError, TypeError) as e:
-                        # Errores típicos de conversión/validación del frame
-                        self.error_occurred.emit(f"Frame inválido: {e}")
+                frame = self.camera_chess_board.camera.take_frame()
+                if frame is None:
+                    self.msleep(5)
+                    continue
 
-                    except cv2.error as e:
-                        # Errores propios de OpenCV
-                        self.error_occurred.emit(f"Error de OpenCV: {e}")
+                with self._lock:
+                    if self._busy:
+                        self.msleep(1)
+                        continue
+                    self._busy = True
+
+                runnable = FrameProcessRunnable(
+                    frame,
+                    self.camera_chess_board,
+                    self._emit_frame_ready,
+                    self._emit_error,
+                )
+                self.thread_pool.start(runnable)
+
+                self.msleep(1)
 
         except (OSError, RuntimeError) as e:
-            # Errores al inicializar la cámara u otros recursos
-            self.error_occurred.emit(f"Error en worker thread: {e}")
+            self._emit_error(f"Error en worker thread: {e}")
 
-    def __numpy_to_qpixmap(self, frame: np.ndarray) -> QPixmap:
-        """ Convierte frame numpy BGR a QPixmap
-        """
-        try:
-            # Asegurarse de uint8 contiguous
-            frame = np.ascontiguousarray(frame, dtype=np.uint8)
+        finally:
+            self.camera_chess_board.camera_off()
 
-            height, width, channels = frame.shape
-            if channels == 3:
-                bytes_per_line = channels * width
-                q_image = QImage(frame.data, width, height,
-                                 bytes_per_line, QImage.Format.Format_BGR888)
-                return QPixmap.fromImage(q_image)
-            else:
-                # si no es 3 canales, intentar convertir a BGR
-                bgr = cv2.cvtColor(
-                    frame, cv2.COLOR_RGBA2BGR) if channels == 4 else frame
-                bgr = np.ascontiguousarray(bgr)
-                bytes_per_line = 3 * width
-                q_image = QImage(bgr.data, width, height,
-                                 bytes_per_line, QImage.Format.Format_BGR888)
-                return QPixmap.fromImage(q_image)
+    def _emit_frame_ready(self, frame: np.ndarray):
+        with self._lock:
+            self._busy = False
+        if frame is not None:
+            self.frame_ready.emit(frame)
 
-        except (AttributeError, ValueError, TypeError) as e:
-            print(f"El frame no cuenta con el formato adecuado: {e}")
-            return QPixmap()
-
-        except cv2.error as e:
-            print(f"Error de OpenCV en conversión de frame: {e}")
-            return QPixmap()
+    def _emit_error(self, msg: str):
+        with self._lock:
+            self._busy = False
+        self.error_occurred.emit(msg)
 
     def stop(self):
-        """ Detiene el hilo de video
-        """
         self._running = False
         self._paused = False
 
-        # Esperar a que termine el hilo
+        self.thread_pool.waitForDone(1000)
+
         if not self.wait(2000):
             print("Warning: Video thread no terminó correctamente, forzando terminación")
             self.terminate()
             self.wait(1000)
 
     def pause(self):
-        """ Pausa el worker evitando la actualizacion de frames
-        """
         self._paused = True
 
     def resume(self):
-        """ Reanuda la ejecucion del worker permitiendo actualizar los frames
-        """
         self._paused = False

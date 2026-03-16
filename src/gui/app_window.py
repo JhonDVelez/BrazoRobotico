@@ -2,7 +2,7 @@ import os
 from ctypes import wintypes
 from qframelesswindow import FramelessMainWindow
 from PyQt6.QtWidgets import QMessageBox, QVBoxLayout, QWidget, QLabel, QApplication
-from PyQt6.QtCore import QAbstractNativeEventFilter, QCoreApplication, QTimer
+from PyQt6.QtCore import QAbstractNativeEventFilter, QCoreApplication, QTimer, Qt
 from .main_window import (MainInitMixin, MainActionsMixin, ThemeManager,
                           MainMenuMixin, MainThemeMixin, MainTitleBarMixin)
 
@@ -13,8 +13,8 @@ DBT_DEVICEREMOVECOMPLETE = 0x8004
 os.environ["QT_LOGGING_RULES"] = "qt.qpa.window=false"
 
 
-class MainInterface(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuMixin,
-                    MainThemeMixin):
+class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuMixin,
+                 MainThemeMixin):
     """ Ventana principal de la interfaz la cual hereda todos los mixin los cuales solo almacenan
         los métodos utilizados en la interfaz como estructura de las diferentes secciones, widgets
         y el comportamiento de estos.
@@ -110,18 +110,31 @@ class MainInterface(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMe
             self.connect_action.triggered.connect(self.connect_robot)
 
     def closeEvent(self, event):
-        """ Gestiona el evento de cerrado presentando una ventana para verificar la salida de
-            la aplicación
-        """
-        reply = QMessageBox.question(
-            self,
-            "Salir",
-            "¿Seguro que quieres cerrar la aplicación?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+        """ Gestiona el evento de cerrado presentando una ventana para verificar la salida """
+
+        super().showNormal()
+        super().raise_()
+        super().activateWindow()
+
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Salir")
+        msg.setText("¿Seguro que quieres cerrar la aplicación?")
+        msg.setIcon(QMessageBox.Icon.Question)
+
+        # 🔥 Hace que el mensaje quede por encima de todo
+        msg.setWindowFlags(
+            msg.windowFlags() | Qt.WindowType.WindowStaysOnTopHint
         )
 
-        if reply == QMessageBox.StandardButton.Yes:
+        si_btn = msg.addButton("Sí", QMessageBox.ButtonRole.YesRole)
+        no_btn = msg.addButton("No", QMessageBox.ButtonRole.NoRole)
+        msg.setDefaultButton(no_btn)
+
+        msg.exec()
+
+        if msg.clickedButton() == si_btn:
+            if hasattr(self, "calibration_window"):
+                self.calibration_window.close()
             event.accept()
         else:
             event.ignore()

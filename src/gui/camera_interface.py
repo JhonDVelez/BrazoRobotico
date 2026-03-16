@@ -1,11 +1,13 @@
 """ Modulo donde se gestiona la estructura y comportamiento de la cámara cuyas imágenes se muestran
     en la interfaz
 """
+import time
 import os
-from PyQt6.QtWidgets import QSizePolicy, QVBoxLayout, QLabel, QPushButton
+import numpy as np
+from PyQt6.QtWidgets import QSizePolicy, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QWidget
 from PyQt6.QtCore import Qt, QSize, QRect
 from PyQt6.QtGui import QPixmap, QIcon
-from gui.camera_worker import VideoWorker
+from gui.camera_worker import CameraWorker
 from gui.main_window.main_theme_mixin import ThemeManager
 from gui.main_window.image_utils_mixin import ImageUtilsMixin
 
@@ -15,11 +17,15 @@ class CameraInterface(ImageUtilsMixin):
     """
 
     def __init__(self, parent):
-        super().__init__(parent)
+        super().__init__(parent=None)
         self.parent = parent
         self.video_worker = None
         self.process_running = False
         self.app_running = None
+        self.grid_enabled = False
+        self.fps = 0
+        self._frame_count = 0
+        self._last_fps_update = 0
         self.theme_manager = ThemeManager.get_instance()
         self.__setup_ui()
         self.__setup_connections()
@@ -37,50 +43,63 @@ class CameraInterface(ImageUtilsMixin):
         size_policy.setVerticalStretch(0)
         self.setSizePolicy(size_policy)
 
-        # sizeIncrement
         self.setSizeIncrement(QSize(160, 120))
-
         self.setWindowTitle("Form")
 
-        # Main layout
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.setObjectName("mainLayout")
         self.main_layout.setContentsMargins(0, 0, 0, 0)
-        self.main_layout.setSpacing(0)
 
-        # QLabel (videoLabel)
-        self.image_label = QLabel(self)
-        self.image_label.setObjectName("videoLabel")
+        # Label de fondo
+        self.image_label = QLabel()
+        self.image_label.setScaledContents(False)
         self.image_label.setSizePolicy(size_policy)
         self.image_label.setMinimumSize(QSize(160, 120))
-        self.image_label.setText("")
-        self.image_label.setScaledContents(True)
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.main_layout.addWidget(self.image_label)
 
-        # QPushButton (videoButton) -> posición absoluta
-        self.video_button = QPushButton(self)
-        self.video_button.setObjectName("videoButton")
-        self.video_button.setGeometry(QRect(10, 10, 50, 30))
-        self.video_button.setToolTip("Toggle Camera")
-        self.video_button.setText("")
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Expanding)
-        self.setMinimumSize(160, 120)
+        # Widget overlay para botones
+        self.buttons_widget = QWidget(self)
+        self.buttons_widget.setAttribute(
+            Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.buttons_widget.setSizePolicy(size_policy)
 
-        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_label.setScaledContents(False)
-        self.image_label.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        buttons_layout = QHBoxLayout(self.buttons_widget)
+        buttons_layout.setContentsMargins(10, 10, 0, 0)
+        buttons_layout.setSpacing(5)
 
-        self.video_button.setIcon(QIcon(os.path.join(
-            os.path.dirname(__file__), 'icons', 'camera.png')))
+        # Botón cámara
+        self.video_button = QPushButton()
+
         self.video_button.setIconSize(QSize(25, 25))
-        self.video_button.setStyleSheet(
-            "background-color: white;")
         self.video_button.setFixedSize(30, 30)
-        self.video_button.raise_()
+        self.video_button.setStyleSheet("background-color: white;")
+
+        self.camera_on_icon = QIcon(os.path.join(
+            os.path.dirname(__file__), 'icons', 'cameraOn.png'))
+        self.camera_off_icon = QIcon(os.path.join(
+            os.path.dirname(__file__), 'icons', 'cameraOff.png'))
+        self.video_button.setIcon(self.camera_on_icon)
+
+        # Botón grid
+        self.grid_button = QPushButton()
+
+        self.grid_button.setIconSize(QSize(25, 25))
+        self.grid_button.setFixedSize(30, 30)
+        self.grid_button.setStyleSheet("background-color: white;")
+
+        self.show_grid_icon = QIcon(os.path.join(
+            os.path.dirname(__file__), 'icons', 'show.png'))
+        self.hide_grid_icon = QIcon(os.path.join(
+            os.path.dirname(__file__), 'icons', 'hide.png'))
+        self.grid_button.setIcon(self.show_grid_icon)
+
+        buttons_layout.addWidget(self.video_button)
+        buttons_layout.addWidget(self.grid_button)
+
+        # Posición del overlay
+        self.buttons_widget.move(0, 0)
+        self.buttons_widget.raise_()
 
         self.image_path_r = os.path.join(os.path.dirname(
             __file__), "img", 'camera_r.png')
@@ -92,16 +111,37 @@ class CameraInterface(ImageUtilsMixin):
         """Configura las conexiones de eventos
         """
         self.video_button.clicked.connect(self.toggle_video)
+        self.grid_button.clicked.connect(self.toggle_grid)
         self.theme_manager.theme_changed.connect(self.toggle_theme)
 
-    def on_frame_ready(self, pixmap: QPixmap):
+    def toggle_grid(self):
+        """Alterna el dibujo de rejilla en el procesamiento de frames"""
+        self.grid_enabled = not self.grid_enabled
+        if self.video_worker is not None and self.video_worker.camera_chess_board is not None:
+            self.video_worker.camera_chess_board.show_grid = self.grid_enabled
+
+        self.grid_button.setIcon(
+            self.hide_grid_icon if self.grid_enabled else self.show_grid_icon)
+
+    def on_frame_ready(self, frame: np.ndarray):
         """ Slot para manejar el frame listo del worker thread.
 
         Args:
-            pixmap (QPixmap): El pixmap del frame de video listo
+            frame (np.ndarray): Frame BGR listo para mostrar
         """
-        if self.process_running:
-            self.set_pixmap(pixmap)
+        if self.process_running and frame is not None:
+            self._frame_count += 1
+            now = time.time()
+            if now - self._last_fps_update >= 1.0:
+                self.fps = self._frame_count / \
+                    max(1.0, now - self._last_fps_update)
+                self._frame_count = 0
+                self._last_fps_update = now
+                print(f"Camera FPS: {self.fps:.1f}")
+
+            pixmap = self.numpy_to_qpixmap(frame)
+            if not pixmap.isNull():
+                self.set_pixmap(pixmap)
 
     def on_video_error(self, error_message):
         """ Maneja errores del worker thread de video.
@@ -120,7 +160,9 @@ class CameraInterface(ImageUtilsMixin):
             self.stop_video()
 
         try:
-            self.video_worker = VideoWorker()
+            self.video_worker = CameraWorker()
+            self.camera_chess_board = self.video_worker.camera_chess_board
+            self.camera_chess_board.show_grid = self.grid_enabled
 
             # Conectar señales
             self.video_worker.frame_ready.connect(self.on_frame_ready)
@@ -130,6 +172,7 @@ class CameraInterface(ImageUtilsMixin):
             self.video_worker.start()
             self.process_running = True
 
+            self.video_button.setIcon(self.camera_off_icon)
         except (RuntimeError, OSError) as e:
             print(f"Error al iniciar video: {e}")
             self.on_video_error(str(e))
@@ -149,6 +192,8 @@ class CameraInterface(ImageUtilsMixin):
                 self.video_worker.wait(3000)
                 self.video_worker.deleteLater()
                 self.video_worker = None
+
+                self.video_button.setIcon(self.camera_on_icon)
             except (RuntimeError, OSError) as e:
                 print(f"Error en la ejecucion al detener el video: {e}")
 

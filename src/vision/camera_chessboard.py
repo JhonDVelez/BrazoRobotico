@@ -1,20 +1,30 @@
 from typing import Optional, Tuple
+import cv2
 import numpy as np
-from vision.chessboard import ChessboardDetector
-from vision.camera import CameraControl
+from PyQt6.QtCore import QThread
+from vision.chessboard_detector import ChessboardDetector
+from vision.camera_control import CameraControl
+from vision import camera_utils
 
 
-class CameraChessBoard():
+class CameraChessBoard(QThread):
     """Cámara especializada para detección de tableros de ajedrez usando preprocesado con UMat"""
 
     def __init__(self, board_size: Tuple[int, int] = (7, 7)):
+        super().__init__()
         self.detector = ChessboardDetector(board_size)
         self.camera = CameraControl()
+        self.detector.start()
+        self.camera.start()
 
         # Cache para optimización
         self.corners = None
         self._detection_cache_frames = 0
-        self._detection_interval = 3  # Detectar tablero cada N frames para mejor performance
+        self._detection_interval = 4  # Detectar tablero cada N frames para mejor performance
+        self._use_clahe = True
+        self.process_enabled = True  # Controla si hace detección de esquinas
+        self.show_grid = False
+        self.show_phys = False
 
     def camera_on(self):
         """ Enciende la camara"""
@@ -25,33 +35,41 @@ class CameraChessBoard():
         self.camera.camera_off()
 
     def get_coordinates(self, frame: np.ndarray) -> Optional[np.ndarray]:
-        """ Obtiene coordenadas del tablero.
-            Aplica preprocesado acelerado (UMat) para la corrección gamma y luego realiza
-            la detección cada N frames. La detección de esquinas se hace en CPU.
-        """
+        """Actualiza esquinas y retorna frame con overlay si corresponde."""
         if frame is None:
             return None
-        try:
-            pre = self.camera.apply_histogram_equalization(frame)
-        except Exception:
-            pre = frame
 
-        # Detección cada N frames
+        # Si no hay procesamiento requerido, devolvemos el frame directo rápido
+        if not self.process_enabled and not self.show_grid and not self.show_phys:
+            return frame
+
         self._detection_cache_frames += 1
         if self._detection_cache_frames >= self._detection_interval:
             try:
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                if self._use_clahe:
+                    pre = camera_utils.apply_division_trick(gray)
+                else:
+                    pre = gray
                 self.corners = self.detector.detect_corners(pre)
             except Exception as e:
                 print(f"Error detectando esquinas: {e}")
                 self.corners = None
             self._detection_cache_frames = 0
 
-        # Dibujar grid si se detectó tablero
-        out_frame = frame.copy()
-        if self.corners is not None:
+        out_frame = frame
+        if self.corners is not None and self.show_grid:
+            out_frame = frame.copy()
             try:
                 self.detector.draw_grid(
-                    out_frame, self.corners, False, False, True, 'tl', (25.0, 25.0))
+                    out_frame,
+                    self.corners,
+                    show_labels=False,
+                    border_labels_only=True,
+                    show_phys=self.show_phys,
+                    origin='tl',
+                    cell_size_mm=(25.0, 25.0),
+                )
             except Exception as e:
                 print(f"Error dibujando grid: {e}")
 
@@ -64,9 +82,8 @@ class CameraChessBoard():
             raise IOError("No se pudo obtener frame de la cámara")
 
         try:
-            frame_processed = self.get_coordinates(frame)
-            return frame_processed if frame_processed is not None else frame
-        except RuntimeError as e:
+            return self.get_coordinates(frame)
+        except Exception as e:
             print(f"Error procesando frame: {e}")
             return frame
 

@@ -5,7 +5,7 @@ from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel, QVBoxLayout, QWidget
 from qframelesswindow import FramelessMainWindow
 from .main_window import MainTitleBarMixin, CalibrationMenuMixin
-from .camera_interface import CameraInterface
+from .calibration_interface import CalibrationInterface
 
 
 class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
@@ -64,15 +64,25 @@ class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
         # Añadir margen superior para evitar superposición con title bar
         self.gridLayout.setContentsMargins(5, 5, 5, 5)
 
-        self.camera_interface = CameraInterface(self)
-        self.gridLayout.addWidget(self.camera_interface, 0, 0)
+        self.calibration_interface = CalibrationInterface(self)
+        self.gridLayout.addWidget(self.calibration_interface, 0, 0)
 
+        self.buttons_widget = QWidget()
+        self.buttons_layout = QHBoxLayout(self.buttons_widget)
+        self.capture_button = QPushButton("Capturar Imagen")
+        self.buttons_layout.addWidget(self.capture_button)
         self.calibrate_button = QPushButton("Calibrar Cámara")
-        self.gridLayout.addWidget(self.calibrate_button, 1, 0)
+        self.buttons_layout.addWidget(self.calibrate_button)
+        self.gridLayout.addWidget(self.buttons_widget)
 
     def setup_connections(self):
+        if hasattr(self, 'capture_button'):
+            self.capture_button.clicked.connect(self.capture_pixmap)
         if hasattr(self, 'calibrate_button'):
             self.calibrate_button.clicked.connect(self.calibrate)
 
+    def capture_pixmap(self):
+        self.calibration_interface.save_pixmap = True
+
     def calibrate(self):
-        pass
+        self.calibration_interface.read_temporal_pixmap()

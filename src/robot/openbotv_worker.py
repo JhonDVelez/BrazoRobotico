@@ -41,6 +41,13 @@ class RobotWorker(QThread):
 
             self._send_and_receive(valorm)
 
+    def start(self):
+        self._running = True
+        self.run()
+
+    def pause(self):
+        self._running = False
+
     def _send_and_receive(self, valorm):
         if not all(0 <= x <= 300 for x in valorm):
             print("Error de envío de datos: Valores fuera de rango")

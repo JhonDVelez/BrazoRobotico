@@ -59,12 +59,6 @@ class PhysicsWorker(QThread):
         self._running = False
         self._paused = True
 
-    def stop(self):
-        """Detener la simulación"""
-        self.physic.reset_simulation()
-        self._running = False
-        self._paused = False
-
     @pyqtSlot()
     def update_simulation(self):
         """ Actualización de la posición de los motores del robot

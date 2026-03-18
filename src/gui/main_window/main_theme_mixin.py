@@ -61,10 +61,8 @@ class MainThemeMixin:
             """)
         self.logo_label.setPixmap(self.laser_w)
         self.theme_action.setIcon(self.sun_icon)
-        self.graph_interface.sim_graph_object.graph_widget.setBackground(
+        self.graph_interface.graph_object.graph_widget.setBackground(
             pg.mkColor((32, 33, 36)))
-        # self.graph_interface.phy_graph_object.graph_widget.setBackground(
-        #     pg.mkColor((32, 33, 36)))
 
     def load_light_theme(self):
         """ Modificaciones para el tema claro de qdarktheme.
@@ -92,10 +90,8 @@ class MainThemeMixin:
             """)
         self.logo_label.setPixmap(self.laser_b)
         self.theme_action.setIcon(self.moon_icon)
-        self.graph_interface.sim_graph_object.graph_widget.setBackground(
+        self.graph_interface.graph_object.graph_widget.setBackground(
             pg.mkColor((248, 249, 250)))
-        # self.graph_interface.phy_graph_object.graph_widget.setBackground(
-        #     pg.mkColor((248, 249, 250)))
 
 
 class ThemeManager(QObject):

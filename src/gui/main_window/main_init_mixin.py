@@ -164,7 +164,7 @@ class MainInitMixin:
 
         self.camera_interface = CameraInterface(self)
         self.cameraBox.layout().addWidget(self.camera_interface)
-        self.camera_interface.video_button.hide()
+        # self.camera_interface.buttons_widget.hide()
 
     def init_controls(self):
         """ Inicializa la interfaz de controladores con sliders que indica el

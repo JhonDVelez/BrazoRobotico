@@ -2,28 +2,40 @@
     imágenes provenientes de la cámara
 """
 import threading
+import traceback
 import numpy as np
-import cv2
 from PyQt6.QtCore import QThread, pyqtSignal, QRunnable, QThreadPool
 from vision.camera_chessboard import CameraChessBoard
+from vision.pose_estimation import PoseEstimation
 
 
 class FrameProcessRunnable(QRunnable):
     """Runnable para procesar un frame en un thread pool y devolver resultado vía callback."""
 
-    def __init__(self, frame: np.ndarray, camera_chess_board: CameraChessBoard, callback, error_callback):
+    def __init__(self, frame: np.ndarray, camera_chess_board: CameraChessBoard, pose_estimation: PoseEstimation, callback, error_callback):
         super().__init__()
         self.frame = frame
         self.camera_chess_board = camera_chess_board
+        self.pose_estimation = pose_estimation
         self.callback = callback
         self.error_callback = error_callback
 
     def run(self):
         try:
-            processed = self.camera_chess_board.get_coordinates(self.frame)
-            self.callback(processed if processed is not None else self.frame)
-        except Exception as e:
-            self.error_callback(f"Error procesando frame: {e}")
+            drawn_image, processed_image, corners_9x9, corners_11x11 = self.camera_chess_board.get_coordinates(
+                self.frame)
+            circles_find = self.pose_estimation.get_sphere_pose(
+                self.frame,
+                drawn_image,
+                processed_image,
+                corners_9x9,
+                corners_11x11,
+            )
+            self.callback(
+                circles_find if drawn_image is not None else self.frame)
+        except Exception:
+            self.error_callback(
+                f"Error procesando frame (FrameProcessRunnable): {traceback.print_exc()}")
 
 
 class CameraWorker(QThread):
@@ -40,7 +52,7 @@ class CameraWorker(QThread):
         super().__init__()
         self.camera_index = camera_index
         self.camera_chess_board = CameraChessBoard()
-        self.camera_chess_board.start()
+        self.pose_estimation = PoseEstimation()
 
         self.thread_pool = QThreadPool()
         self.thread_pool.setMaxThreadCount(1)
@@ -53,7 +65,8 @@ class CameraWorker(QThread):
     def run(self):
         try:
             if not self.camera_chess_board.camera_on():
-                self.error_occurred.emit("No se pudo inicializar la cámara")
+                self.error_occurred.emit(
+                    "No se pudo inicializar la cámara (CameraWorker)")
                 return
 
             while self._running:
@@ -75,6 +88,7 @@ class CameraWorker(QThread):
                 runnable = FrameProcessRunnable(
                     frame,
                     self.camera_chess_board,
+                    self.pose_estimation,
                     self._emit_frame_ready,
                     self._emit_error,
                 )
@@ -83,7 +97,7 @@ class CameraWorker(QThread):
                 self.msleep(1)
 
         except (OSError, RuntimeError) as e:
-            self._emit_error(f"Error en worker thread: {e}")
+            self._emit_error(f"Error en worker thread (CameraWorker): {e}")
 
         finally:
             self.camera_chess_board.camera_off()
@@ -103,12 +117,21 @@ class CameraWorker(QThread):
         self._running = False
         self._paused = False
 
-        self.thread_pool.waitForDone(1000)
+        # Esperar a que se procesen tareas pendientes en el pool
+        self.thread_pool.waitForDone(2000)
 
-        if not self.wait(2000):
-            print("Warning: Video thread no terminó correctamente, forzando terminación")
+        # Esperar que el hilo termine su ejecución
+        if not self.wait(3000):
+            print(
+                "Warning: Video thread no terminó correctamente, forzando terminación: CameraWorker")
             self.terminate()
             self.wait(1000)
+
+        # Asegurarse que la cámara se apague
+        try:
+            self.camera_chess_board.camera_off()
+        except Exception:
+            pass
 
     def pause(self):
         self._paused = True

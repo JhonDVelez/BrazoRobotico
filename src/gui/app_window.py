@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import QMessageBox, QVBoxLayout, QWidget, QLabel, QApplicat
 from PyQt6.QtCore import QAbstractNativeEventFilter, QCoreApplication, QTimer, Qt
 from .main_window import (MainInitMixin, MainActionsMixin, ThemeManager,
                           MainMenuMixin, MainThemeMixin, MainTitleBarMixin)
+from data import config_manager as cfg
 
 
 WM_DEVICECHANGE = 0x0219
@@ -58,11 +59,27 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         self.init_graphics()
         self.setup_connections()
 
-        self.cameraBox.hide()
+        content = cfg.get("settings.json", "content")
+        mapping = {
+            "camera": self.cameraBox,
+            "model": self.modelBox,
+            "graphs": self.graphsBox,
+            "controls": self.controlsBox
+        }
 
-        # Carga tema dependiendo de la configuracion de tema de windows
-        self.actual_theme = QApplication.instance().styleHints().colorScheme()
-        self.update_theme(self.actual_theme)
+        for key, widget in mapping.items():
+            if key in content:
+                # Usamos setVisible para evitar el if/else interno
+                widget.setVisible(bool(content[key]))
+
+        color_schemes = QApplication.instance().styleHints().colorScheme()
+        theme_map = {
+            "light": color_schemes.Light,
+            "dark": color_schemes.Dark
+        }
+        actual_theme = cfg.get("settings.json", "theme").lower()
+        scheme = theme_map.get(actual_theme, color_schemes.Dark)
+        self.update_theme(scheme)
 
         # Conectar señal al cambio de tema
         QApplication.instance().styleHints().colorSchemeChanged.connect(self.update_theme)
@@ -103,7 +120,13 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
 
         if hasattr(self, 'simulation_action'):
             self.simulation_action.triggered.connect(
-                self.toggle_activation_model_event)
+                self.toggle_activation_simulation_event)
+        if hasattr(self, 'graphs_action'):
+            self.graphs_action.triggered.connect(
+                self.toggle_visibility_graphs_event)
+        if hasattr(self, 'controls_action'):
+            self.controls_action.triggered.connect(
+                self.toggle_visibility_controls_event)
         if hasattr(self, 'theme_action'):
             self.theme_action.triggered.connect(self.toggle_theme_event)
         if hasattr(self, 'connect_action'):
@@ -111,10 +134,6 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
 
     def closeEvent(self, event):
         """ Gestiona el evento de cerrado presentando una ventana para verificar la salida """
-
-        super().showNormal()
-        super().raise_()
-        super().activateWindow()
 
         msg = QMessageBox(self)
         msg.setWindowTitle("Salir")

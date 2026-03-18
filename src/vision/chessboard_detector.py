@@ -1,9 +1,9 @@
 import cv2
 import numpy as np
-from PyQt6.QtCore import QThread
+from data import config_manager as cfg
 
 
-class ChessboardDetector(QThread):
+class ChessboardDetector:
     """Clase separada para detección de tableros de ajedrez.
 
     El detector mantiene datos precomputados para el tamaño de tablero
@@ -32,14 +32,30 @@ class ChessboardDetector(QThread):
             [[j, i] for i in range(-1, rows + 1) for j in range(-1, cols + 1)],
             dtype=np.float32,
         )
+        camera_width = cfg.load("camera.json").get("resolution")["width"]
+        font_scale_base = 0.3
+        thickness_base = 0.4
+        # escala base según resolución para tener un punto de partida
+        self._base_font_scale = (camera_width / 1280) * font_scale_base
+        self.font_scale = self._base_font_scale
+        self.font_scale_min = 0.25
+        self.font_scale_max = 0.6
+        self.font = cv2.FONT_HERSHEY_DUPLEX
+        # pos_offset = -
+        self.thickness = max(
+            0.6, int(self._base_font_scale * thickness_base / font_scale_base))
+        self.dot_size = int(self.font_scale * 4)
+        self.line_thickness = int(self.font_scale * 2)
 
-    def detect_corners(self, frame: np.ndarray) -> np.ndarray | None:
+    def detect_corners(self, frame: np.ndarray) -> tuple[np.ndarray, np.ndarray] | None:
         """Detecta las esquinas del tablero en un frame.
 
         La imagen se convierte a escala de grises solo si tiene tres canales. Se
         usa ``findChessboardCornersSB`` con comprobación rápida y umbral
         adaptativo; el refinado con ``cornerSubPix`` sólo se ejecuta si hubo
         éxito.
+
+        Retorna una tupla (grid_extrapolated_9x9, outer_corners_11x11).
         """
         if frame is None:
             return None
@@ -51,7 +67,7 @@ class ChessboardDetector(QThread):
         ret, corners = cv2.findChessboardCornersSB(
             gray,
             self.board_size,
-            cv2.CALIB_CB_ADAPTIVE_THRESH | cv2.CALIB_CB_FAST_CHECK,
+            cv2.CALIB_CB_ACCURACY,
         )
 
         if not ret:
@@ -60,23 +76,88 @@ class ChessboardDetector(QThread):
         corners_refined = cv2.cornerSubPix(
             gray, corners, self.board_size, (-1, -1), self.criteria
         )
-        return self.__extrapolate_corners(corners_refined)
 
-    def __extrapolate_corners(self, corners: np.ndarray) -> np.ndarray:
-        """Extrapola las esquinas externas usando homografía cached.
-
-        La homografía se calcula entre los puntos ideales ya guardados y los
-        vértices detectados; después se transforma la malla extendida precalculada.
-        """
-        corners_flat = corners.reshape(-1, 2).astype(np.float32)
+        corners_flat = corners_refined.reshape(-1, 2).astype(np.float32)
         homography, _ = cv2.findHomography(self._ideal_points, corners_flat)
 
+        extrapolated_corners = self.__extrapolate_corners(homography)
+        mask_corners = self.__extrapolate_corners_mask_corners(homography)
+        return extrapolated_corners, mask_corners
+
+    def __extrapolate_corners(self, homography: np.ndarray) -> np.ndarray:
+        """Extrapola las esquinas externas usando homografía proporcionada.
+
+        Args:
+            homography (np.ndarray): Matriz de homografía calculada.
+
+        Returns:
+            np.ndarray: Esquinas extendidas para abarcar los bordes del tablero que no son 
+                        detectados por opencv
+        """
         extended_corners = cv2.perspectiveTransform(
             self._extended_ideal.reshape((-1, 1, 2)), homography
         ).reshape(-1, 2)
 
         rows, cols = self.board_size
         return extended_corners.reshape(rows + 2, cols + 2, 2)
+
+    def __extrapolate_corners_mask_corners(self, homography: np.ndarray) -> np.ndarray:
+        """ Extrapola sólo las 4 esquinas del grid extendido para la mascara de búsqueda de objeto.
+
+        Args:
+            homography (np.ndarray): Matriz de homografía calculada.
+
+        Returns:
+            np.ndarray: Coordenadas de los 4 puntos para la mascara de búsqueda.
+        """
+        if homography is None:
+            return None
+
+        rows, cols = self.board_size
+        ideal_outer = np.array(
+            [[-2.0, -2.0],
+             [-2.0, rows + 1.0],
+             [cols + 1.0, rows + 1.0],
+             [cols + 1.0, -2.0]],
+            dtype=np.float32).reshape(-1, 1, 2)
+
+        mask_corners = cv2.perspectiveTransform(
+            ideal_outer, homography).reshape(-1, 2)
+        return mask_corners
+
+    def _get_dynamic_font_scale(self, corners: np.ndarray) -> float:
+        """Calcula la escala de fuente basada en ancho de celda medida en pixeles.
+
+        Se hacen dos mediciones en filas opuestas para estimar el ancho de celda y
+        se promedian. Se aplican límites mínimo y máximo preestablecidos.
+        """
+        if corners is None:
+            return self._base_font_scale
+
+        rows, cols = corners.shape[:2]
+        if rows < 2 or cols < 2:
+            return self._base_font_scale
+
+        # usar dos mediciones opuestas: borde superior e inferior
+        try:
+            top_left = corners[0, 0].astype(float)
+            top_right = corners[0, cols - 1].astype(float)
+            bottom_left = corners[rows - 1, 0].astype(float)
+            bottom_right = corners[rows - 1, cols - 1].astype(float)
+        except Exception:
+            return self._base_font_scale
+
+        width_top = np.linalg.norm(top_right - top_left) / max(1, cols - 1)
+        width_bottom = np.linalg.norm(
+            bottom_right - bottom_left) / max(1, cols - 1)
+        avg_cell_width = (width_top + width_bottom) / 2.0
+
+        if avg_cell_width <= 0:
+            return self._base_font_scale
+
+        # escala en base al ancho de celda, normalizada respecto a 30 pixeles
+        dynamic_scale = (avg_cell_width / 30.0) * self._base_font_scale
+        return float(np.clip(dynamic_scale, self.font_scale_min, self.font_scale_max))
 
     def draw_grid(
         self,
@@ -111,53 +192,63 @@ class ChessboardDetector(QThread):
 
         rows, cols = corners.shape[:2]
         pts = corners.astype(int)
+        font_scale = self._get_dynamic_font_scale(corners)
+        label_thickness = max(
+            0.6, int(round(self.thickness * font_scale / max(0.01, self._base_font_scale))))
+        dynamic_dot_size = int(self.font_scale * 16)
+        dynamic_line_thickness = int(self.font_scale * 8)
 
         # Si se pedirán coordenadas físicas, calcúlelas de una vez
         phys = None
         if show_phys:
             phys = self.to_physical_coordinates(corners, origin, cell_size_mm)
 
+        # Dibujar líneas usando polylines para mejorar rendimiento
+        horizontal_lines = [pts[i].reshape(-1, 1, 2) for i in range(rows)]
+        vertical_lines = [pts[:, j].reshape(-1, 1, 2) for j in range(cols)]
+        cv2.polylines(frame, horizontal_lines, False,
+                      (70, 70, 70), dynamic_line_thickness)
+        cv2.polylines(frame, vertical_lines, False,
+                      (70, 70, 70), dynamic_line_thickness)
+
         # Dibujar puntos y etiquetas
         for i in range(rows):
             for j in range(cols):
                 point = pts[i, j]
-                is_border = (i == 0 or i == rows -
-                             1 or j == 0 or j == cols - 1)
-                color = (0, 0, 255) if is_border else (0, 240, 255)
-                cv2.circle(frame, tuple(point), 5, color, -1)
-                if show_labels and (not border_labels_only or is_border):
+                color = (0, 240, 255)
+                point_x, point_y = point
+                cv2.circle(frame, tuple(point), dynamic_dot_size, color, -1)
+
+                if show_labels and not border_labels_only:
+                    txt = f"[{point[0]},{point[1]}]"
+                    (txt_w, txt_h), _ = cv2.getTextSize(
+                        txt, self.font, font_scale, label_thickness)
                     cv2.putText(
                         frame,
-                        f"[{point[0]},{point[1]}]",
-                        tuple(point + [-25, 15]),
-                        cv2.FONT_HERSHEY_COMPLEX_SMALL,
-                        0.4,
+                        txt,
+                        (int(point_x - (txt_w/2)), int(point_y + (txt_h*1.5))),
+                        self.font,
+                        font_scale,
                         (0, 0, 255),
-                        1,
+                        label_thickness,
                         cv2.LINE_AA,
                     )
                 if show_phys and phys is not None:
                     # obtiene coordenada correspondiente en mm
                     mmpt = phys[i, j]
                     txt = f"{mmpt[0]:.0f},{mmpt[1]:.0f}"
+                    (txt_w, txt_h), _ = cv2.getTextSize(
+                        txt, self.font, font_scale, label_thickness)
                     cv2.putText(
                         frame,
                         txt,
-                        tuple(point + [-25, 10]),
-                        cv2.FONT_HERSHEY_COMPLEX_SMALL,
-                        0.4,
+                        (int(point_x - (txt_w/2)), int(point_y + (txt_h*1.5))),
+                        self.font,
+                        font_scale,
                         (0, 255, 0),
-                        1,
+                        label_thickness,
                         cv2.LINE_AA,
                     )
-
-        # Dibujar líneas usando polylines para mejorar rendimiento
-        for i in range(rows):
-            row_pts = pts[i].reshape(-1, 1, 2)
-            cv2.polylines(frame, [row_pts], False, (255, 0, 0), 1)
-        for j in range(cols):
-            col_pts = pts[:, j].reshape(-1, 1, 2)
-            cv2.polylines(frame, [col_pts], False, (255, 0, 0), 1)
 
         return frame
 
@@ -174,6 +265,16 @@ class ChessboardDetector(QThread):
         rejilla regular de tamaño ``cell_size_mm``. El punto escogido como origen
         se transformará en (0,0). Para obtener resultados consistentes todos los
         valores devueltos son no negativos.
+
+        Args:
+            corners (np.ndarray): Esquinas obtenida y extrapoladas del tablero de ajedrez.
+            origin (str | tuple[int, int], optional): Posicion deseada del punto de origen de las
+                coordenadas. Defaults to "tl".
+            cell_size_mm (tuple[float, float], optional): Tamaño en milímetros de cada cuadro del
+                tablero de ajedrez. Defaults to (25.0, 25.0).
+
+        Returns:
+            np.ndarray | None: Coordenadas en mm de cada esquina respecto al punto de origen.
         """
         if corners is None:
             return None

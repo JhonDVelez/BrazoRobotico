@@ -26,7 +26,15 @@ GRAPH_DIR = APP_DIR / "graphs"
 DEFAULTS: dict[str, dict] = {
     "settings.json": {
         "window": {"width": 1280, "height": 720, "maximized": False},
-        "theme.json": {"name": "dark"},
+        "theme": "dark",
+        "content": {
+            "model": True,
+            "camera": True,
+            "graphs": True,
+            "controls": True
+        },
+        "simulation": True,
+        "mode": "sliders",
     },
     "camera.json": {
         "resolution": {"width": 1280, "height": 720, "fps": 30},
@@ -37,7 +45,6 @@ DEFAULTS: dict[str, dict] = {
                                      0.30719832291783716, -0.076422775409491,
                                      -432.1376103325584]],
     },
-
 }
 
 
@@ -73,15 +80,39 @@ def save(filename: str, data: dict) -> None:
     )
 
 
-def get(filename: str, key: str, default=None):
-    """Acceso rápido a una sola clave."""
-    return load(filename).get(key, default)
+def get(filename: str, *keys, default=None):
+    """ Acceso rápido a valores en cualquier nivel de profundidad.
+    """
+    try:
+        data = load(filename)
+        # Navegamos por cada clave en la tupla keys
+        for key in keys:
+            # Si el nivel actual no es un diccionario o no tiene la clave,
+            # devolvemos el valor por defecto.
+            if isinstance(data, dict):
+                data = data.get(key, default)
+            else:
+                return default
+        return data
+    except Exception:
+        # Por si el archivo no existe o está corrupto
+        return default
 
 
-def set_value(filename: str, key: str, value) -> None:
-    """Modifica una sola clave y guarda."""
+def set_value(filename: str, *keys: str, value) -> None:
+    """ Modifica valores en cualquier nivel de profundidad.
+    """
     data = load(filename)
-    data[key] = value
+
+    # Navegamos hasta el penúltimo nivel
+    target = data
+    for key in keys[:-1]:
+        # Si la clave no existe, podrías crear un dict vacío o lanzar error
+        target = target.setdefault(key, {})
+
+    # Asignamos el valor en la última clave
+    target[keys[-1]] = value
+
     save(filename, data)
 
 

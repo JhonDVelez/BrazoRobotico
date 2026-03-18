@@ -1,7 +1,7 @@
 import sys
+import numpy as np
 from typing import Optional
 import cv2
-from PyQt6.QtCore import QThread
 from cv2_enumerate_cameras import enumerate_cameras
 from data import config_manager as cfg
 
@@ -12,7 +12,7 @@ except Exception:
     pass
 
 
-class CameraControl(QThread):
+class CameraControl:
     """Clase que gestiona una cámara y sus operaciones básicas
        Optimizada para usar UMat (OpenCL) en preprocesado.
     """
@@ -23,11 +23,15 @@ class CameraControl(QThread):
         self.camera_ready = False
 
         # Configuraciones por defecto
-        camera_config = cfg.load("camera.json").get("resolution")
-        self.default_width = camera_config["width"]
-        self.default_height = camera_config["height"]
-        self.default_fps = camera_config["fps"]
-        self.clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        camera_config = cfg.load("camera.json")
+        # Configuraciones básicas de la cámara
+        self.default_width = camera_config.get("resolution")["width"]
+        self.default_height = camera_config.get("resolution")["height"]
+        self.default_fps = camera_config.get("resolution")["fps"]
+        # Datos de calibración de la cámara
+        self.camera_matrix = np.array(camera_config.get("matrix"))
+        self.dist_coeff = np.array(
+            camera_config.get("distortion coefficients"))
 
     def camera_on(self) -> bool:
         """Enciende la cámara con configuración optimizada"""
@@ -55,11 +59,9 @@ class CameraControl(QThread):
 
             # Ajustamos resolución y FPS preferidos.
             # La cámara puede no respetar valores exactos, pero con MJPG mejora throughput.
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH,
-                         min(self.default_width, 640))
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT,
-                         min(self.default_height, 360))
-            self.cap.set(cv2.CAP_PROP_FPS, max(self.default_fps, 30))
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.default_width)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.default_height)
+            self.cap.set(cv2.CAP_PROP_FPS, self.default_fps)
 
             self.camera_ready = True
             return True
@@ -87,10 +89,19 @@ class CameraControl(QThread):
         """Captura un frame de la cámara (BGR). Devuelve None si no hay frame."""
         if not self.camera_ready or not self.cap:
             return None
-
+        # Captura frame de la cámara
         ret, frame = self.cap.read()
         if ret:
-            return frame
+            # Obtiene la nueva matriz de calibración
+            h,  w = frame.shape[:2]
+            new_cam_matrix, roi = cv2.getOptimalNewCameraMatrix(
+                self.camera_matrix, self.dist_coeff, (w, h), 1, (w, h))
+            dst = cv2.undistort(frame, self.camera_matrix,
+                                self.dist_coeff, None, new_cam_matrix)
+
+            x, y, w, h = roi
+            dst = dst[y:y+h, x:x+w]
+            return dst
         return None
 
     def __release_camera(self):
@@ -108,3 +119,12 @@ class CameraControl(QThread):
             self.camera_off()
         else:
             self.camera_on()
+
+    def apply_division_trick(self, img):
+        """ El truco de la división: Esta es la forma más agresiva de "ignorar" una sombra.
+            Al dividir la imagen por una versión muy borrosa de sí misma, se elimina la zona
+            oscura de la sombra y solo quedan los bordes de alto contraste de las casillas
+            del tablero de ajedrez.
+        """
+        smooth = cv2.GaussianBlur(img, (95, 95), 0)
+        return cv2.divide(img, smooth, scale=255)

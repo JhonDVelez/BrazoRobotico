@@ -1,11 +1,10 @@
 """ Modulo donde se gestiona la estructura y comportamiento de la cámara cuyas imágenes se muestran
     en la interfaz
 """
-import time
 import os
 import numpy as np
 from PyQt6.QtWidgets import QSizePolicy, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QWidget
-from PyQt6.QtCore import Qt, QSize, QRect
+from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QPixmap, QIcon
 from gui.camera_worker import CameraWorker
 from gui.main_window.main_theme_mixin import ThemeManager
@@ -20,6 +19,7 @@ class CameraInterface(ImageUtilsMixin):
         super().__init__(parent=None)
         self.parent = parent
         self.video_worker = None
+        self.camera_chess_board = None
         self.process_running = False
         self.app_running = None
         self.grid_enabled = False
@@ -63,10 +63,11 @@ class CameraInterface(ImageUtilsMixin):
         self.buttons_widget.setAttribute(
             Qt.WidgetAttribute.WA_TranslucentBackground)
         self.buttons_widget.setSizePolicy(size_policy)
+        self.buttons_widget.setMinimumSize(QSize(30, 65))
 
         buttons_layout = QHBoxLayout(self.buttons_widget)
-        buttons_layout.setContentsMargins(10, 10, 0, 0)
-        buttons_layout.setSpacing(5)
+        buttons_layout.setContentsMargins(0, 0, 0, 0)
+        buttons_layout.setSpacing(0)
 
         # Botón cámara
         self.video_button = QPushButton()
@@ -130,15 +131,6 @@ class CameraInterface(ImageUtilsMixin):
             frame (np.ndarray): Frame BGR listo para mostrar
         """
         if self.process_running and frame is not None:
-            self._frame_count += 1
-            now = time.time()
-            if now - self._last_fps_update >= 1.0:
-                self.fps = self._frame_count / \
-                    max(1.0, now - self._last_fps_update)
-                self._frame_count = 0
-                self._last_fps_update = now
-                print(f"Camera FPS: {self.fps:.1f}")
-
             pixmap = self.numpy_to_qpixmap(frame)
             if not pixmap.isNull():
                 self.set_pixmap(pixmap)
@@ -185,16 +177,25 @@ class CameraInterface(ImageUtilsMixin):
         if self.video_worker is not None:
             try:
                 # Desconectar señales ANTES de detener el worker
-                self.video_worker.frame_ready.disconnect()
-                self.video_worker.error_occurred.disconnect()
+                try:
+                    self.video_worker.frame_ready.disconnect(
+                        self.on_frame_ready)
+                except Exception:
+                    pass
+                try:
+                    self.video_worker.error_occurred.disconnect(
+                        self.on_video_error)
+                except Exception:
+                    pass
 
                 self.video_worker.stop()
-                self.video_worker.wait(3000)
-                self.video_worker.deleteLater()
-                self.video_worker = None
+                if self.video_worker.isRunning():
+                    self.video_worker.wait(3000)
 
                 self.video_button.setIcon(self.camera_on_icon)
-            except (RuntimeError, OSError) as e:
+                self.video_worker.deleteLater()
+                self.video_worker = None
+            except Exception as e:
                 print(f"Error en la ejecucion al detener el video: {e}")
 
         self.load_image()

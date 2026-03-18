@@ -123,7 +123,7 @@ class CalibrationInterface(CameraInterface):
                     gris, dimensiones_tablero, None)
 
                 if ret == True:
-                    puntos_objeto.append(puntos_obj_base)
+                    puntos_objeto.append(puntos_obj_base.copy())
 
                     # Refinar las coordenadas para precisión sub-píxel
                     esquinas_refinadas = cv2.cornerSubPix(
@@ -140,10 +140,12 @@ class CalibrationInterface(CameraInterface):
             ret, camera_matrix, dist_coeffs, _, _ = cv2.calibrateCamera(
                 puntos_objeto, puntos_imagen, gris.shape[::-1], None, None
             )
+            print(f"matrix: {camera_matrix}")
+            print(f"distortion: {dist_coeffs}")
             cfg.set_value("camera.json", "matrix",
-                          np.array(camera_matrix).tolist())
+                          value=np.array(camera_matrix).tolist())
             cfg.set_value("camera.json", "distortion coefficients",
-                          np.array(dist_coeffs).tolist())
+                          value=np.array(dist_coeffs).tolist())
             # cfg.set_value("camera.json", "rvecs", np.array(rvecs).tolist())
             # cfg.set_value("camera.json", "tvecs", np.array(tvecs).tolist())
         except Exception as e:

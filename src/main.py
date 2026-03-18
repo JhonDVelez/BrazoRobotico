@@ -3,6 +3,7 @@
 """
 import os
 import sys
+import ctypes
 import time
 import pybullet as p
 import pybullet_data
@@ -230,11 +231,16 @@ class CompletePreloader:
 
 if __name__ == '__main__':
     cfg.init_config()
+    if sys.platform == "win32":
+        myappid = 'laser.openbotv.control.lab'  # string único
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
     app = QApplication(sys.argv)
     app.setStyle('fusion')
     app.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__),
                                          "gui", "img", 'laser_w.png')))
+    app.setApplicationName("OpenBotv Control Lab")
+    app.setDesktopFileName("OpenBotv Control Lab")
 
     # Splash screen
     img_path = os.path.join(os.path.dirname(__file__),
@@ -269,7 +275,7 @@ if __name__ == '__main__':
             Qt.GlobalColor.white
         )
         window = MainWindow(preloaded_container, pybullet_robot)
-        window.setWindowTitle("OpenBotv-v1")
+        window.setWindowTitle("OpenBotv Control Lab")
         preloader.cleanup_preload_resources()
 
         window.showMaximized()

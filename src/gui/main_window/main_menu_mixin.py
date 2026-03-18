@@ -7,6 +7,7 @@ from PyQt6.QtCore import Qt
 from serial.tools import list_ports
 from robot.openbotv_worker import RobotWorker
 from data import DataFlow
+from data import config_manager as cfg
 
 
 class MainMenuMixin:
@@ -21,17 +22,29 @@ class MainMenuMixin:
         """ Define las acciones que tendrá el menu asi como sus atajos, texto de la barra de estado
             e iconos utilizados como botones.
         """
-        self.camera_action = QAction("Mostrar Cámara", self)
-        self.camera_action.setShortcut(QKeySequence("Ctrl+j"))
-        self.camera_action.setStatusTip("Mostrar/Ocultar la cámara")
+        content = cfg.get("settings.json", "content")
+
+        # Mapeamos la clave del JSON -> (Nombre del atributo en self, Texto de la acción)
+        mapping = {
+            "camera": ("camera_action", "Mostrar Cámara", "Ocultar Cámara", "Ctrl+h", "Mostrar/Ocultar la cámara"),
+            "model": ("model_action", "Mostrar Simulación", "Ocultar Simulación", "Ctrl+j", "Mostrar/Ocultar el modelo 3D de la simulación"),
+            "graphs": ("graphs_action", "Mostrar Gráficas", "Ocultar Gráficas", "Ctrl+k", "Mostrar/Ocultar las gráficas"),
+            "controls": ("controls_action", "Mostrar Controles", "Ocultar Controles", "Ctrl+l", "Mostrar/Ocultar los controles")
+        }
+
+        for key, (attr_name, label_show, label_hide, shortcut, status) in mapping.items():
+            if key in content:
+                if content[key]:
+                    action = QAction(label_hide, self)
+                else:
+                    action = QAction(label_show, self)
+                action.setShortcut(QKeySequence(shortcut))
+                action.setStatusTip(status)
+                setattr(self, attr_name, action)
 
         self.camera_calibration_action = QAction("Calibrar Cámara", self)
         self.camera_calibration_action.setStatusTip(
             "Abrir ventana de calibracion de cámara")
-
-        self.model_action = QAction("Ocultar Modelo 3D", self)
-        self.model_action.setShortcut(QKeySequence("Ctrl+k"))
-        self.model_action.setStatusTip("Mostrar/Ocultar el modelo 3D")
 
         self.sliders_action = QAction("Sliders", self)
         self.sliders_action.setShortcut(QKeySequence("Ctrl+t"))
@@ -46,9 +59,12 @@ class MainMenuMixin:
         self.moon_icon = QIcon(os.path.join(
             os.path.dirname(__file__), "..", "icons", "moon.png"))
 
-        self.theme_action = QAction(
-            self.sun_icon, "Cambiar tema", self)
-        self.theme_action.setShortcut(QKeySequence("Ctrl+l"))
+        theme = cfg.get("settings.json", "theme")
+        if theme.lower() == "dark":
+            self.theme_action = QAction(self.sun_icon, "", self)
+        elif theme.lower() == "light":
+            self.theme_action = QAction(self.moon_icon, "", self)
+        self.theme_action.setShortcut(QKeySequence("Ctrl+t"))
         self.theme_action.setStatusTip("Cambiar tema")
 
         self.connect_action = QAction("Conectar", self)
@@ -80,8 +96,14 @@ class MainMenuMixin:
 
         # Menús normales
         self.vista_menu = self.menu_bar.addMenu("&Vista")
-        self.vista_menu.addAction(self.model_action)
-        self.vista_menu.addAction(self.camera_action)
+        if self.camera_action:
+            self.vista_menu.addAction(self.camera_action)
+        if self.model_action:
+            self.vista_menu.addAction(self.model_action)
+        if self.graphs_action:
+            self.vista_menu.addAction(self.graphs_action)
+        if self.controls_action:
+            self.vista_menu.addAction(self.controls_action)
         self.vista_menu.addAction(self.camera_calibration_action)
 
         self.mode_menu = self.menu_bar.addMenu("&Modo")

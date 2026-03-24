@@ -77,8 +77,8 @@ class ImageUtilsMixin(QWidget):
         """
         try:
             # Asegurarse de uint8 contiguous
-            frame = np.ascontiguousarray(frame, dtype=np.uint8)
 
+            frame = np.ascontiguousarray(frame, dtype=np.uint8)
             height, width, channels = frame.shape
             if channels == 3:
                 bytes_per_line = channels * width
@@ -102,6 +102,32 @@ class ImageUtilsMixin(QWidget):
         except cv2.error as e:
             print(f"Error de OpenCV en conversión de frame: {e}")
             return QPixmap()
+
+    @classmethod
+    def umat_to_pixmap(cls, u_mat: cv2.UMat) -> QPixmap:
+        """ Convierte frame UMat a QPixmap
+        """
+        # 1. Convertir UMat a numpy array (CPU)
+        frame = u_mat.get()
+
+        # 2. Convertir de BGR a RGB
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # 3. Obtener dimensiones
+        height, width, channels = frame_rgb.shape
+        bytes_per_line = channels * width
+
+        # 4. Crear QImage
+        q_img = QImage(
+            frame_rgb.data,
+            width,
+            height,
+            bytes_per_line,
+            QImage.Format.Format_RGB888
+        )
+
+        # 5. Convertir a QPixmap
+        return QPixmap.fromImage(q_img)
 
     @classmethod
     def qpixmap_a_numpy(cls, pixmap):

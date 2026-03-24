@@ -15,9 +15,17 @@ class CalibrationInterface(CameraInterface):
     _temporal_files = set()
 
     def __init__(self, parent):
-        super().__init__(parent)
+        super().__init__(parent, is_calibration=True)
+        self.aruco_dict = cv2.aruco.getPredefinedDictionary(
+            cv2.aruco.DICT_6X6_250)
+        self.board = cv2.aruco.CharucoBoard(
+            size=(12, 5),        # Número de cuadros (ancho, alto)
+            squareLength=0.03,  # Tamaño del lado del cuadrado (metros)
+            markerLength=0.022,  # Tamaño del lado del marcador ArUco (metros)
+            dictionary=self.aruco_dict
+        )
 
-    def on_frame_ready(self, frame: np.ndarray):
+    def on_frame_ready(self, frame: np.ndarray | cv2.UMat):
         """Sobrescritura del método on_frame_ready para calibración (recibe numpy BGR)."""
         if frame is None:
             return
@@ -29,9 +37,13 @@ class CalibrationInterface(CameraInterface):
 
         if not self.process_running:
             return
-
+        pixmap = None
         # Convertir el frame numpy a pixmap solo para dibujar overlays
-        pixmap = self.numpy_to_qpixmap(frame)
+        if isinstance(frame, np.ndarray):
+            pixmap = self.numpy_to_qpixmap(frame)
+        elif isinstance(frame, cv2.UMat):
+            pixmap = self.umat_to_pixmap(frame)
+
         if pixmap.isNull():
             return
 
@@ -79,25 +91,8 @@ class CalibrationInterface(CameraInterface):
         Retorna la imagen en formato OpenCV (BGR) o None si hay error.
         """
         try:
-            columnas = 7
-            filas = 7
-            dimensiones_tablero = (columnas, filas)
-
-            # Tamaño real de un cuadrado del tablero en tu unidad de medida (ej. 25.0 milímetros)
-            tamano_cuadrado = 25.0
-
-            # --- 2. PREPARACIÓN DE PUNTOS ---
-            criterios = (cv2.TERM_CRITERIA_EPS +
-                         cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-
-            # Preparar la cuadrícula 3D teórica: (0,0,0), (25,0,0), (50,0,0)...
-            puntos_obj_base = np.zeros((filas * columnas, 3), np.float32)
-            puntos_obj_base[:, :2] = np.mgrid[0:columnas,
-                                              0:filas].T.reshape(-1, 2)
-            puntos_obj_base = puntos_obj_base * tamano_cuadrado
-
-            puntos_objeto = []  # Puntos 3D reales en el espacio
-            puntos_imagen = []  # Puntos 2D detectados en las imágenes
+            all_corners, all_ids = [], []
+            image_size = None
 
             # Convertimos a string por si se pasa un objeto Path,
             # ya que cv2.imread prefiere strings.
@@ -117,18 +112,16 @@ class CalibrationInterface(CameraInterface):
                         f"Error: No se pudo decodificar la imagen en {ruta_str}")
                     return None
 
-                gris = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+                if image_size is None:
+                    image_size = gray.shape[::-1]
                 # Buscar las esquinas internas
-                ret, esquinas = cv2.findChessboardCorners(
-                    gris, dimensiones_tablero, None)
-
-                if ret == True:
-                    puntos_objeto.append(puntos_obj_base.copy())
-
-                    # Refinar las coordenadas para precisión sub-píxel
-                    esquinas_refinadas = cv2.cornerSubPix(
-                        gris, esquinas, (11, 11), (-1, -1), criterios)
-                    puntos_imagen.append(esquinas_refinadas)
+                charuco_corners, charuco_ids, n = self.detect_corners(
+                    gray, self.board, self.aruco_dict)
+                if charuco_corners is not None and n >= 6:
+                    all_corners.append(charuco_corners)
+                    all_ids.append(charuco_ids)
 
                     # Feedback visual (presiona cualquier tecla para saltar a la siguiente foto más rápido)
                     # cv2.drawChessboardCorners(
@@ -136,10 +129,10 @@ class CalibrationInterface(CameraInterface):
                     # cv2.imshow('Detectando...', img)
                     # cv2.waitKey(500)
 
-            # cv2.destroyAllWindows()
-            ret, camera_matrix, dist_coeffs, _, _ = cv2.calibrateCamera(
-                puntos_objeto, puntos_imagen, gris.shape[::-1], None, None
-            )
+            if len(all_corners) >= 10:
+                rms, camera_matrix, dist_coeffs, _, _ = self.calibrate(
+                    all_corners, all_ids, image_size, self.board)
+
             print(f"matrix: {camera_matrix}")
             print(f"distortion: {dist_coeffs}")
             cfg.set_value("camera.json", "matrix",
@@ -151,3 +144,36 @@ class CalibrationInterface(CameraInterface):
         except Exception as e:
             print(f"Error inesperado al leer el temporal: {e}")
             return None
+
+    def detect_corners(self, gray, board, aruco_dict):
+        """Detecta corners ChArUco en una imagen en escala de grises."""
+        params = cv2.aruco.DetectorParameters()
+        detector = cv2.aruco.ArucoDetector(aruco_dict, params)
+        marker_corners, marker_ids, _ = detector.detectMarkers(gray)
+
+        if marker_ids is None or len(marker_ids) < 4:
+            return None, None, 0
+
+        charuco_detector = cv2.aruco.CharucoDetector(board)
+        charuco_corners, charuco_ids, _, _ = charuco_detector.detectBoard(
+            image=gray, markerCorners=marker_corners, markerIds=marker_ids
+        )
+
+        n = len(charuco_corners) if charuco_corners is not None else 0
+        return charuco_corners, charuco_ids, n
+
+    def calibrate(self, all_corners, all_ids, image_size, board):
+        """Ejecuta la calibración y retorna los parámetros."""
+        flags = (
+            cv2.CALIB_RATIONAL_MODEL       # Modelo de distorsión de 8 coeficientes
+        )
+        ret, camera_matrix, dist_coeffs, rvecs, tvecs = cv2.aruco.calibrateCameraCharuco(
+            charucoCorners=all_corners,
+            charucoIds=all_ids,
+            board=board,
+            imageSize=image_size,
+            cameraMatrix=None,
+            distCoeffs=None,
+            flags=flags
+        )
+        return ret, camera_matrix, dist_coeffs, rvecs, tvecs

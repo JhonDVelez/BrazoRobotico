@@ -7,6 +7,7 @@ import numpy as np
 from PyQt6.QtCore import QThread, pyqtSignal, QRunnable, QThreadPool
 from vision.camera_chessboard import CameraChessBoard
 from vision.pose_estimation import PoseEstimation
+from data import config_manager as cfg
 
 
 class FrameProcessRunnable(QRunnable):
@@ -22,17 +23,17 @@ class FrameProcessRunnable(QRunnable):
 
     def run(self):
         try:
-            drawn_image, processed_image, corners_9x9, corners_11x11 = self.camera_chess_board.get_coordinates(
+            drawn_image, processed_image, chessboard_corners, mask_corners = self.camera_chess_board.get_coordinates(
                 self.frame)
             circles_find = self.pose_estimation.get_sphere_pose(
                 self.frame,
                 drawn_image,
                 processed_image,
-                corners_9x9,
-                corners_11x11,
+                chessboard_corners,
+                mask_corners,
             )
             self.callback(
-                circles_find if drawn_image is not None else self.frame)
+                drawn_image if drawn_image is not None else self.frame)
         except Exception:
             self.error_callback(
                 f"Error procesando frame (FrameProcessRunnable): {traceback.print_exc()}")
@@ -48,10 +49,13 @@ class CameraWorker(QThread):
     frame_ready = pyqtSignal(object)  # numpy BGR frame
     error_occurred = pyqtSignal(str)
 
-    def __init__(self, camera_index: int = 0):
+    def __init__(self, camera_index: int = 0, is_calibration: bool = False):
         super().__init__()
+        data = cfg.get("camera.json", "chessboard")
+        x = data["x"]
+        y = data["y"]
         self.camera_index = camera_index
-        self.camera_chess_board = CameraChessBoard()
+        self.camera_chess_board = CameraChessBoard((y, x))
         self.pose_estimation = PoseEstimation()
 
         self.thread_pool = QThreadPool()
@@ -61,6 +65,8 @@ class CameraWorker(QThread):
         self._paused = False
         self._busy = False
         self._lock = threading.Lock()
+
+        self.is_calibration = is_calibration
 
     def run(self):
         try:
@@ -85,14 +91,17 @@ class CameraWorker(QThread):
                         continue
                     self._busy = True
 
-                runnable = FrameProcessRunnable(
-                    frame,
-                    self.camera_chess_board,
-                    self.pose_estimation,
-                    self._emit_frame_ready,
-                    self._emit_error,
-                )
-                self.thread_pool.start(runnable)
+                if self.is_calibration:
+                    self._emit_frame_ready(frame)
+                else:
+                    runnable = FrameProcessRunnable(
+                        frame,
+                        self.camera_chess_board,
+                        self.pose_estimation,
+                        self._emit_frame_ready,
+                        self._emit_error,
+                    )
+                    self.thread_pool.start(runnable)
 
                 self.msleep(1)
 

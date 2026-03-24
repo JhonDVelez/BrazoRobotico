@@ -3,6 +3,7 @@
 """
 import os
 import numpy as np
+import cv2
 from PyQt6.QtWidgets import QSizePolicy, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QWidget
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QPixmap, QIcon
@@ -15,7 +16,7 @@ class CameraInterface(ImageUtilsMixin):
     """ Manejo del widget de video que muestra las imágenes de la cámara en un label de la interfaz
     """
 
-    def __init__(self, parent):
+    def __init__(self, parent, is_calibration: bool = False):
         super().__init__(parent=None)
         self.parent = parent
         self.video_worker = None
@@ -23,10 +24,12 @@ class CameraInterface(ImageUtilsMixin):
         self.process_running = False
         self.app_running = None
         self.grid_enabled = False
+        self.geometry_enabled = False
         self.fps = 0
         self._frame_count = 0
         self._last_fps_update = 0
         self.theme_manager = ThemeManager.get_instance()
+        self.is_calibration = is_calibration
         self.__setup_ui()
         self.__setup_connections()
 
@@ -63,11 +66,11 @@ class CameraInterface(ImageUtilsMixin):
         self.buttons_widget.setAttribute(
             Qt.WidgetAttribute.WA_TranslucentBackground)
         self.buttons_widget.setSizePolicy(size_policy)
-        self.buttons_widget.setMinimumSize(QSize(30, 65))
+        self.buttons_widget.setMinimumSize(QSize(110, 40))
 
         buttons_layout = QHBoxLayout(self.buttons_widget)
-        buttons_layout.setContentsMargins(0, 0, 0, 0)
-        buttons_layout.setSpacing(0)
+        buttons_layout.setContentsMargins(10, 10, 0, 0)
+        buttons_layout.setSpacing(5)
 
         # Botón cámara
         self.video_button = QPushButton()
@@ -84,19 +87,32 @@ class CameraInterface(ImageUtilsMixin):
 
         # Botón grid
         self.grid_button = QPushButton()
-
         self.grid_button.setIconSize(QSize(25, 25))
         self.grid_button.setFixedSize(30, 30)
         self.grid_button.setStyleSheet("background-color: white;")
-
+        # Iconos para el botón de encendido o apagado de la referencia visual de la malla
         self.show_grid_icon = QIcon(os.path.join(
-            os.path.dirname(__file__), 'icons', 'show.png'))
+            os.path.dirname(__file__), 'icons', 'gridOn.png'))
         self.hide_grid_icon = QIcon(os.path.join(
-            os.path.dirname(__file__), 'icons', 'hide.png'))
+            os.path.dirname(__file__), 'icons', 'gridOff.png'))
+
+        # Botón grid
+        self.geometry_button = QPushButton()
+        self.geometry_button.setIconSize(QSize(25, 25))
+        self.geometry_button.setFixedSize(30, 30)
+        self.geometry_button.setStyleSheet("background-color: white;")
+        # Iconos para el botón de encendido o apagado de la referencia visual de las esferas
+        self.show_geometry_icon = QIcon(os.path.join(
+            os.path.dirname(__file__), 'icons', 'geometryOn.png'))
+        self.hide_geometry_icon = QIcon(os.path.join(
+            os.path.dirname(__file__), 'icons', 'geometryOff.png'))
+
         self.grid_button.setIcon(self.show_grid_icon)
+        self.geometry_button.setIcon(self.show_geometry_icon)
 
         buttons_layout.addWidget(self.video_button)
         buttons_layout.addWidget(self.grid_button)
+        buttons_layout.addWidget(self.geometry_button)
 
         # Posición del overlay
         self.buttons_widget.move(0, 0)
@@ -113,6 +129,7 @@ class CameraInterface(ImageUtilsMixin):
         """
         self.video_button.clicked.connect(self.toggle_video)
         self.grid_button.clicked.connect(self.toggle_grid)
+        self.geometry_button.clicked.connect(self.toggle_geometry)
         self.theme_manager.theme_changed.connect(self.toggle_theme)
 
     def toggle_grid(self):
@@ -124,6 +141,13 @@ class CameraInterface(ImageUtilsMixin):
         self.grid_button.setIcon(
             self.hide_grid_icon if self.grid_enabled else self.show_grid_icon)
 
+    def toggle_geometry(self):
+        """Alterna el dibujo de rejilla en el procesamiento de frames"""
+        self.geometry_enabled = not self.geometry_enabled
+
+        self.geometry_button.setIcon(
+            self.hide_geometry_icon if self.geometry_enabled else self.show_geometry_icon)
+
     def on_frame_ready(self, frame: np.ndarray):
         """ Slot para manejar el frame listo del worker thread.
 
@@ -131,7 +155,12 @@ class CameraInterface(ImageUtilsMixin):
             frame (np.ndarray): Frame BGR listo para mostrar
         """
         if self.process_running and frame is not None:
-            pixmap = self.numpy_to_qpixmap(frame)
+            pixmap = None
+            # Convertir el frame numpy a pixmap solo para dibujar overlays
+            if isinstance(frame, np.ndarray):
+                pixmap = self.numpy_to_qpixmap(frame)
+            elif isinstance(frame, cv2.UMat):
+                pixmap = self.umat_to_pixmap(frame)
             if not pixmap.isNull():
                 self.set_pixmap(pixmap)
 
@@ -152,7 +181,8 @@ class CameraInterface(ImageUtilsMixin):
             self.stop_video()
 
         try:
-            self.video_worker = CameraWorker()
+            self.video_worker = CameraWorker(
+                is_calibration=self.is_calibration)
             self.camera_chess_board = self.video_worker.camera_chess_board
             self.camera_chess_board.show_grid = self.grid_enabled
 

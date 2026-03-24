@@ -5,6 +5,7 @@ import os
 import sys
 import ctypes
 import time
+import cv2
 import pybullet as p
 import pybullet_data
 from PyQt6.QtGui import QGuiApplication, QPixmap, QFont, QIcon
@@ -263,6 +264,9 @@ if __name__ == '__main__':
                             "simulation", "simulation.qml")
     urdf_path = os.path.join(os.path.dirname(__file__),
                              "simulation", "urdf", 'openbot_v1.urdf')
+
+    if cv2.ocl.haveOpenCL():
+        cv2.ocl.setUseOpenCL(True)
 
     preloader = CompletePreloader(qml_path, urdf_path)
     preloaded_container = preloader.preload_complete_quick3d_setup()

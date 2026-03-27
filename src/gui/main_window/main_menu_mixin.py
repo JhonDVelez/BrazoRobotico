@@ -33,6 +33,14 @@ class MainMenuMixin:
         self.sliders_action.setShortcut(QKeySequence("Ctrl+t"))
         self.sliders_action.setStatusTip("Modo de control con sliders")
 
+        self.angular_action = QAction("Angular", self)
+        self.angular_action.setShortcut(QKeySequence("Ctrl+A"))
+        self.angular_action.setStatusTip("Modo angular (control por ángulos)")
+
+        self.cartesian_action = QAction("Cartesiano", self)
+        self.cartesian_action.setShortcut(QKeySequence("Ctrl+X"))
+        self.cartesian_action.setStatusTip("Modo cartesiano (cinemática)")
+
         self.simulation_action = QAction("Desactivar simulación", self)
         self.simulation_action.setShortcut(QKeySequence("Ctrl+y"))
         self.simulation_action.setStatusTip("Activar/Desactivar simulación")
@@ -80,7 +88,24 @@ class MainMenuMixin:
         self.vista_menu.addAction(self.model_action)
 
         self.mode_menu = self.menu_bar.addMenu("&Modo")
-        self.mode_menu.addAction(self.sliders_action)
+        # Grupo exclusivo para seleccionar el modo
+        self.mode_group = QActionGroup(self)
+        self.mode_group.setExclusive(True)
+
+        self.angular_action.setCheckable(True)
+        self.cartesian_action.setCheckable(True)
+        # Por defecto seleccionamos 'Angular'
+        self.angular_action.setChecked(True)
+
+        self.mode_group.addAction(self.angular_action)
+        self.mode_group.addAction(self.cartesian_action)
+
+        self.mode_menu.addAction(self.angular_action)
+        self.mode_menu.addAction(self.cartesian_action)
+
+        # Conectar acciones a handlers que emitirán el cambio de modo
+        self.angular_action.triggered.connect(self._set_mode_angular)
+        self.cartesian_action.triggered.connect(self._set_mode_cartesian)
 
         self.simulation_menu = self.menu_bar.addMenu("&Simulación")
         self.simulation_menu.addAction(self.simulation_action)
@@ -151,6 +176,40 @@ class MainMenuMixin:
                 not getattr(self, "robot_controller", None) and
                     not self.stopped):
                 self.connect_action.setEnabled(True)
+        
+    def _set_mode_angular(self, checked=False):
+        """Handler para seleccionar modo Angular (SLIDERS)"""
+        try:
+            from data import Modes, PhysicalSignalManager, SimulationSignalManager
+            try:
+                PhysicalSignalManager.get_instance().change_mode_signal.emit(
+                    Modes.SLIDERS)
+            except Exception:
+                pass
+            try:
+                SimulationSignalManager.get_instance().change_mode_signal.emit(
+                    Modes.SLIDERS)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def _set_mode_cartesian(self, checked=False):
+        """Handler para seleccionar modo Cartesiano (KINEMATIC)"""
+        try:
+            from data import Modes, PhysicalSignalManager, SimulationSignalManager
+            try:
+                PhysicalSignalManager.get_instance().change_mode_signal.emit(
+                    Modes.KINEMATIC)
+            except Exception:
+                pass
+            try:
+                SimulationSignalManager.get_instance().change_mode_signal.emit(
+                    Modes.KINEMATIC)
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     def _stop_threads(self):
         """ Detiene y elimina los hilos activos de forma segura

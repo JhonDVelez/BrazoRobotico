@@ -10,7 +10,6 @@ from PyQt6.QtCore import QSize, Qt
 from data import Modes, Units, Domains
 from data import DataFlow
 from robot import RobotWorker
-from ..kinematics_interface import KinematicsWidget
 from ..camera_interface import CameraInterface
 from ..sliders_interface import SlidersWidget
 from ..simulation_interface import SimInterface
@@ -214,8 +213,7 @@ class MainInitMixin:
         self.pause_button.hide()
         self.stop_button.hide()
 
-        self.kinematics_widget = KinematicsWidget()
-        self.controlsBox.layout().addWidget(self.kinematics_widget, 0, 1)
+        # Kinematics widget moved inside SlidersWidget; no longer added here
 
     def init_simulation(self):
         """ Inicializa la interfaz de la simulación creando el layout y realizando ajustes para una

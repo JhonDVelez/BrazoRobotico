@@ -10,9 +10,11 @@
     Las clases deg_to_rad y rad_to_deg realizan la conversion de posiciones angulares entre
     radianes y grados o viceversa.
 """
+import threading
 from enum import Enum
 import numpy as np
 from PyQt6.QtCore import pyqtSignal, QObject, QTimer
+from data import config_manager as cfg
 
 
 class Modes(Enum):
@@ -91,6 +93,43 @@ class PhysicalSignalManager(_SignalManager):
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
+
+
+class SearchSignalManager:
+    _instance = None
+    _lock_instance = threading.Lock()
+
+    @classmethod
+    def get_instance(cls):
+        """ Permite gestionar la búsqueda del tablero y las esferas mediante señales, el usuario
+            puede decidir si quiere buscar o no mediante la cámara
+
+        Returns:
+            SearchSignalManager: instancia única de la clase
+        """
+        with cls._lock_instance:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+                cls._instance._init_state()
+        return cls._instance
+
+    def _init_state(self):
+        self._lock = threading.Lock()
+        state = cfg.get("settings.json", "camera")
+        self._charuco = state.get("charuco")
+        self._sphere = state.get("sphere")
+
+    def set_charuco(self, value: bool):
+        with self._lock:
+            self._charuco = value
+
+    def set_sphere(self, value: bool):
+        with self._lock:
+            self._sphere = value
+
+    def get(self):
+        with self._lock:
+            return self._charuco, self._sphere
 
 
 class GlobalTimer(QObject):

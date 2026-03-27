@@ -6,7 +6,7 @@ import os
 from PyQt6.QtWidgets import QVBoxLayout, QGridLayout, QSplitter, QGroupBox, QPushButton, QApplication
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QSizePolicy
 from PyQt6.QtGui import QIcon
-from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtCore import QSize, Qt, QEvent, QTimer
 from data import Modes, Units, Domains
 from data import DataFlow
 from robot import RobotWorker
@@ -163,7 +163,7 @@ class MainInitMixin:
 
         self.camera_interface = CameraInterface(self)
         self.cameraBox.layout().addWidget(self.camera_interface)
-        self.camera_interface.video_button.hide()
+        # self.camera_interface.buttons_widget.hide()
 
     def init_controls(self):
         """ Inicializa la interfaz de controladores con sliders que indica el

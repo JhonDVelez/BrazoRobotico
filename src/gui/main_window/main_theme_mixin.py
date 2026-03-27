@@ -8,6 +8,7 @@ import qdarktheme.dist.dark.stylesheet
 import qdarktheme.dist.light
 import qdarktheme.dist.light.stylesheet
 from .theme_stylesheet import dark_style, light_style
+from data import config_manager as cfg
 
 
 class MainThemeMixin:
@@ -15,6 +16,7 @@ class MainThemeMixin:
         manual con el botón o de forma automática con el tema de windows.
     """
     theme_change = pyqtSignal(str)
+
     actual_theme = None
 
     def update_theme(self, scheme: Qt.ColorScheme):
@@ -22,18 +24,29 @@ class MainThemeMixin:
         """
         if scheme == Qt.ColorScheme.Dark:
             self.load_dark_theme()
+            cfg.set_value("settings.json", "theme", value="dark")
         elif scheme == Qt.ColorScheme.Light:
             self.load_light_theme()
+            cfg.set_value("settings.json", "theme", value="light")
         else:
             print("Error: Tema desconocido")
 
     def toggle_theme_event(self):
-        if self.actual_theme == Qt.ColorScheme.Dark:
-            self.theme_manager.emit_theme_change(False)
-            self.actual_theme = Qt.ColorScheme.Light
-        elif self.actual_theme == Qt.ColorScheme.Light:
-            self.theme_manager.emit_theme_change(True)
-            self.actual_theme = Qt.ColorScheme.Dark
+        if self.actual_theme is None:
+            theme = cfg.get("settings.json", "theme").lower()
+            self.actual_theme = (
+                Qt.ColorScheme.Dark if theme == "dark" else Qt.ColorScheme.Light
+            )
+        else:
+            self.actual_theme = (
+                Qt.ColorScheme.Light
+                if self.actual_theme == Qt.ColorScheme.Dark
+                else Qt.ColorScheme.Dark
+            )
+
+        # Emitir señal según el estado actual
+        is_dark = self.actual_theme == Qt.ColorScheme.Dark
+        self.theme_manager.emit_theme_change(is_dark)
 
         self.update_theme(self.actual_theme)
 
@@ -61,10 +74,8 @@ class MainThemeMixin:
             """)
         self.logo_label.setPixmap(self.laser_w)
         self.theme_action.setIcon(self.sun_icon)
-        self.graph_interface.sim_graph_object.graph_widget.setBackground(
+        self.graph_interface.graph_object.graph_widget.setBackground(
             pg.mkColor((32, 33, 36)))
-        # self.graph_interface.phy_graph_object.graph_widget.setBackground(
-        #     pg.mkColor((32, 33, 36)))
 
     def load_light_theme(self):
         """ Modificaciones para el tema claro de qdarktheme.
@@ -92,18 +103,18 @@ class MainThemeMixin:
             """)
         self.logo_label.setPixmap(self.laser_b)
         self.theme_action.setIcon(self.moon_icon)
-        self.graph_interface.sim_graph_object.graph_widget.setBackground(
+        self.graph_interface.graph_object.graph_widget.setBackground(
             pg.mkColor((248, 249, 250)))
-        # self.graph_interface.phy_graph_object.graph_widget.setBackground(
-        #     pg.mkColor((248, 249, 250)))
 
 
 class ThemeManager(QObject):
     """ Gestor de tema encargado de producir la señal necesaria para cambiar de colores y de 
         imágenes según se necesite.
     """
-    theme_changed = pyqtSignal(bool)
     _instance = None
+    theme_changed = pyqtSignal(bool)
+    color_schemes = None
+    theme_map = None
 
     @classmethod
     def get_instance(cls):
@@ -113,3 +124,10 @@ class ThemeManager(QObject):
 
     def emit_theme_change(self, dark_t: bool):
         self.theme_changed.emit(dark_t)
+
+    def set_color_scheme(self, color_scheme):
+        self.color_schemes = color_scheme
+        self.theme_map = {
+            "light": self.color_schemes.Light,
+            "dark": self.color_schemes.Dark
+        }

@@ -146,7 +146,7 @@ class SimInterface(ImageUtilsMixin):
         self.process_running = False
 
         if self.sim_worker:
-            self.physics_worker.stop()
+            self.physics_worker.pause()
 
         if self.window_container:
             self.window_container.hide()
@@ -154,6 +154,7 @@ class SimInterface(ImageUtilsMixin):
             self.quick_view.hide()
 
         self.image_label.show()
+        self.load_image()
 
     def closeEvent(self, event):
         """ Limpieza al cerrar

@@ -188,13 +188,16 @@ class DataFlow(QThread):
 
     @pyqtSlot(list)
     def update_robot(self, actual_positions):
-        """ Envía los datos al graficador el cual es una lista de 6 posiciones indicando el angulo 
-        actual de cada motor
+        """Slot conectado en el dominio físico.  Recibe una lista de seis ángulos
+           (grados) provenientes del robot y los reemite como `data_received`, de
+           modo que cualquier clase (por ejemplo el worker de cinemática) pueda
+           suscribirse a ella.
 
         Args:
             actual_positions (list): Posiciones actuales de los motores del robot físico
         """
-        self.signal_manager.data_recibed.emit(actual_positions)
+        # corregir nombre de la señal y reenviar junto con temperaturas vacías
+        self.signal_manager.data_received.emit(actual_positions, [])
 
     def change_mode(self, mode):
         self.mode = mode

@@ -3,7 +3,9 @@
 """
 import os
 import sys
+import ctypes
 import time
+import cv2
 import pybullet as p
 import pybullet_data
 from PyQt6.QtGui import QGuiApplication, QPixmap, QFont, QIcon
@@ -11,7 +13,8 @@ from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtQuick import QQuickView
 from PyQt6.QtCore import QUrl, Qt
 from qdarktheme.qtpy.QtWidgets import QSplashScreen
-from gui import MainInterface
+from gui import MainWindow
+from data import config_manager as cfg
 
 
 class PreloadedContainer:
@@ -228,10 +231,17 @@ class CompletePreloader:
 
 
 if __name__ == '__main__':
+    cfg.init_config()
+    if sys.platform == "win32":
+        myappid = 'laser.openbotv.control.lab'  # string único
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
     app = QApplication(sys.argv)
     app.setStyle('fusion')
     app.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__),
                                          "gui", "img", 'laser_w.png')))
+    app.setApplicationName("OpenBotv Control Lab")
+    app.setDesktopFileName("OpenBotv Control Lab")
 
     # Splash screen
     img_path = os.path.join(os.path.dirname(__file__),
@@ -255,6 +265,9 @@ if __name__ == '__main__':
     urdf_path = os.path.join(os.path.dirname(__file__),
                              "simulation", "urdf", 'openbot_v1.urdf')
 
+    if cv2.ocl.haveOpenCL():
+        cv2.ocl.setUseOpenCL(True)
+
     preloader = CompletePreloader(qml_path, urdf_path)
     preloaded_container = preloader.preload_complete_quick3d_setup()
     pybullet_robot = preloader.preload_pybullet()
@@ -265,8 +278,8 @@ if __name__ == '__main__':
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
             Qt.GlobalColor.white
         )
-        window = MainInterface(preloaded_container, pybullet_robot)
-        window.setWindowTitle("OpenBotv-v1")
+        window = MainWindow(preloaded_container, pybullet_robot)
+        window.setWindowTitle("OpenBotv Control Lab")
         preloader.cleanup_preload_resources()
 
         window.showMaximized()

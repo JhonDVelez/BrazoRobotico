@@ -2,9 +2,11 @@ import os
 from ctypes import wintypes
 from qframelesswindow import FramelessMainWindow
 from PyQt6.QtWidgets import QMessageBox, QVBoxLayout, QWidget, QLabel, QApplication
-from PyQt6.QtCore import QAbstractNativeEventFilter, QCoreApplication, QTimer
+from PyQt6.QtCore import QAbstractNativeEventFilter, QCoreApplication, QTimer, Qt
 from .main_window import (MainInitMixin, MainActionsMixin, ThemeManager,
                           MainMenuMixin, MainThemeMixin, MainTitleBarMixin)
+from data import SearchSignalManager
+from data import config_manager as cfg
 
 
 WM_DEVICECHANGE = 0x0219
@@ -13,8 +15,8 @@ DBT_DEVICEREMOVECOMPLETE = 0x8004
 os.environ["QT_LOGGING_RULES"] = "qt.qpa.window=false"
 
 
-class MainInterface(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuMixin,
-                    MainThemeMixin):
+class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuMixin,
+                 MainThemeMixin):
     """ Ventana principal de la interfaz la cual hereda todos los mixin los cuales solo almacenan
         los métodos utilizados en la interfaz como estructura de las diferentes secciones, widgets
         y el comportamiento de estos.
@@ -41,7 +43,7 @@ class MainInterface(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMe
         layout.setSpacing(0)
 
         # Barra de título
-        self.create_menu()
+        self.create_main_menu()
         self.title_bar = MainTitleBarMixin(self)
         # necesario para acciones de ventana como arrastrar/min/max
         self.setTitleBar(self.title_bar)
@@ -58,14 +60,38 @@ class MainInterface(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMe
         self.init_graphics()
         self.setup_connections()
 
-        self.cameraBox.hide()
+        content = cfg.get("settings.json", "content")
+        mapping_content = {
+            "camera": self.cameraBox,
+            "model": self.modelBox,
+            "graphs": self.graphsBox,
+            "controls": self.controlsBox
+        }
 
-        # Carga tema dependiendo de la configuracion de tema de windows
-        self.actual_theme = QApplication.instance().styleHints().colorScheme()
-        self.update_theme(self.actual_theme)
+        for key, widget in mapping_content.items():
+            if key in content:
+                # Usamos setVisible para evitar el if/else interno
+                widget.setVisible(bool(content[key]))
+
+        mapping_camera = {
+            "chaurco": self.charuco_action,
+            "sphere": self.sphere_action
+        }
+        search_manager = SearchSignalManager().get_instance()
+        for key, widget in mapping_camera.items():
+            if key in content:
+                state = bool(content[key])
+                widget.setChecked(state)
+                if key == "charuco":
+                    search_manager.set_charuco(state)
+                elif key == "sphere":
+                    search_manager.set_sphere(state)
+
+        self.toggle_theme_event()
 
         # Conectar señal al cambio de tema
         QApplication.instance().styleHints().colorSchemeChanged.connect(self.update_theme)
+        self.check_handle_visibility()
 
         # ahora el central widget real es el contenedor con barra + contenido
         self.setCentralWidget(container)
@@ -81,12 +107,21 @@ class MainInterface(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMe
         """
         if hasattr(self, 'cameraBox'):
             if hasattr(self, 'camera_action'):
-                self.camera_action.triggered.connect(
+                self.camera_action.toggled.connect(
                     self.toggle_visibility_camera_event)
+        if hasattr(self, 'charuco_action'):
+            self.charuco_action.toggled.connect(
+                self.toggle_charuco_search)
+        if hasattr(self, 'sphere_action'):
+            self.sphere_action.toggled.connect(
+                self.toggle_sphere_search)
+        if hasattr(self, 'camera_calibration_action'):
+            self.camera_calibration_action.triggered.connect(
+                self.initiate_camera_calibration)
 
         if hasattr(self, 'modelBox'):
             if hasattr(self, 'model_action'):
-                self.model_action.triggered.connect(
+                self.model_action.toggled.connect(
                     self.toggle_visibility_model_event)
 
         if hasattr(self, 'start_button'):
@@ -100,25 +135,40 @@ class MainInterface(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMe
 
         if hasattr(self, 'simulation_action'):
             self.simulation_action.triggered.connect(
-                self.toggle_activation_model_event)
+                self.toggle_activation_simulation_event)
+        if hasattr(self, 'graphs_action'):
+            self.graphs_action.toggled.connect(
+                self.toggle_visibility_graphs_event)
+        if hasattr(self, 'controls_action'):
+            self.controls_action.toggled.connect(
+                self.toggle_visibility_controls_event)
         if hasattr(self, 'theme_action'):
             self.theme_action.triggered.connect(self.toggle_theme_event)
         if hasattr(self, 'connect_action'):
             self.connect_action.triggered.connect(self.connect_robot)
 
     def closeEvent(self, event):
-        """ Gestiona el evento de cerrado presentando una ventana para verificar la salida de
-            la aplicación
-        """
-        reply = QMessageBox.question(
-            self,
-            "Salir",
-            "¿Seguro que quieres cerrar la aplicación?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+        """ Gestiona el evento de cerrado presentando una ventana para verificar la salida """
+
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Salir")
+        msg.setText("¿Seguro que quieres cerrar la aplicación?")
+        msg.setIcon(QMessageBox.Icon.Question)
+
+        # 🔥 Hace que el mensaje quede por encima de todo
+        msg.setWindowFlags(
+            msg.windowFlags() | Qt.WindowType.WindowStaysOnTopHint
         )
 
-        if reply == QMessageBox.StandardButton.Yes:
+        si_btn = msg.addButton("Sí", QMessageBox.ButtonRole.YesRole)
+        no_btn = msg.addButton("No", QMessageBox.ButtonRole.NoRole)
+        msg.setDefaultButton(no_btn)
+
+        msg.exec()
+
+        if msg.clickedButton() == si_btn:
+            if hasattr(self, "calibration_window"):
+                self.calibration_window.close()
             event.accept()
         else:
             event.ignore()

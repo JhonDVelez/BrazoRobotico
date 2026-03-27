@@ -11,7 +11,7 @@ class MainTitleBarMixin(TitleBarBase):
     """ Barra de titulo personalizada basado qframelesswindow
     """
 
-    def __init__(self, parent):
+    def __init__(self, parent, title="OpenBotV Control Lab"):
         super().__init__(parent)
         self.parent_class = parent
 
@@ -31,7 +31,7 @@ class MainTitleBarMixin(TitleBarBase):
 
         # === LABEL CENTRAL ===
         self.title_label = QLabel(
-            "OpenBotV Control Lab")
+            title)
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Configurar fuente del título
@@ -73,8 +73,9 @@ class MainTitleBarMixin(TitleBarBase):
         controls_layout.addStretch(1)
 
         theme_button = QToolButton()
-        theme_button.setDefaultAction(
-            self.parent_class.theme_action)  # tu QAction aquí
+        if hasattr(self.parent_class, 'theme_action'):
+            theme_button.setDefaultAction(
+                self.parent_class.theme_action)  # tu QAction aquí
         theme_button.setAutoRaise(True)  # estilo plano
         theme_button.setFixedSize(24, 24)
         controls_layout.addWidget(theme_button)

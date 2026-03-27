@@ -15,6 +15,7 @@ class GraphWorker(QThread):
     def __init__(self, display_window=1000):
         super().__init__()
         self.display_window = display_window
+        self.is_paused = False
         self.__setup_ui()
         self.__setup_connections()
 
@@ -105,6 +106,21 @@ class GraphWorker(QThread):
 
         self.sim_update_buffer.clear()
         self.phy_update_buffer.clear()
+
+    def start(self):
+        self.is_paused = False
+
+    def pause(self):
+        """ Pausa la actualización de los valores guardados.
+        """
+        self.is_paused = not self.is_paused
+
+    def stop(self):
+        """ Detiene el proceso de actualización y limpia los valores guardados
+        """
+        self.is_paused = True
+        for motor in self.motors:
+            motor.stop()
 
 
 class upgradableGraph:
@@ -198,6 +214,11 @@ class upgradableGraph:
     def show_no_data(self):
         self.curve_sim.clear()
         self.curve_phy.clear()
+
+    def stop(self):
+        self.write_index = 0
+        self.y_sim = np.zeros(self.buffer_size, dtype=np.float32)
+        self.y_phy = np.zeros(self.buffer_size, dtype=np.float32)
 
     # Actualización con desplazamiento lateral
     def update_plot(self):

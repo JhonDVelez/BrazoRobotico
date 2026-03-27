@@ -6,11 +6,12 @@ import cv2
 
 class CircleEstimation:
     COLORES = {
-        "amarillo": [(18,  80, None, 38,  255, 255)],
-        "verde":    [(35,  60, None, 85,  255, 255)],
-        "azul":     [(100, 60, None, 130, 255, 255)],
-        "naranja":  [(10,  80, None, 20,  255, 255)],
-        "morado":   [(130, 50, None, 160, 255, 255)],
+        # Formato: (H_min, S_min, V_min, H_max, S_max, V_max)
+        "amarillo": (20, 100, 100, 30, 255, 255),
+        "verde":    (40, 70, 70, 80, 255, 255),
+        "azul":     (100, 150, 50, 130, 255, 255),
+        "naranja":  (5, 150, 150, 15, 255, 255),
+        "morado":   (130, 50, 50, 160, 255, 255),
     }
 
     def __init__(self) -> None:
@@ -39,16 +40,63 @@ class CircleEstimation:
 
         return retinex
 
-    def get_circle_center(self, original_frame, umat_frame):
-        mask_lab = self.get_color_mask(umat_frame)
-        mask_hsv = self.mascara_color_adaptativa(
-            umat_frame, self.COLORES["amarillo"])
+    def get_all_circles(self, frame_umat: cv2.UMat, drawn_frame_umat: cv2.UMat, search_mask_corners: np.ndarray):
 
-        mask_hsv = cv2.cvtColor(mask_hsv, cv2.COLOR_GRAY2BGR)
+        # print(search_mask_corners)
+        if search_mask_corners is not None:
+            mask = np.zeros(frame_umat.get().shape[:2], dtype="uint8")
+            cv2.fillPoly(mask, [search_mask_corners], color=255)
+            hsv = cv2.cvtColor(cv2.bitwise_and(
+                frame_umat, cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)), cv2.COLOR_BGR2HSV)
+        else:
+            hsv = cv2.cvtColor(frame_umat, cv2.COLOR_BGR2HSV)
 
-        h2 = cv2.hconcat([cv2.resize(mask_lab, (640, 360)),
-                          cv2.resize(mask_hsv, (640, 360))])
-        return h2
+        resultados = {}
+
+        for nombre_color, (hmin, smin, vmin, hmax, smax, vmax) in self.COLORES.items():
+            # 2. Crear máscara para el color actual
+            lower = np.array([hmin, smin, vmin], dtype="uint8")
+            upper = np.array([hmax, smax, vmax], dtype="uint8")
+
+            # inRange funciona perfectamente con UMat
+            mask = cv2.inRange(hsv, lower, upper)
+
+            # 3. Limpieza morfológica rápida
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+
+            # 4. Encontrar contornos del color actual
+            contours, _ = cv2.findContours(
+                mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            if contours:
+                # Tomamos el contorno más grande que parezca una esfera
+                largest_contour = max(contours, key=cv2.contourArea)
+                area = cv2.contourArea(largest_contour)
+
+                if area > 500:  # Filtro de tamaño mínimo
+                    ((x, y), radius) = cv2.minEnclosingCircle(largest_contour)
+                    centro = np.array((int(x), int(y)), dtype=np.int32)
+
+                    # Guardar resultado
+                    resultados[nombre_color] = {
+                        "centro": centro,
+                        "radio": int(radius),
+                        "area": area
+                    }
+
+        return resultados
+
+    def _draw_detection(self, frame: cv2.UMat, sphere_results: dict):
+        # Dibujamos círculo y etiqueta
+        for color, (center, radio, area) in sphere_results.items():
+            sphere = sphere_results.get(color)
+            c = sphere.get(center)
+            r = sphere.get(radio)
+            cv2.circle(frame, c, r, (0, 255, 0), 2)
+            cv2.circle(frame, c, 5, (0, 0, 255), -1)
+            cv2.putText(frame, color, (c[0] - 20, c[1] - r - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
     def get_color_mask(self, frame: cv2.UMat):
         # 1. Convertir a LAB para aislar el amarillo
@@ -74,36 +122,3 @@ class CircleEstimation:
         edge_bgr = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
 
         return mask_bgr
-
-    def mascara_color_adaptativa(self, imagen, rangos):
-        hsv = cv2.cvtColor(imagen, cv2.COLOR_BGR2HSV)
-        V = cv2.split(hsv)[2]
-
-        # Otsu siempre devuelve escalar Python aunque V sea UMat
-        umbral_v, _ = cv2.threshold(
-            V, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        v_min_auto = max(0, int(umbral_v * 0.6))
-
-        # ✓ Antes: np.zeros(V.shape) → falla con UMat (no tiene .shape)
-        # cero del mismo tipo y tamaño que V
-        mascara_total = cv2.subtract(V, V)
-
-        for (h_min, s_min, v_min, h_max, s_max, v_max) in rangos:
-            v_min_final = v_min_auto if v_min is None else v_min
-            lower = np.array([h_min, s_min, v_min_final])
-            upper = np.array([h_max, s_max, v_max])
-
-            # ✓ Antes: mascara_total |= ... → falla con UMat
-            mascara_total = cv2.bitwise_or(
-                mascara_total, cv2.inRange(hsv, lower, upper))
-
-        # ✓ Kernel como UMat para mantener toda la operación en GPU
-        kernel = cv2.UMat(np.ones((5, 5), np.uint8))
-        mascara_total = cv2.morphologyEx(
-            mascara_total, cv2.MORPH_OPEN,  kernel)
-        mascara_total = cv2.morphologyEx(
-            mascara_total, cv2.MORPH_CLOSE, kernel)
-
-        resultado = cv2.bitwise_and(imagen, imagen, mask=mascara_total)
-
-        return mascara_total

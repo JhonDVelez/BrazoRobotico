@@ -17,7 +17,7 @@ class CameraControl:
        Optimizada para usar UMat (OpenCL) en preprocesado.
     """
 
-    def __init__(self):
+    def __init__(self, is_calibration: bool = False):
         super().__init__()
         self.cap: Optional[cv2.VideoCapture] = None
         self.camera_ready = False
@@ -32,6 +32,8 @@ class CameraControl:
         self.camera_matrix = np.array(camera_config.get("matrix"))
         self.dist_coeff = np.array(
             camera_config.get("distortion coefficients"))
+
+        self.is_calibration = is_calibration
 
     def camera_on(self) -> bool:
         """Enciende la cámara con configuración optimizada"""
@@ -92,6 +94,8 @@ class CameraControl:
         # Captura frame de la cámara
         ret, frame = self.cap.read()
         if ret:
+            if self.is_calibration:
+                return frame
             # Obtiene la nueva matriz de calibración
             h,  w = frame.shape[:2]
             new_cam_matrix, roi = cv2.getOptimalNewCameraMatrix(

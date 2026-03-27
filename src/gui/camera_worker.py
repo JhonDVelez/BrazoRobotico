@@ -4,9 +4,10 @@
 import threading
 import traceback
 import numpy as np
-from PyQt6.QtCore import QThread, pyqtSignal, QRunnable, QThreadPool
+from PyQt6.QtCore import QThread, pyqtSignal, QRunnable, QThreadPool, pyqtSlot
 from vision.camera_chessboard import CameraChessBoard
 from vision.pose_estimation import PoseEstimation
+from data import SearchSignalManager
 from data import config_manager as cfg
 
 
@@ -20,20 +21,36 @@ class FrameProcessRunnable(QRunnable):
         self.pose_estimation = pose_estimation
         self.callback = callback
         self.error_callback = error_callback
+        self.state = SearchSignalManager().get_instance()
+        self.charuco_activated, self.sphere_activated = self.state.get()
 
     def run(self):
         try:
-            drawn_image, processed_image, chessboard_corners, mask_corners = self.camera_chess_board.get_coordinates(
-                self.frame)
-            circles_find = self.pose_estimation.get_sphere_pose(
-                self.frame,
-                drawn_image,
-                processed_image,
-                chessboard_corners,
-                mask_corners,
-            )
-            self.callback(
-                drawn_image if drawn_image is not None else self.frame)
+            result = self.frame
+            if self.charuco_activated:
+                drawn_image, processed_image, search_results, mask_corners = \
+                    self.camera_chess_board.get_coordinates(self.frame)
+
+                result = drawn_image if drawn_image is not None else self.frame
+
+                if self.sphere_activated:
+                    circles_find = self.pose_estimation.get_sphere_pose(
+                        original_frame=self.frame,
+                        drawn_frame=drawn_image,
+                        processed_frame=processed_image,
+                        charuco_results=search_results,
+                        search_mask_corners=mask_corners,
+                    )
+                    if circles_find is not None:
+                        result = circles_find
+
+            elif self.sphere_activated:
+                circles_find = self.pose_estimation.get_sphere_pose(self.frame)
+                if circles_find is not None:
+                    result = circles_find
+
+            self.callback(result)
+
         except Exception:
             self.error_callback(
                 f"Error procesando frame (FrameProcessRunnable): {traceback.print_exc()}")
@@ -56,10 +73,11 @@ class CameraWorker(QThread):
         y = data["y"]
         self.camera_index = camera_index
         self.camera_chess_board = CameraChessBoard((y, x))
-        self.pose_estimation = PoseEstimation()
+        self.pose_estimation = PoseEstimation(
+            self.camera_chess_board.charuco_board)
 
         self.thread_pool = QThreadPool()
-        self.thread_pool.setMaxThreadCount(1)
+        self.thread_pool.setMaxThreadCount(16)
 
         self._running = True
         self._paused = False
@@ -77,19 +95,14 @@ class CameraWorker(QThread):
 
             while self._running:
                 if self._paused:
-                    self.msleep(10)
                     continue
 
-                frame = self.camera_chess_board.camera.take_frame()
+                frame = self.camera_chess_board.get_video_frame()
                 if frame is None:
-                    self.msleep(5)
                     continue
 
-                with self._lock:
-                    if self._busy:
-                        self.msleep(1)
-                        continue
-                    self._busy = True
+                if self.thread_pool.activeThreadCount() >= 1:
+                    continue
 
                 if self.is_calibration:
                     self._emit_frame_ready(frame)
@@ -102,8 +115,6 @@ class CameraWorker(QThread):
                         self._emit_error,
                     )
                     self.thread_pool.start(runnable)
-
-                self.msleep(1)
 
         except (OSError, RuntimeError) as e:
             self._emit_error(f"Error en worker thread (CameraWorker): {e}")

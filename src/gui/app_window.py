@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import QMessageBox, QVBoxLayout, QWidget, QLabel, QApplicat
 from PyQt6.QtCore import QAbstractNativeEventFilter, QCoreApplication, QTimer, Qt
 from .main_window import (MainInitMixin, MainActionsMixin, ThemeManager,
                           MainMenuMixin, MainThemeMixin, MainTitleBarMixin)
+from data import SearchSignalManager
 from data import config_manager as cfg
 
 
@@ -60,29 +61,37 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         self.setup_connections()
 
         content = cfg.get("settings.json", "content")
-        mapping = {
+        mapping_content = {
             "camera": self.cameraBox,
             "model": self.modelBox,
             "graphs": self.graphsBox,
             "controls": self.controlsBox
         }
 
-        for key, widget in mapping.items():
+        for key, widget in mapping_content.items():
             if key in content:
                 # Usamos setVisible para evitar el if/else interno
                 widget.setVisible(bool(content[key]))
 
-        color_schemes = QApplication.instance().styleHints().colorScheme()
-        theme_map = {
-            "light": color_schemes.Light,
-            "dark": color_schemes.Dark
+        mapping_camera = {
+            "chaurco": self.charuco_action,
+            "sphere": self.sphere_action
         }
-        actual_theme = cfg.get("settings.json", "theme").lower()
-        scheme = theme_map.get(actual_theme, color_schemes.Dark)
-        self.update_theme(scheme)
+        search_manager = SearchSignalManager().get_instance()
+        for key, widget in mapping_camera.items():
+            if key in content:
+                state = bool(content[key])
+                widget.setChecked(state)
+                if key == "charuco":
+                    search_manager.set_charuco(state)
+                elif key == "sphere":
+                    search_manager.set_sphere(state)
+
+        self.toggle_theme_event()
 
         # Conectar señal al cambio de tema
         QApplication.instance().styleHints().colorSchemeChanged.connect(self.update_theme)
+        self.check_handle_visibility()
 
         # ahora el central widget real es el contenedor con barra + contenido
         self.setCentralWidget(container)
@@ -98,15 +107,21 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         """
         if hasattr(self, 'cameraBox'):
             if hasattr(self, 'camera_action'):
-                self.camera_action.triggered.connect(
+                self.camera_action.toggled.connect(
                     self.toggle_visibility_camera_event)
-            if hasattr(self, 'camera_calibration_action'):
-                self.camera_calibration_action.triggered.connect(
-                    self.initiate_camera_calibration)
+        if hasattr(self, 'charuco_action'):
+            self.charuco_action.toggled.connect(
+                self.toggle_charuco_search)
+        if hasattr(self, 'sphere_action'):
+            self.sphere_action.toggled.connect(
+                self.toggle_sphere_search)
+        if hasattr(self, 'camera_calibration_action'):
+            self.camera_calibration_action.triggered.connect(
+                self.initiate_camera_calibration)
 
         if hasattr(self, 'modelBox'):
             if hasattr(self, 'model_action'):
-                self.model_action.triggered.connect(
+                self.model_action.toggled.connect(
                     self.toggle_visibility_model_event)
 
         if hasattr(self, 'start_button'):
@@ -122,10 +137,10 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
             self.simulation_action.triggered.connect(
                 self.toggle_activation_simulation_event)
         if hasattr(self, 'graphs_action'):
-            self.graphs_action.triggered.connect(
+            self.graphs_action.toggled.connect(
                 self.toggle_visibility_graphs_event)
         if hasattr(self, 'controls_action'):
-            self.controls_action.triggered.connect(
+            self.controls_action.toggled.connect(
                 self.toggle_visibility_controls_event)
         if hasattr(self, 'theme_action'):
             self.theme_action.triggered.connect(self.toggle_theme_event)

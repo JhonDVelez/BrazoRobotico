@@ -1,8 +1,12 @@
 """ Modulo donde se define el comportamiento de los botones presentes en la interfaz a excepción de
     los ubicados en la barra de menu.
 """
-from PyQt6.QtGui import QResizeEvent
+from tabnanny import check
+
+from PyQt6.QtCore import pyqtSlot
+from numpy.random import chisquare
 from ..sliders_interface import SlidersWidget
+from data import SearchSignalManager
 from data import config_manager as cfg
 
 
@@ -83,84 +87,98 @@ class MainActionsMixin:
         """
         SlidersWidget.restart_sliders()
 
-    def toggle_visibility_camera_event(self):
+    @pyqtSlot(bool)
+    def toggle_visibility_camera_event(self, checked: bool):
         """ Alterna la visibilidad del widget de la cámara y actualiza el texto del botón
             correspondiente.
 
         Args:
             cameraBox (PyQt6.QtWidgets.QGroupBox): El widget que contiene la cámara.
         """
-        if self.cameraBox.isVisible():
-            self.cameraBox.hide()
-            self.camera_action.setText("Mostrar Cámara")
-            cfg.set_value("settings.json", "content", "camera", value=False)
-        else:
-            self.cameraBox.show()
-            self.camera_action.setText("Ocultar Cámara")
-            cfg.set_value("settings.json", "content", "camera", value=True)
 
-    def toggle_visibility_model_event(self):
+        self.cameraBox.setVisible(checked)
+        cfg.set_value("settings.json", "content", "camera", value=checked)
+        self.check_handle_visibility()
+
+    @pyqtSlot(bool)
+    def toggle_visibility_model_event(self, checked: bool):
         """ Alterna la visibilidad del widget del modelo 3D y actualiza el texto del botón
             correspondiente.
 
         Args:
             modelBox (PyQt6.QtWidgets.QGroupBox): El widget que contiene el modelo 3D.
         """
-        if self.modelBox.isVisible():
-            self.modelBox.hide()
-            self.model_action.setText("Mostrar Modelo 3D")
-            cfg.set_value("settings.json", "content", "model", value=False)
-        else:
-            self.modelBox.show()
-            self.model_action.setText("Ocultar Modelo 3D")
-            cfg.set_value("settings.json", "content", "model", value=True)
+        self.modelBox.setVisible(checked)
+        cfg.set_value("settings.json", "content", "model", value=checked)
+        self.check_handle_visibility()
 
-    def toggle_visibility_graphs_event(self):
+    @pyqtSlot(bool)
+    def toggle_visibility_graphs_event(self, checked: bool):
         """ Habilita o deshabilita la visualización del modelo 3D de QtQuick mediante la acción en 
             la barra de menu.
         """
-        if self.graphsBox.isVisible():
-            self.graphsBox.hide()
-            self.graphs_action.setText("Mostrar Gráficas")
-            cfg.set_value("settings.json", "content", "graphs", value=False)
-        else:
-            self.graphsBox.show()
-            self.graphs_action.setText("Ocultar Gráficas")
-            cfg.set_value("settings.json", "content", "graphs", value=True)
+        self.graphsBox.setVisible(checked)
+        cfg.set_value("settings.json", "content", "graphs", value=checked)
+        self.check_handle_visibility()
 
-    def toggle_visibility_controls_event(self):
+    @pyqtSlot(bool)
+    def toggle_visibility_controls_event(self, checked: bool):
         """ Habilita o deshabilita la visualización del modelo 3D de QtQuick mediante la acción en 
             la barra de menu.
         """
-        if self.controlsBox.isVisible():
-            self.controlsBox.hide()
-            self.controls_action.setText("Mostrar Controles")
-            cfg.set_value("settings.json", "content", "controls", value=False)
-        else:
-            self.controlsBox.show()
-            self.controls_action.setText("Ocultar Controles")
-            cfg.set_value("settings.json", "content", "controls", value=True)
+
+        self.controlsBox.setVisible(checked)
+        cfg.set_value("settings.json", "content", "controls", value=checked)
+        self.check_handle_visibility()
+
+    def check_handle_visibility(self):
+        visible_1 = any(
+            self.contentSplitter.widget(0).widget(j).isVisible()
+            for j in range(self.contentSplitter.widget(0).count())
+        )
+
+        visible_2 = any(
+            self.contentSplitter.widget(1).widget(j).isVisible()
+            for j in range(self.contentSplitter.widget(1).count())
+        )
+
+        has_both = visible_1 and visible_2
+
+        self.contentSplitter.setHandleWidth(8 if has_both else 0)
+        self.contentSplitter.handle(1).setEnabled(has_both)
 
     def initiate_camera_calibration(self):
+        """ Inicializa la ventana de calibración y detiene la cámara de la interfaz principal 
+            si esta corriendo
+            Importa la clase de forma local vara evitar importaciones circulares
+        """
         from ..calibration_window import CameraCalibrationWindow
 
         self.camera_interface.stop_video()
 
         self.calibration_window = CameraCalibrationWindow()
         self.calibration_window.show()
+        signal_manager = SearchSignalManager().get_instance()
+        signal_manager.set_charuco(True)
+        signal_manager.set_sphere(False)
 
-    def toggle_activation_simulation_event(self):
+    @pyqtSlot(bool)
+    def toggle_activation_simulation_event(self, checked: bool):
         """ Habilita o deshabilita la visualización del modelo 3D de QtQuick mediante la acción en 
             la barra de menu.
         """
-        if self.hab_simulation:
-            self.hab_simulation = False
-            self.simulation_action.setText("Habilitar simulación")
-            cfg.set_value("settings.json", "simulation", value=False)
-        else:
-            self.hab_simulation = True
-            self.simulation_action.setText("Deshabilitar simulación")
-            cfg.set_value("settings.json", "simulation", value=True)
+        self.hab_simulation = False
+        cfg.set_value("settings.json", "simulation", value=checked)
+
+    @pyqtSlot(bool)
+    def toggle_charuco_search(self, checked: bool):
+        SearchSignalManager().get_instance().set_charuco(checked)
+        cfg.set_value("settings.json", "camera", "charuco", value=checked)
+
+    @pyqtSlot(bool)
+    def toggle_sphere_search(self, checked: bool):
+        SearchSignalManager().get_instance().set_sphere(checked)
+        cfg.set_value("settings.json", "camera", "sphere", value=checked)
 
     def connect_robot(self):
         """ Inicia la colección con el microcontrolador en el puerto de comunicación seleccionado

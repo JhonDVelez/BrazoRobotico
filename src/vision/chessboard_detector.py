@@ -1,3 +1,5 @@
+from unittest import result
+
 import cv2
 import numpy as np
 from data import config_manager as cfg
@@ -102,7 +104,9 @@ class ChessboardDetector:
         extrapolated_results = self.__extrapolate_corners(
             self.charuco_board, charuco_corners, charuco_ids, H)
 
-        return self.build_unified_grid(extrapolated_results)
+        unified_results = self.build_unified_grid(extrapolated_results)
+
+        return self.to_physical_coordinates(unified_results)
 
     def __extrapolate_corners(self, board, charuco_corners, charuco_ids, H) -> np.ndarray:
         """Extrapola las esquinas externas usando la homografía calculada.
@@ -134,6 +138,11 @@ class ChessboardDetector:
         exterior_corners = []   # Borde externo
         exterior_ids = []   # Guardamos (col, row) como referencia
 
+        id_to_corner = {
+            int(cid): charuco_corners[i]
+            for i, cid in enumerate(charuco_ids.flatten())
+        }
+
         for idx in range(cols * rows):
             row = idx // cols
             col = idx % cols
@@ -144,11 +153,8 @@ class ChessboardDetector:
             if is_interior:
                 # ID en el sistema ChArUco (fila-1, col-1 dentro de interiores)
                 charuco_id = (row - 1) * (cols - 2) + (col - 1)
-                if charuco_id in visible_ids:
-                    # Ya detectado, usamos la posición real de detectBoard
-                    idx_in_detected = list(
-                        charuco_ids.flatten()).index(charuco_id)
-                    interior_corners.append(charuco_corners[idx_in_detected])
+                if charuco_id in id_to_corner:
+                    interior_corners.append(id_to_corner[charuco_id])
                     interior_ids.append(charuco_id)
                 else:
                     # Interior oculto → estimado con homografía
@@ -209,12 +215,16 @@ class ChessboardDetector:
         new_id = row * cols + col  →  0 en esquina superior izquierda,
                                     aumenta →, luego baja una fila y repite.
         """
-        cols, rows = result["grid_shape"]   # (13, 6) para tablero 12×5
-        inner_cols = cols - 2               # 11 columnas interiores
+        shape = None
+        if "grid_shape" in result:
+            shape = result["grid_shape"]
 
-        # ── Mapeo (col, row) → corner_point ───────────────────────────────────
+        if shape is None:
+            return None
+        cols, rows = shape
+        inner_cols = cols - 2
 
-        grid = {}   # key: (col, row), value: punto shape (1,2)
+        grid = {}
 
         # 1. Interiores visibles
         for corner, cid in zip(result["visible_corners"], result["visible_ids"]):
@@ -248,8 +258,28 @@ class ChessboardDetector:
         unified_ids = np.array(
             unified_ids,     dtype=np.int32)    # (N,)
         r = result.copy()
+        tl = unified_corners[0]
+        tr = np.array(unified_corners[cols - 1])
+        bl = unified_corners[cols * (rows - 1)]
+        br = unified_corners[(cols * rows) - 1]
+
+        corners = np.array([tl, tr, br, bl])
+        center = corners.mean(axis=0)
+
+        # Expandir cada punto un 10% alejándolo del centro
+        scale = 1.10
+        expanded_corners = []
+        for point in corners:
+            direction = point - center          # Vector desde el centro al punto
+            expanded = center + direction * scale  # Mover 10% más lejos
+            expanded_corners.append(expanded)
+
+        mask = np.array(expanded_corners, dtype=np.int32).reshape((-1, 1, 2))
+
         r.update({"unified_corners": unified_corners,
-                  "unified_ids": unified_ids})
+                  "unified_ids": unified_ids,
+                  "search_mask": mask
+                  })
         return r
 
     def _get_dynamic_font_scale(self, corners: np.ndarray) -> float:
@@ -291,36 +321,13 @@ class ChessboardDetector:
         )
         self.dynamic_dot_size = int(self.font_scale * 8)
 
-    def draw_grid(
-        self,
-        frame,
-        results,
-        show_labels: bool = False,
-        border_labels_only: bool = True,
-        show_phys: bool = False,
-        origin: "str | tuple[int,int]" = "tl",
-        cell_size_mm: tuple[float, float] = (30.0, 30.0),
-    ):
-        """Dibuja la red final obtenida luego de la extrapolación sobre la imagen de referencia
-        del tablero de ajedrez.
-
-        Los parámetros ``show_labels`` y ``border_labels_only`` controlan las
-        etiquetas de pixeles sobre los nodos. Si ``show_phys`` es ``True`` se
-        dibujarán además las coordenadas físicas (mm) obtenidas usando
-        :meth:`to_physical_coordinates` con el ``origin`` y ``cell_size_mm``
-        especificados. Esto resulta útil para visualizar inmediatamente la
-        transformación a un sistema de referencia físico.
-        Args:
-            frame (np.ndarray): Imagen tomada de la cámara.
-            corners (np.ndarray): Matriz de posiciones extendida por extrapolación.
-            show_labels (bool): Si True, muestra etiquetas de texto en los puntos.
-            border_labels_only (bool): Si True, muestra etiquetas solo en los bordes.
-            show_phys (bool): Si True, dibuja coordenadas físicas (mm) bajo cada punto.
-            origin: Esquina usada como origen (0,0) para cálculo físico.
-            cell_size_mm: Tamaño de cada cuadro en milímetros.
+    def draw_grid(self, frame, results):
+        """ Dibuja la red final obtenida luego de la extrapolación sobre la imagen de referencia
+            del tablero de ajedrez.
         """
         vis = frame.copy()
-        corners = results["unified_corners"].reshape(-1, 13, 2)
+        cols, rows = results["grid_shape"]
+        corners = results["unified_corners"].reshape(rows, cols, 2)
         self._get_dynamic_font_scale(corners)
 
         # Corners interiores visibles → verde
@@ -339,8 +346,7 @@ class ChessboardDetector:
             cv2.circle(vis, pt, self.dynamic_dot_size, (220, 60, 0), -1)
 
         # print("new")
-        physical_corners = self.to_physical_coordinates(
-            corners)
+        physical_corners = results["physical_corners"]
         for corner, phy_corner in zip(corners.reshape(-1, 1, 2), physical_corners.reshape(-1, 1, 2)):
             corner = corner[0]
             phy_corner = phy_corner[0]
@@ -371,7 +377,7 @@ class ChessboardDetector:
 
     def to_physical_coordinates(
         self,
-        corners: np.ndarray,
+        results: dict,
         origin: "str | tuple[int, int]" = "tl",
         cell_size_mm: tuple[float, float] = (30.0, 30.0),
     ) -> np.ndarray | None:
@@ -385,6 +391,9 @@ class ChessboardDetector:
         Returns:
             np.ndarray | None: Matriz con coordenadas físicas o None.
         """
+        cols, rows = results["grid_shape"]
+        corners = results["unified_corners"].reshape(
+            rows, cols, 2)
         if corners is None:
             return None
 
@@ -409,4 +418,7 @@ class ChessboardDetector:
         coords = np.empty((rows, cols, 2), dtype=float)
         coords[..., 0] = (ij[1] - oj) * sx
         coords[..., 1] = (ij[0] - oi) * sy
-        return coords
+        r = results.copy()
+        r.update({"physical_corners": coords
+                  })
+        return r

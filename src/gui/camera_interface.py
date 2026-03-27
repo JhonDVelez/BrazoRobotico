@@ -16,6 +16,7 @@ class CameraInterface(ImageUtilsMixin):
     """ Manejo del widget de video que muestra las imágenes de la cámara en un label de la interfaz
     """
 
+
     def __init__(self, parent, is_calibration: bool = False):
         super().__init__(parent=None)
         self.parent = parent
@@ -144,6 +145,9 @@ class CameraInterface(ImageUtilsMixin):
     def toggle_geometry(self):
         """Alterna el dibujo de rejilla en el procesamiento de frames"""
         self.geometry_enabled = not self.geometry_enabled
+
+        if self.video_worker is not None and self.video_worker.pose_estimation is not None:
+            self.video_worker.pose_estimation.show_circles = self.geometry_enabled
 
         self.geometry_button.setIcon(
             self.hide_geometry_icon if self.geometry_enabled else self.show_geometry_icon)

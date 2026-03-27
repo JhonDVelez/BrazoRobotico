@@ -5,6 +5,7 @@
 from .control_utils import (
     SimulationSignalManager,
     PhysicalSignalManager,
+    SearchSignalManager,
     Domains,
     Modes,
     Units,
@@ -17,6 +18,7 @@ from .config_manager import *
 __all__ = [
     "SimulationSignalManager",
     "PhysicalSignalManager",
+    "SearchSignalManager",
     "Domains",
     "Modes",
     "Units",

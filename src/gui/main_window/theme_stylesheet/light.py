@@ -226,7 +226,7 @@ QMenu::separator {
     background-color: rgba(218.000, 220.000, 224.000, 1.000);
 }
 QMenu::item {
-    padding: 4px 28px;
+    padding: 6px 25px 6px 25px; /* top, right, bottom, left */
 }
 QMenu::item:selected {
     background-color: rgba(218.000, 220.000, 224.000, 1.000);
@@ -885,16 +885,19 @@ QFontDialog QScrollBar:vertical {
 QComboBox::indicator:checked,
 QMenu::indicator:checked {
     width: 18px;
+    height: 18px;
     image: url(${path}/dist/light/svg/check__icon-foreground__rotate-0.svg);
 }
 QMenu::indicator {
     width: 18px;
-    background-color: rgba(196.000, 199.000, 204.000, 1.000);
-    border-radius: 4px;
-    margin-left: 3px;
+    height: 18px;
+    background-color: transparent;
+    border-radius: 0px;
+    margin-left: 6px;
+    margin-right: -25px;
 }
 QCheckBox {
-    spacing: 8px;
+    spacing: 0px;
 }
 QGroupBox::title {
     spacing: 6px;

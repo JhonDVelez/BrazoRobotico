@@ -34,7 +34,14 @@ DEFAULTS: dict[str, dict] = {
             "controls": True
         },
         "simulation": True,
-        "mode": "sliders",
+        "camera": {
+            "charuco": False,
+            "sphere": False,
+        },
+        "mode": {
+            "sliders": True,
+            "kinematics": False
+        },
     },
     "camera.json": {
         "resolution": {"width": 1280, "height": 720, "fps": 30},
@@ -55,13 +62,56 @@ DEFAULTS: dict[str, dict] = {
 }
 
 
+def _merge_defaults(defaults: dict, user_data: dict) -> dict:
+    """
+    Crea un nuevo diccionario basado en 'defaults', pero sobreescribe
+    con los valores de 'user_data' si existen. Es recursivo.
+    """
+    result = defaults.copy()
+    for key, value in result.items():
+        if key in user_data:
+            # Si ambos son diccionarios, entramos a un nivel más profundo
+            if isinstance(value, dict) and isinstance(user_data[key], dict):
+                result[key] = _merge_defaults(value, user_data[key])
+            else:
+                # Si el usuario tiene un valor (y no es un dict), lo respetamos
+                result[key] = user_data[key]
+        # Si la llave no está en user_data, se queda el valor de 'result' (el default)
+
+    # También añadimos llaves que el usuario tenga y que NO estén en defaults
+    # (para no borrar configuraciones extra que el usuario haya metido a mano)
+    for key, value in user_data.items():
+        if key not in result:
+            result[key] = value
+
+    return result
+
+
 def init_config() -> None:
-    """Crea CONFIG_DIR y los archivos que falten con sus valores por defecto."""
+    """Crea CONFIG_DIR y asegura la integridad de las llaves en los JSON."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
     for filename, defaults in DEFAULTS.items():
         path = CONFIG_DIR / filename
+
         if not path.exists():
+            # Si no existe, lo creamos limpio
+            path.write_text(_compact_dumps(defaults), encoding="utf-8")
+            continue
+
+        try:
+            # Si existe, leemos lo que tiene el usuario
+            user_config = json.loads(path.read_text(encoding="utf-8"))
+
+            # Fusionamos: Default es la base, User sobreescribe
+            new_config = _merge_defaults(defaults, user_config)
+
+            # Solo sobreescribimos el archivo si hubo cambios (llaves faltantes añadidas)
+            if new_config != user_config:
+                path.write_text(_compact_dumps(new_config), encoding="utf-8")
+
+        except (json.JSONDecodeError, OSError):
+            # Si el archivo está roto, lo reseteamos por seguridad
             path.write_text(_compact_dumps(defaults), encoding="utf-8")
 
 

@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from pathlib import Path
 from PyQt6.QtGui import QPainter, QPen, QColor
-from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QMessageBox
 from gui import CameraInterface
 from gui.main_window import ImageUtilsMixin
 from data import config_manager as cfg
@@ -128,10 +128,15 @@ class CalibrationInterface(CameraInterface):
                     #     img, dimensiones_tablero, esquinas_refinadas, ret)
                     # cv2.imshow('Detectando...', img)
                     # cv2.waitKey(500)
-
+            camera_matrix = None
+            dist_coeffs = None
             if len(all_corners) >= 10:
-                rms, camera_matrix, dist_coeffs, _, _ = self.calibrate(
+                _, camera_matrix, dist_coeffs, _, _ = self.calibrate(
                     all_corners, all_ids, image_size, self.board)
+
+            if camera_matrix is None or dist_coeffs is None:
+                self.show_popup()
+                return
 
             print(f"matrix: {camera_matrix}")
             print(f"distortion: {dist_coeffs}")
@@ -143,7 +148,7 @@ class CalibrationInterface(CameraInterface):
             # cfg.set_value("camera.json", "tvecs", np.array(tvecs).tolist())
         except Exception as e:
             print(f"Error inesperado al leer el temporal: {e}")
-            return None
+            return
 
     def detect_corners(self, gray, board, aruco_dict):
         """Detecta corners ChArUco en una imagen en escala de grises."""
@@ -177,3 +182,14 @@ class CalibrationInterface(CameraInterface):
             flags=flags
         )
         return ret, camera_matrix, dist_coeffs, rvecs, tvecs
+
+    def show_popup(self):
+        # Create a QMessageBox instance
+        dlg = QMessageBox(self)
+        dlg.setWindowTitle("A Simple Pop-up")
+        dlg.setText("This is an informational message.")
+        # Set standard buttons and icon
+        dlg.setStandardButtons(QMessageBox.StandardButton.Ok)
+        dlg.setIcon(QMessageBox.Icon.Information)
+        # Execute the dialog (makes it modal and blocks interaction with the parent)
+        dlg.exec()

@@ -90,14 +90,14 @@ View3D {
                 text: "X: " + sceneEffectorX.toFixed(4)
             }
             Label {
-                color: "#44ff44"
-                font.bold: true
-                text: "Z: " + sceneEffectorY.toFixed(4)
-            }
-            Label {
                 color: "#4488ff"
                 font.bold: true
                 text: "Y: " + sceneEffectorZ.toFixed(4)
+            }
+            Label {
+                color: "#44ff44"
+                font.bold: true
+                text: "Z: " + sceneEffectorY.toFixed(4)
             }
         }
     }

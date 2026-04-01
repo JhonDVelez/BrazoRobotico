@@ -56,26 +56,27 @@ class KinematicsWorker(QThread):
     def htz(self, d):
         return np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, d], [0, 0, 0, 1]])
 
-    def t_matrices(self, t1, t2, t3, t4, L1, L2, L3, L4):
+    def t_matrices(self, t1, t2, t3, t4):
         A1 = self.hrz(
-            t1 + np.pi) @ self.htz(L1) @ self.htx(0) @ self.hrx(np.pi/2)
-        A2 = self.hrz(t2 + np.pi/2) @ self.htz(0) @ self.htx(L2) @ self.hrx(0)
-        A3 = self.hrz(t3) @ self.htz(0) @ self.htx(L3) @ self.hrx(0)
-        A4 = self.hrz(t4) @ self.htz(0) @ self.htx(L4) @ self.hrx(0)
+            t1 + np.pi) @ self.htz(self.L1) @ self.htx(0) @ self.hrx(np.pi/2)
+        A2 = self.hrz(
+            t2 + np.pi/2) @ self.htz(0) @ self.htx(self.L2) @ self.hrx(0)
+        A3 = self.hrz(t3) @ self.htz(0) @ self.htx(self.L3) @ self.hrx(0)
+        A4 = self.hrz(t4) @ self.htz(0) @ self.htx(self.L4) @ self.hrx(0)
         T01 = A1
         T02 = T01 @ A2
         T03 = T02 @ A3
         T04 = T03 @ A4
         return [np.identity(4), T01, T02, T03, T04]
 
-    def cd(self, t1, t2, t3, t4, L1, L2, L3, L4):
-        T_list = self.t_matrices(t1, t2, t3, t4, L1, L2, L3, L4)
+    def cd(self, t1, t2, t3, t4):
+        T_list = self.t_matrices(t1, t2, t3, t4)
         _, P, _, _ = self.h_dh(T_list[-1])
         return P
 
-    def jacobiano_analitico(self, q_flat, L1, L2, L3, L4):
+    def jacobiano_analitico(self, q_flat):
         t1, t2, t3, t4 = q_flat
-        T_list = self.t_matrices(t1, t2, t3, t4, L1, L2, L3, L4)
+        T_list = self.t_matrices(t1, t2, t3, t4)
         Pn = T_list[-1][:3, 3].reshape((3, 1))
         Jv = np.zeros((3, 4))
         for j in range(4):
@@ -99,12 +100,11 @@ class KinematicsWorker(QThread):
         P_deseada = np.array([[px], [py], [pz]])
         for k in range(max_iter):
             P_actual = self.cd(q[0, 0], q[1, 0], q[2, 0],
-                               q[3, 0], self.L1, self.L2, self.L3, self.L4)
+                               q[3, 0])
             error = P_deseada - P_actual
             if np.linalg.norm(error) < tol:
                 break
-            J = self.jacobiano_analitico(
-                q.flatten(), self.L1, self.L2, self.L3, self.L4)
+            J = self.jacobiano_analitico(q.flatten())
             q = q + lambda_val * (np.linalg.pinv(J) @ error)
             q = np.clip(q, q_min, q_max)
         return q, error
@@ -141,7 +141,6 @@ class KinematicsWorker(QThread):
         if self.target_pos is None:
             return
 
-        # comprobar condición de bloqueo similar al script original
         import time
         if self._start_time is not None:
             if time.time() - self._start_time > 1.0:
@@ -165,7 +164,7 @@ class KinematicsWorker(QThread):
 
         # posición real en mm
         P_real = self.cd(q_actual[0, 0], q_actual[1, 0], q_actual[2, 0],
-                         q_actual[3, 0], self.L1, self.L2, self.L3, self.L4)
+                         q_actual[3, 0])
         dist = np.linalg.norm(self.target_pos - P_real)
         if dist < 4.0:
             # objetivo alcanzado: limpiar target y emitir último comando para
@@ -175,8 +174,7 @@ class KinematicsWorker(QThread):
             return
 
         # cálculo de jacobiano y paso incremental (damped least squares)
-        J = self.jacobiano_analitico(q_actual.flatten(),
-                                     self.L1, self.L2, self.L3, self.L4)
+        J = self.jacobiano_analitico(q_actual.flatten())
         dq = np.linalg.inv(J.T @ J + 0.15**2 * np.eye(4)) @ J.T @ (
             self.target_pos - P_real)
         dq = np.clip(dq, -np.deg2rad(20), np.deg2rad(20))

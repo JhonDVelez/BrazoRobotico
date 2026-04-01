@@ -199,8 +199,8 @@ class ChessboardDetector:
         size = board.getChessboardSize()   # (SQUARES_X, SQUARES_Y)
         square_length = board.getSquareLength()
 
-        cols = size[0] + 1   # 13 para un tablero de 12 cuadros
-        rows = size[1] + 1   # 6  para un tablero de 5 cuadros
+        cols = size[0] + 1
+        rows = size[1] + 1
 
         points = []
         for row in range(rows):
@@ -209,15 +209,15 @@ class ChessboardDetector:
 
         return np.array(points, dtype=np.float32), cols, rows
 
-    def build_unified_grid(self, result: dict):
+    def build_unified_grid(self, results: dict):
         """
         Unifica todos los corners en una grilla ordenada de (cols × rows) puntos.
         new_id = row * cols + col  →  0 en esquina superior izquierda,
                                     aumenta →, luego baja una fila y repite.
         """
         shape = None
-        if "grid_shape" in result:
-            shape = result["grid_shape"]
+        if results is not None and "grid_shape" in results:
+            shape = results["grid_shape"]
 
         if shape is None:
             return None
@@ -227,22 +227,20 @@ class ChessboardDetector:
         grid = {}
 
         # 1. Interiores visibles
-        for corner, cid in zip(result["visible_corners"], result["visible_ids"]):
+        for corner, cid in zip(results["visible_corners"], results["visible_ids"]):
             col = cid % inner_cols + 1
             row = cid // inner_cols + 1
             grid[(col, row)] = corner[0]   # shape (2,)
 
         # 2. Interiores estimados (ocultos)
-        for corner, cid in zip(result["estimated_interior"], result["estimated_interior_ids"]):
+        for corner, cid in zip(results["estimated_interior"], results["estimated_interior_ids"]):
             col = cid % inner_cols + 1
             row = cid // inner_cols + 1
             grid[(col, row)] = corner[0]   # shape (2,)
 
         # 3. Exteriores
-        for corner, (col, row) in zip(result["exterior_corners"], result["exterior_ids"]):
+        for corner, (col, row) in zip(results["exterior_corners"], results["exterior_ids"]):
             grid[(col, row)] = corner[0]   # shape (2,)
-
-        # ── Construir arrays ordenados por new_id ─────────────────────────────
 
         unified_ids = []
         unified_corners = []
@@ -257,7 +255,7 @@ class ChessboardDetector:
         unified_corners = np.array(unified_corners, dtype=np.float32)  # (N, 2)
         unified_ids = np.array(
             unified_ids,     dtype=np.int32)    # (N,)
-        r = result.copy()
+        r = results.copy()
         tl = unified_corners[0]
         tr = np.array(unified_corners[cols - 1])
         bl = unified_corners[cols * (rows - 1)]

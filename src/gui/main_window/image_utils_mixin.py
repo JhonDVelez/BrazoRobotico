@@ -3,11 +3,12 @@
     al iniciar la interfaz se muestra un brazo, una cámara y unas gráficas estas imágenes son
     son gestionadas aquí asi como su comportamiento frente al cambio de tamaño de ventana y el tema.
 """
+from .main_theme_mixin import ThemeManager
+from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation
+from PyQt6.QtWidgets import QWidget, QLabel, QGraphicsOpacityEffect
+from PyQt6.QtGui import QPixmap, QResizeEvent, QImage
 import numpy as np
 import cv2
-from PyQt6.QtGui import QPixmap, QResizeEvent, QImage
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QWidget
 
 
 class ImageUtilsMixin(QWidget):
@@ -149,3 +150,88 @@ class ImageUtilsMixin(QWidget):
 
         # 4. Convertir de RGBA a BGR (formato estándar de OpenCV)
         return cv2.cvtColor(arr, cv2.COLOR_RGBA2BGR)
+
+
+class ToastLabel(QLabel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.setGraphicsEffect(QGraphicsOpacityEffect(self))
+        self.opacity = self.graphicsEffect()
+
+        self.anim = QPropertyAnimation(self.opacity, b"opacity")
+        self.anim.setDuration(300)
+
+        # 🔥 bandera para saber qué animación está corriendo
+        self.fading_out = False
+
+        # ✅ conectar UNA sola vez
+        self.anim.finished.connect(self.on_animation_finished)
+
+        self.timer = QTimer()
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.fade_out)
+
+        self.hide()
+
+        self.theme_manager = ThemeManager().get_instance()
+        self.theme_manager.theme_changed.connect(self.change_theme)
+
+    def show_message(self, text, duration=2000):
+        self.timer.stop()          # 🔥 importante
+        self.anim.stop()           # 🔥 importante
+
+        self.setText(text)
+        self.adjustSize()
+
+        if self.parent():
+            parent_rect = self.parent().rect()
+            self.move(
+                (parent_rect.width() - self.width()) // 2,
+                parent_rect.height() - self.height() - 20
+            )
+
+        self.fading_out = False
+
+        self.show()
+        self.raise_()
+
+        # Fade in
+        self.anim.setStartValue(0)
+        self.anim.setEndValue(1)
+        self.anim.start()
+
+        self.timer.start(duration)
+
+    def fade_out(self):
+        self.anim.stop()
+
+        self.fading_out = True
+
+        self.anim.setStartValue(1)
+        self.anim.setEndValue(0)
+        self.anim.start()
+
+    def on_animation_finished(self):
+        if self.fading_out:
+            self.hide()
+
+    def change_theme(self, dark_t: bool):
+        if dark_t:
+            self.setStyleSheet("""
+                QLabel {
+                    background-color: rgba(57.000, 61.000, 65.000, 1.000);
+                    color: white;
+                    border-radius: 10px;
+                    padding: 10px 20px;
+                }
+            """)
+        else:
+            self.setStyleSheet("""
+                QLabel {
+                    background-color: rgba(218.000, 220.000, 224.000, 1.000);
+                    color: rgba(77.000, 81.000, 87.000, 1.000);
+                    border-radius: 10px;
+                    padding: 10px 20px;
+                }
+            """)

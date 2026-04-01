@@ -38,8 +38,6 @@ class PoseEstimation:
 
         if charuco_results is not None:
             cam_pos, rvec, tvec, R = self.get_camera_pose(charuco_results)
-            cv2.drawFrameAxes(umat_drawn_frame, self.camera_matrix,
-                              self.dist_coeffs, rvec, tvec, 0.1)
             if cam_pos is not None and sphere_results is not None:
                 for color, (centro, radio, area) in sphere_results.items():
                     sphere = sphere_results[color]

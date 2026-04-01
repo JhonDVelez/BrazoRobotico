@@ -132,6 +132,17 @@ class SearchSignalManager:
             return self._charuco, self._sphere
 
 
+class CameraSelectionManager:
+
+    _instance = None
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+
 class GlobalTimer(QObject):
     # Pulso de sincronización
     sync_simulation_tick = pyqtSignal()

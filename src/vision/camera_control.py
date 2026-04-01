@@ -1,9 +1,12 @@
+import os
 import sys
 import numpy as np
 from typing import Optional
 import cv2
 from cv2_enumerate_cameras import enumerate_cameras
 from data import config_manager as cfg
+
+os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
 
 # Intentar habilitar OpenCL (UMat) si está disponible
 try:
@@ -34,23 +37,27 @@ class CameraControl:
             camera_config.get("distortion coefficients"))
 
         self.is_calibration = is_calibration
+        self.camera_index = 0
+
+    def set_camera_index(self, index: int):
+        print(index)
+        self.camera_index = index
 
     def camera_on(self) -> bool:
         """Enciende la cámara con configuración optimizada"""
         try:
             self.__release_camera()
 
-            cameras = enumerate_cameras(apiPreference=cv2.CAP_MSMF)
-            if not cameras:
-                raise IOError("No hay camaras disponibles.")
-            else:
-                camera_index = cameras[-1].index
-
-            # En Windows, MSMF + MJPG
             if sys.platform == "win32":
-                self.cap = cv2.VideoCapture(camera_index, cv2.CAP_MSMF)
-                self.cap.set(cv2.CAP_PROP_FOURCC,
-                             cv2.VideoWriter_fourcc(*"MJPG"))
+                self.cap = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW,
+                                            params=(cv2.CAP_PROP_FRAME_WIDTH, self.default_width,
+                                                    cv2.CAP_PROP_FRAME_HEIGHT, self.default_height,
+                                                    cv2.CAP_PROP_FPS, self.default_fps,
+                                                    cv2.CAP_PROP_AUTO_WB, 1,
+                                                    cv2.CAP_PROP_BITRATE, 18500,
+                                                    cv2.CAP_PROP_HW_ACCELERATION, cv2.VIDEO_ACCELERATION_D3D11,
+                                                    cv2.CAP_PROP_HW_ACCELERATION_USE_OPENCL, 1,
+                                                    cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG")))
 
             # En Linux, usamos V4L2
             elif sys.platform == "linux":
@@ -58,12 +65,6 @@ class CameraControl:
 
             if not self.cap or not self.cap.isOpened():
                 raise IOError("No se pudo abrir la cámara")
-
-            # Ajustamos resolución y FPS preferidos.
-            # La cámara puede no respetar valores exactos, pero con MJPG mejora throughput.
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.default_width)
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.default_height)
-            self.cap.set(cv2.CAP_PROP_FPS, self.default_fps)
 
             self.camera_ready = True
             return True

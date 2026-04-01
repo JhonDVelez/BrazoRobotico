@@ -71,8 +71,8 @@ class CameraWorker(QThread):
         data = cfg.get("camera.json", "chessboard")
         x = data["x"]
         y = data["y"]
-        self.camera_index = camera_index
         self.camera_chess_board = CameraChessBoard((y, x))
+        self.camera_chess_board.set_camera_index(camera_index)
         self.pose_estimation = PoseEstimation(
             self.camera_chess_board.charuco_board)
 
@@ -85,6 +85,11 @@ class CameraWorker(QThread):
         self._lock = threading.Lock()
 
         self.is_calibration = is_calibration
+
+    def set_camera_index(self, index: int):
+        if hasattr(self, "camera_chess_board"):
+            print(f"worker: {index}")
+            self.camera_chess_board.set_camera_index(index)
 
     def run(self):
         try:

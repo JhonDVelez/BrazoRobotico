@@ -67,6 +67,37 @@ class KinematicsWidget(QWidget):
         self.kinematics_worker.commands_ready.connect(self._update_status)
         self.kinematics_worker.start()
 
+    def set_horizontal_layout(self):
+        # Guardar referencias (ya las tienes como atributos)
+        labels = [self.label_x, self.label_y, self.label_z]
+        spins = [self.spin_box_1, self.spin_box_2, self.spin_box_3]
+
+        # Limpiar layout actual
+        while self.container.count():
+            item = self.container.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.setParent(None)
+
+        # Reorganizar: labels en fila 0, spinboxes en fila 1
+        for col in range(3):
+            self.container.addWidget(labels[col], 0, col)
+            self.container.addWidget(spins[col], 1, col)
+
+    def set_vertical_layout(self):
+        labels = [self.label_x, self.label_y, self.label_z]
+        spins = [self.spin_box_1, self.spin_box_2, self.spin_box_3]
+
+        while self.container.count():
+            item = self.container.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.setParent(None)
+
+        for row in range(3):
+            self.container.addWidget(labels[row], row, 0)
+            self.container.addWidget(spins[row], row, 1)
+
     def setup_connections(self):
         self.coordinates_button.clicked.connect(self.execute_kinematics)
 
@@ -95,9 +126,9 @@ class KinematicsWidget(QWidget):
             self.spin_box_3.value()
         )
 
-        # opcional: también podemos proporcionar una primera estimación rápida
+        # También podemos proporcionar una primera estimación rápida
         # para que los sliders muestren una posición razonable antes de recibir
-        # telemetría.  Usamos el método `ci` existente para ello.
+        # telemetría.
         best_q, error = self.kinematics_worker.ci(
             self.spin_box_1.value(), self.spin_box_2.value(), self.spin_box_3.value(), 0)
         q_deg = rad_to_deg(best_q.flatten())
@@ -108,7 +139,6 @@ class KinematicsWidget(QWidget):
             150.0,
             np.abs(q_deg[3] + 150.0),
             171]
-        # la actualización definitiva vendrá desde el slot _update_status
 
     @classmethod
     def get_kinematics_state(cls) -> list[int]:

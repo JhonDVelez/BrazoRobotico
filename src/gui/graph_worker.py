@@ -3,19 +3,24 @@
 """
 import numpy as np
 import pyqtgraph as pg
+from PyQt6.QtGui import QFont
 from PyQt6.QtCore import QThread, QTimer
-from data import SimulationSignalManager, PhysicalSignalManager, Domains
+from data import SimulationSignalManager, PhysicalSignalManager
+from .kinematics_worker import KinematicsWorker
+from .main_window.main_theme_mixin import ThemeManager
 
 
 class GraphWorker(QThread):
-    """ Hilo de procesamiento de los gráficos definiendo estructura, estilo, ubicación y 
+    """ Hilo de procesamiento de los gráficos definiendo estructura, estilo, ubicación y
         conexiones con los managers de señales.
     """
 
-    def __init__(self, display_window=1000):
+    def __init__(self, display_window: int = 1000, graphs_amount: int = 6):
         super().__init__()
         self.display_window = display_window
+        self.graphs_amount = graphs_amount
         self.is_paused = False
+
         self.__setup_ui()
         self.__setup_connections()
 
@@ -34,12 +39,23 @@ class GraphWorker(QThread):
 
         # Crear gráficos individuales
         self.motors = []
-        for i in range(6):
-            row = i // 2
-            col = i % 2
+
+        # Etiquetas por cantidad
+        labels = [f"motor {i+1}" for i in range(self.graphs_amount)]
+        if self.graphs_amount == 3:
+            labels = ["X", "Y", "Z"]
+
+        for i in range(self.graphs_amount):
+            if self.graphs_amount == 3:
+                row = i
+                col = 0
+            else:
+                row = i // 2
+                col = i % 2
+
             motor = upgradableGraph(
                 self.graph_widget,
-                f"motor {i+1}",
+                labels[i],
                 [row, col],
                 self.display_window
             )
@@ -60,18 +76,30 @@ class GraphWorker(QThread):
         self.update_timer.timeout.connect(self._process_buffer)
         self.update_timer.start()
 
-    def __setup_connections(self):
-        self.sim_signal_manager.update_graph_signal.connect(
-            self.sim_buffer_update)
-        self.phy_signal_manager.data_received.connect(
-            self.phy_buffer_update)
+        self.kinematics_worker = KinematicsWorker()
 
-    def sim_buffer_update(self, data):
+    def __setup_connections(self):
+        if self.graphs_amount == 6:
+            self.sim_signal_manager.update_graph_signal.connect(
+                self.sim_angular_buffer_update)
+            self.phy_signal_manager.data_received.connect(
+                self.phy_angular_buffer_update)
+        elif self.graphs_amount == 3:
+            self.sim_signal_manager.update_graph_signal.connect(
+                self.sim_cartesian_buffer_update)
+            self.phy_signal_manager.data_received.connect(
+                self.phy_cartesian_buffer_update)
+
+    def sim_angular_buffer_update(self, data):
+        if self.is_paused:
+            return
         data[1] *= -1
         data[2] *= -1
         self.sim_update_buffer.append(data)
 
-    def phy_buffer_update(self, pos_data, temp_data):
+    def phy_angular_buffer_update(self, pos_data, temp_data):
+        if self.is_paused:
+            return
         pos_data[0] -= 150
         pos_data[1] = -pos_data[1] + 150
         pos_data[2] = -pos_data[2] + 150
@@ -82,7 +110,36 @@ class GraphWorker(QThread):
         self.phy_update_buffer.append(pos_data)
         self.phy_temp_data.append(temp_data)
 
+    def sim_cartesian_buffer_update(self, data):
+        if self.is_paused:
+            return
+        data_rad = np.array([
+            np.deg2rad(data[0]),
+            np.deg2rad(-data[1]),
+            np.deg2rad(-data[2]),
+            np.deg2rad(data[4]),
+        ]).reshape((4, 1))
+        pos = self.kinematics_worker.cd(
+            data_rad[0, 0], data_rad[1, 0], data_rad[2, 0], data_rad[3, 0])
+        self.sim_update_buffer.append(pos)
+
+    def phy_cartesian_buffer_update(self, pos_data, temp_data):
+        if self.is_paused:
+            return
+        data_rad = np.array([
+            np.deg2rad(pos_data[0] - 150.0),
+            np.deg2rad(150.0 - pos_data[1]),
+            np.deg2rad(150.0 - pos_data[2]),
+            np.deg2rad(pos_data[4] - 150.0),
+        ]).reshape((4, 1))
+        cartesian_pos = self.kinematics_worker.cd(
+            data_rad[0, 0], data_rad[1, 0], data_rad[2, 0], data_rad[3, 0])
+        self.phy_update_buffer.append(cartesian_pos)
+        self.phy_temp_data.append(temp_data)
+
     def _process_buffer(self):
+        if self.is_paused:
+            return
 
         # Si no hay datos de ningún tipo
         if not self.sim_update_buffer and not self.phy_update_buffer:
@@ -129,10 +186,20 @@ class upgradableGraph:
     tipo osciloscopio para una señal doble (Sim + Físico).
     """
 
-    def __init__(self, graph_widget, title, pos, display_window=1000):
+    def __init__(self, graph_widget, title: str, pos, display_window: int = 1000):
         super().__init__()
         self.graph_widget = graph_widget
 
+        self.__setup_buffers(display_window)
+        self.__setup_plots(title, pos)
+        self.__setup_cursor()
+
+        self.theme_manager = ThemeManager().get_instance()
+        self.theme_manager.theme_changed.connect(self.theme_changed)
+
+    # --- Setup ----------------------------------------------------------------------------------
+
+    def __setup_buffers(self, display_window: int):
         # Parámetros de buffer
         self.buffer_size = 10000
         self.display_window = min(display_window, self.buffer_size)
@@ -144,17 +211,21 @@ class upgradableGraph:
 
         # Eje X fijo centrado (comportamiento osciloscopio)
         self.x_data = np.arange(
-            -self.display_window / 2,
-            self.display_window / 2,
+            -self.display_window,
+            0,
             dtype=np.float32
         )
 
         self.write_index = 0
         self.buffer_full = False
 
+    def __setup_plots(self, title, pos):
+        # Crea eje X con etiquetas personalizadas para que los valores de tiempo sean positivos
+        custom_x_axis = CustomAxisItem(orientation='bottom')
+
         # Crear plot
         self.plot_item = self.graph_widget.addPlot(
-            title=title, row=pos[0], col=pos[1])
+            title=title, row=pos[0], col=pos[1], axisItems={'bottom': custom_x_axis})
 
         # Configuraciones de funcionamiento
         # Se desconecta el boton de ajuste automatico
@@ -174,20 +245,56 @@ class upgradableGraph:
         )
 
         # Curvas independientes
-        pen_sim = pg.mkPen(color=(24, 201, 167), width=3)
-        pen_phy = pg.mkPen(color=(255, 100, 100), width=2)
+        pen_sim = pg.mkPen(color=(42, 176, 147), width=3)
+        pen_phy = pg.mkPen(color=(189, 89, 42), width=2)
 
         self.curve_sim = self.plot_item.plot(
             pen=pen_sim, skipFiniteCheck=True)
         self.curve_phy = self.plot_item.plot(
             pen=pen_phy, skipFiniteCheck=True)
 
-        # Texto cuando no hay señal
+        # Texto de indicador de temperatura del robot físico
         self.temp_text = pg.TextItem(self.temp_phy, anchor=(1, 0))
         self.plot_item.addItem(self.temp_text)
-
         self.plot_item.getViewBox().sigRangeChanged.connect(self._update_text_pos)
-        self._update_text_pos()  # Posición inicial
+        self._update_text_pos()
+
+    def __setup_cursor(self):
+        self.cursor_line = pg.InfiniteLine(
+            angle=90, movable=True)
+        self.plot_item.addItem(self.cursor_line)
+        self.cursor_label = pg.TextItem(fill=pg.mkBrush(120, 120, 120, 50))
+        font = QFont()
+        font.setBold(True)
+        font.setPixelSize(12)
+        self.cursor_label.setFont(font)
+        self.plot_item.addItem(self.cursor_label)
+        self.cursor_line.sigPositionChanged.connect(self.update_cursor)
+        self.cursor_line.setValue(-500)
+
+    # --- Actualizaciones visuales ----------------------------------------------------------------
+
+    def update_cursor(self):
+        x_val = self.cursor_line.value()
+        x_val = np.clip(x_val, self.x_data[0], self.x_data[-1])
+
+        real_x = self.x_data[np.argmin(np.abs(self.x_data - x_val))]
+        real_y = self.y_sim[int(self.write_index + x_val)]
+
+        [x_min, x_max], [y_min, y_max] = self.plot_item.getViewBox().viewRange()
+
+        # Calcular el ancho y alto visible actualmente
+        view_width = x_max - x_min
+        view_height = y_max - y_min
+
+        # Definir texto y orientación de la etiqueta
+        text = f"X: {-real_x:.1f}\nY: {real_y:.3f}"
+        self.cursor_label.setText(text)
+        self.cursor_label.setPos(real_x, np.clip(real_y, y_min, y_max))
+
+        # Aplicamos el anclaje dinámico
+        self.cursor_label.setAnchor((1 if real_x > x_max - (view_width * 0.15)
+                                    else 0, 0 if real_y > y_max - (view_height * 0.15) else 1))
 
     def _update_text_pos(self):
         vb = self.plot_item.getViewBox()
@@ -196,6 +303,8 @@ class upgradableGraph:
         x_pos = x_range[1]  # extremo derecho
         y_pos = y_range[1]  # extremo superior
         self.temp_text.setPos(x_pos, y_pos)
+
+    # --- Manejo de datos entrantes ---------------------------------------------------------------
 
     def add_phy(self, pos_value, temp_value):
         self.y_phy[self.write_index] = pos_value
@@ -210,6 +319,8 @@ class upgradableGraph:
             self.write_index = 0
             self.buffer_full = True
 
+        self.update_cursor()
+
     # Mostrar mensaje cuando no hay ejecución
     def show_no_data(self):
         self.curve_sim.clear()
@@ -220,7 +331,8 @@ class upgradableGraph:
         self.y_sim = np.zeros(self.buffer_size, dtype=np.float32)
         self.y_phy = np.zeros(self.buffer_size, dtype=np.float32)
 
-    # Actualización con desplazamiento lateral
+    # --- Actualización de datos en el plot -------------------------------------------------------
+
     def update_plot(self):
         """ Actualiza la visualización en modo roll
         """
@@ -243,6 +355,7 @@ class upgradableGraph:
 
                 self.curve_sim.setData(
                     x=self.x_data[x_offset:], y=y_sim_data)
+                # print(len(self.x_data[x_offset:]), len(y_sim_data))
                 self.curve_phy.setData(
                     x=self.x_data[x_offset:], y=y_phy_data)
 
@@ -284,7 +397,30 @@ class upgradableGraph:
         # Mantener eje centrado (efecto osciloscopio)
         vb = self.plot_item.getViewBox()
         vb.setXRange(
-            -self.display_window/2,
-            self.display_window/2,
+            -self.display_window,
+            0,
             padding=0
         )
+
+    # --- Manejo de tema --------------------------------------------------------------------------
+
+    def theme_changed(self, dark_t: bool):
+        if dark_t:
+            self.cursor_label.setColor(pg.mkColor(241, 57, 47))
+            self.cursor_line.setPen(
+                pg.mkPen(pg.mkColor(150, 150, 150), width=2))
+            self.cursor_line.setHoverPen(
+                pg.mkPen(pg.mkColor(241, 57, 47), width=2))
+        else:
+            self.cursor_label.setColor(pg.mkColor(0, 129, 219))
+            self.cursor_line.setPen(
+                pg.mkPen(pg.mkColor(150, 150, 150), width=2))
+            self.cursor_line.setHoverPen(
+                pg.mkPen(pg.mkColor(0, 129, 219), width=2))
+
+
+class CustomAxisItem(pg.AxisItem):
+    def tickStrings(self, values, scale, spacing):
+        # 'values' es la lista de puntos en X que pyqtgraph decide mostrar en ese momento
+        # Multiplicamos por -1 para hacerlos positivos y usamos :g para un formato limpio
+        return [f"{-v:g}" for v in values]

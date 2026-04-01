@@ -4,7 +4,6 @@
 from tabnanny import check
 
 from PyQt6.QtCore import pyqtSlot
-from numpy.random import chisquare
 from ..sliders_interface import SlidersWidget
 from data import SearchSignalManager
 from data import config_manager as cfg
@@ -141,7 +140,6 @@ class MainActionsMixin:
             self.contentSplitter.widget(1).widget(j).isVisible()
             for j in range(self.contentSplitter.widget(1).count())
         )
-
         has_both = visible_1 and visible_2
 
         self.contentSplitter.setHandleWidth(8 if has_both else 0)
@@ -167,8 +165,9 @@ class MainActionsMixin:
         """ Habilita o deshabilita la visualización del modelo 3D de QtQuick mediante la acción en 
             la barra de menu.
         """
-        self.hab_simulation = False
-        cfg.set_value("settings.json", "simulation", value=checked)
+        self.hab_simulation = checked
+        cfg.set_value("settings.json", "simulation",
+                      "activated", value=checked)
 
     @pyqtSlot(bool)
     def toggle_charuco_search(self, checked: bool):
@@ -179,6 +178,22 @@ class MainActionsMixin:
     def toggle_sphere_search(self, checked: bool):
         SearchSignalManager().get_instance().set_sphere(checked)
         cfg.set_value("settings.json", "camera", "sphere", value=checked)
+
+    def toggle_sliders_controls(self, checked: bool):
+        if checked:
+            self.slider_widget.show()
+            self.kinematics_widget.set_vertical_layout()
+        else:
+            self.slider_widget.hide()
+            self.kinematics_widget.set_horizontal_layout()
+        cfg.set_value('settings.json', "mode", 'sliders', value=checked)
+
+    def toggle_kinematics_controls(self, checked: bool):
+        if checked:
+            self.kinematics_widget.show()
+        else:
+            self.kinematics_widget.hide()
+        cfg.set_value('settings.json', "mode", 'kinematics', value=checked)
 
     def connect_robot(self):
         """ Inicia la colección con el microcontrolador en el puerto de comunicación seleccionado

@@ -38,6 +38,11 @@ class CameraChessBoard:
             board_size, aruco_dict, self.charuco_board, self.charuco_detector)
         self.camera = CameraControl()
 
+    def set_camera_index(self, index: int):
+        if hasattr(self, "camera"):
+            print(f"chess: {index}")
+            self.camera.set_camera_index(index)
+
     def camera_on(self):
         """ Enciende la camara"""
         return self.camera.camera_on()
@@ -76,7 +81,6 @@ class CameraChessBoard:
 
         drawn_image = frame
         if self.detect_results is not None and self.show_grid:
-            drawn_image = frame.copy()
             try:
                 drawn_image = self.detector.draw_grid(
                     drawn_image,

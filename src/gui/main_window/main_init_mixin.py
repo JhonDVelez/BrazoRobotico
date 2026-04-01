@@ -164,14 +164,21 @@ class MainInitMixin:
 
         self.camera_interface = CameraInterface(self)
         self.cameraBox.layout().addWidget(self.camera_interface)
-        # self.camera_interface.buttons_widget.hide()
 
     def init_controls(self):
         """ Inicializa la interfaz de controladores con sliders que indica el
            angulo objetivo de cada motor del robot
         """
         self.slider_widget = SlidersWidget(self)
-        self.controlsBox.layout().addWidget(self.slider_widget, 0, 0)
+        self.kinematics_widget = KinematicsWidget()
+        self.modes_widget = QWidget()
+        if not self.modes_widget.layout():
+            layout = QHBoxLayout(self.modes_widget)
+            layout.setContentsMargins(0, 0, 0, 0)
+            self.modes_widget.setLayout(layout)
+
+        self.modes_widget.layout().addWidget(self.slider_widget)
+        self.modes_widget.layout().addWidget(self.kinematics_widget)
 
         self.control_app_widget = QWidget()
         if not self.control_app_widget.layout():
@@ -209,13 +216,11 @@ class MainInitMixin:
         self.control_app_widget.layout().addWidget(self.stop_button)
         self.control_app_widget.layout().addWidget(self.reset_button)
 
-        self.controlsBox.layout().addWidget(self.control_app_widget, 1, 0)
+        self.controlsBox.layout().addWidget(self.modes_widget)
+        self.controlsBox.layout().addWidget(self.control_app_widget)
 
         self.pause_button.hide()
         self.stop_button.hide()
-
-        self.kinematics_widget = KinematicsWidget()
-        self.controlsBox.layout().addWidget(self.kinematics_widget, 0, 1)
 
     def init_simulation(self):
         """ Inicializa la interfaz de la simulación creando el layout y realizando ajustes para una

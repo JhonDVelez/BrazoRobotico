@@ -33,7 +33,9 @@ DEFAULTS: dict[str, dict] = {
             "graphs": True,
             "controls": True
         },
-        "simulation": True,
+        "simulation": {
+            "activated": True,
+        },
         "camera": {
             "charuco": False,
             "sphere": False,

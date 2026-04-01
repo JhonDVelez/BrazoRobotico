@@ -197,7 +197,8 @@ class RobotWorker(QThread):
 
             # Emitir snapshot con último estado conocido (copias para evitar mutación externa)
             self.sync_timer.sync_simulation_tick.emit()
-            self.signal_manager.data_received.emit(self._last_positions.copy(), self._last_temperaturas.copy())
+            self.signal_manager.data_received.emit(
+                self._last_positions.copy(), self._last_temperaturas.copy())
 
         except (serial.SerialException, OSError) as e:
             print(f"Error lectura (serial): {e}")

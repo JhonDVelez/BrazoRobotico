@@ -74,7 +74,9 @@ class MainThemeMixin:
             """)
         self.logo_label.setPixmap(self.laser_w)
         self.theme_action.setIcon(self.sun_icon)
-        self.graph_interface.graph_object.graph_widget.setBackground(
+        self.graph_interface.angular_graph_object.graph_widget.setBackground(
+            pg.mkColor((32, 33, 36)))
+        self.graph_interface.cartesian_graph_object.graph_widget.setBackground(
             pg.mkColor((32, 33, 36)))
 
     def load_light_theme(self):
@@ -103,7 +105,9 @@ class MainThemeMixin:
             """)
         self.logo_label.setPixmap(self.laser_b)
         self.theme_action.setIcon(self.moon_icon)
-        self.graph_interface.graph_object.graph_widget.setBackground(
+        self.graph_interface.angular_graph_object.graph_widget.setBackground(
+            pg.mkColor((248, 249, 250)))
+        self.graph_interface.cartesian_graph_object.graph_widget.setBackground(
             pg.mkColor((248, 249, 250)))
 
 
@@ -124,10 +128,3 @@ class ThemeManager(QObject):
 
     def emit_theme_change(self, dark_t: bool):
         self.theme_changed.emit(dark_t)
-
-    def set_color_scheme(self, color_scheme):
-        self.color_schemes = color_scheme
-        self.theme_map = {
-            "light": self.color_schemes.Light,
-            "dark": self.color_schemes.Dark
-        }

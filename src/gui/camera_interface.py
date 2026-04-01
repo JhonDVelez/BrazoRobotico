@@ -9,13 +9,12 @@ from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QPixmap, QIcon
 from gui.camera_worker import CameraWorker
 from gui.main_window.main_theme_mixin import ThemeManager
-from gui.main_window.image_utils_mixin import ImageUtilsMixin
+from gui.main_window.image_utils_mixin import ImageUtilsMixin, ToastLabel
 
 
 class CameraInterface(ImageUtilsMixin):
     """ Manejo del widget de video que muestra las imágenes de la cámara en un label de la interfaz
     """
-
 
     def __init__(self, parent, is_calibration: bool = False):
         super().__init__(parent=None)
@@ -31,6 +30,7 @@ class CameraInterface(ImageUtilsMixin):
         self._last_fps_update = 0
         self.theme_manager = ThemeManager.get_instance()
         self.is_calibration = is_calibration
+        self.camera_index = None
         self.__setup_ui()
         self.__setup_connections()
 
@@ -125,6 +125,10 @@ class CameraInterface(ImageUtilsMixin):
             __file__), "img", 'camera_b.png')
         self.pixmap = QPixmap(self.image_path_r)
 
+        self.toast = ToastLabel(self)
+        self.toast.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+
     def __setup_connections(self):
         """Configura las conexiones de eventos
         """
@@ -132,6 +136,9 @@ class CameraInterface(ImageUtilsMixin):
         self.grid_button.clicked.connect(self.toggle_grid)
         self.geometry_button.clicked.connect(self.toggle_geometry)
         self.theme_manager.theme_changed.connect(self.toggle_theme)
+
+    def set_camera_index(self, index: int | None):
+        self.camera_index = index
 
     def toggle_grid(self):
         """Alterna el dibujo de rejilla en el procesamiento de frames"""
@@ -185,8 +192,13 @@ class CameraInterface(ImageUtilsMixin):
             self.stop_video()
 
         try:
-            self.video_worker = CameraWorker(
-                is_calibration=self.is_calibration)
+            if self.camera_index is None:
+                self.toast.show_message(
+                    "No hay ninguna cámara seleccionada", 4000)
+                return
+
+            self.video_worker = CameraWorker(camera_index=self.camera_index,
+                                             is_calibration=self.is_calibration)
             self.camera_chess_board = self.video_worker.camera_chess_board
             self.camera_chess_board.show_grid = self.grid_enabled
 

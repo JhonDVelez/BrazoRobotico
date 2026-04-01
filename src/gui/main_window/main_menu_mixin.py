@@ -1,13 +1,17 @@
 """ En este modulo se define el menu que se integrara a la barra de titulo y como se comporta.
 """
+from argparse import Action
 import os
+from collections import Counter
 from PyQt6.QtGui import QAction, QKeySequence, QIcon, QPixmap, QActionGroup
-from PyQt6.QtWidgets import QMenuBar, QSizePolicy, QLabel, QStatusBar
+from PyQt6.QtWidgets import QMenuBar, QSizePolicy, QLabel, QStatusBar, QFrame
 from PyQt6.QtCore import Qt
 from serial.tools import list_ports
 from robot.openbotv_worker import RobotWorker
 from data import DataFlow
 from data import config_manager as cfg
+from cv2_enumerate_cameras import enumerate_cameras
+from .main_theme_mixin import ThemeManager
 
 
 class MainMenuMixin:
@@ -17,6 +21,9 @@ class MainMenuMixin:
     def __init__(self):
         self.robot_controller = None
         self.openbotv = None
+        self.last_cameras = None
+        self.last_com = None
+        self.last_camera_name = None
 
     def create_main_actions(self):
         """ Define las acciones que tendrá el menu asi como sus atajos, texto de la barra de estado
@@ -43,10 +50,10 @@ class MainMenuMixin:
             "mode": {
                 "sliders": ("sliders_action", "Sliders",
                             "Sliders", "Ctrl+a",
-                            "Mostrar/Ocultar controles con sliders", False),
+                            "Mostrar/Ocultar controles con sliders", True),
                 "kinematics": ("kinematics_action", "Cinemática",
                                "Cinemática", "Ctrl+s",
-                               "Mostrar/Ocultar controles de cinematica", False),
+                               "Mostrar/Ocultar controles de cinematica", True),
             }
         }
 
@@ -62,10 +69,10 @@ class MainMenuMixin:
         }
 
         mapping_simulation = {
-            "mode": {
-                "simulation": ("simulation_action", "Activar Simulación",
-                               "Activar Simulación", "Ctrl+y",
-                               "Activar/Desactivar simulación", True),
+            "simulation": {
+                "activated": ("simulation_action", "Activar Simulación",
+                              "Activar Simulación", "Ctrl+y",
+                              "Activar/Desactivar simulación", True),
             }
         }
 
@@ -96,18 +103,15 @@ class MainMenuMixin:
         self.moon_icon = QIcon(os.path.join(
             os.path.dirname(__file__), "..", "icons", "moon.png"))
 
-        theme = cfg.get("settings.json", "theme")
-        if theme.lower() == "dark":
-            self.theme_action = QAction(self.sun_icon, "", self)
-        elif theme.lower() == "light":
-            self.theme_action = QAction(self.moon_icon, "", self)
+        self.theme_action = QAction("", self)
         self.theme_action.setShortcut(QKeySequence("Ctrl+t"))
         self.theme_action.setStatusTip("Cambiar tema")
 
         self.connect_action = QAction("Conectar", self)
         self.connect_action.setEnabled(False)
 
-        # self.com_select_action = QAction()
+        self.theme_manager = ThemeManager().get_instance()
+        self.theme_manager.theme_changed.connect(self.change_theme)
 
     def create_main_menu(self):
         """ Define la estructura del menu y submenus basado en las acciones definidas.
@@ -139,12 +143,17 @@ class MainMenuMixin:
         self.vista_menu.addAction(self.controls_action)
 
         self.camera_menu = self.menu_bar.addMenu("&Cámara")
+        self.cameras_submenu = self.camera_menu.addMenu(
+            "&Entradas de video")
+        self.cameras_group = QActionGroup(self)
+        self.cameras_group.setExclusive(True)
         self.camera_menu.addAction(self.charuco_action)
         self.camera_menu.addAction(self.sphere_action)
         self.camera_menu.addAction(self.camera_calibration_action)
 
         self.mode_menu = self.menu_bar.addMenu("&Modo")
         self.mode_menu.addAction(self.sliders_action)
+        self.mode_menu.addAction(self.kinematics_action)
 
         self.simulation_menu = self.menu_bar.addMenu("&Simulación")
         self.simulation_menu.addAction(self.simulation_action)
@@ -154,6 +163,7 @@ class MainMenuMixin:
         self.com_group = QActionGroup(self)
         self.com_group.setExclusive(True)
         self.get_com_ports()
+        self.get_cameras()
         self.robot_menu.addAction(self.connect_action)
 
         self.menu_bar.setSizePolicy(
@@ -166,6 +176,13 @@ class MainMenuMixin:
             submenu para que el usuario seleccione el puerto del microcontrolador del robot
         """
         available_ports = list_ports.comports()
+        available_com = [(port.device, port.description)
+                         for port in available_ports]
+
+        if self.last_com is not None and Counter(self.last_com) == Counter(available_com):
+            return
+
+        self.last_com = available_com
 
         # limpiar menú y grupo
         self.com_submenu.clear()
@@ -194,7 +211,7 @@ class MainMenuMixin:
             self.com_submenu.setEnabled(False)
             self.com = None
             self._stop_threads()
-            self.com_connected_label.setText("No conectado")
+            self.com_connected_label.setText("Micro no conectado")
 
     def com_checkable_change(self, checked):
         """ Detecta cuando se selecciona un puerto de comunicación serial COM y en caso de que este
@@ -215,6 +232,46 @@ class MainMenuMixin:
                 not getattr(self, "robot_controller", None) and
                     not self.stopped):
                 self.connect_action.setEnabled(True)
+
+    def get_cameras(self):
+        available_cameras = enumerate_cameras(apiPreference=1400)
+        available_cams = [(cam.name)
+                          for cam in available_cameras]
+
+        if self.last_cameras is not None and Counter(self.last_cameras) == Counter(available_cams):
+            return
+
+        self.last_cameras = available_cams
+
+        self.cameras_submenu.clear()
+        for action in list(self.cameras_submenu.actions()):
+            self.cameras_submenu.removeAction(action)
+
+        if available_cameras:
+            self.cameras_submenu.setEnabled(True)
+            for cam in available_cameras:
+                cam_action = self.cameras_submenu.addAction(cam.name)
+                cam_action.setCheckable(True)
+                cam_action.setData([cam.index, cam.name])
+                cam_action.setStatusTip(f"Conectar a camara {cam.name}")
+                self.cameras_group.addAction(cam_action)
+                cam_action.triggered.connect(self.camera_checkable_change)
+
+                if self.last_camera_name == cam.name:
+                    cam_action.setChecked(True)
+        else:
+            self.cameras_submenu.setEnabled(False)
+            if hasattr(self, "camera_interface"):
+                self.camera_interface.stop_video()
+
+        if not self.cameras_group.checkedAction() and hasattr(self, "camera_interface"):
+            self.camera_interface.set_camera_index(None)
+
+    def camera_checkable_change(self, checked):
+        action = self.sender()
+        if action and checked:
+            self.camera_interface.set_camera_index(action.data()[0])
+            self.last_camera_name = action.data()[1]
 
     def _stop_threads(self):
         """ Detiene y elimina los hilos activos de forma segura
@@ -246,5 +303,15 @@ class MainMenuMixin:
             serial
         """
         status_bar = QStatusBar(self)
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.VLine)
+        status_bar.addPermanentWidget(self.camera_connected_label)
+        status_bar.addPermanentWidget(separator)
         status_bar.addPermanentWidget(self.com_connected_label)
         self.setStatusBar(status_bar)
+
+    def change_theme(self, dark_t: bool):
+        if dark_t:
+            self.theme_action.setIcon(self.sun_icon)
+        else:
+            self.theme_action.setIcon(self.moon_icon)

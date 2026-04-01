@@ -6,6 +6,7 @@ import sys
 import ctypes
 import time
 import cv2
+import traceback
 import pybullet as p
 import pybullet_data
 from PyQt6.QtGui import QGuiApplication, QPixmap, QFont, QIcon
@@ -285,5 +286,6 @@ if __name__ == '__main__':
         window.showMaximized()
         window.raise_()
         window.activateWindow()
+        window.check_handle_visibility()
         splash.finish(window)
     sys.exit(app.exec())

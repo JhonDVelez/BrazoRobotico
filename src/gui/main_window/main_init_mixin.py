@@ -10,11 +10,11 @@ from PyQt6.QtCore import QSize, Qt, QEvent, QTimer
 from data import Modes, Units, Domains
 from data import DataFlow
 from robot import RobotWorker
-from ..kinematics_interface import KinematicsWidget
 from ..camera_interface import CameraInterface
 from ..sliders_interface import SlidersWidget
 from ..simulation_interface import SimInterface
 from ..graph_interface import GraphInterface
+from ..kinematics_interface import KinematicsWidget
 
 
 class MainInitMixin:

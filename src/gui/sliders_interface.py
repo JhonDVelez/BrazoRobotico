@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QSizePolicy, QPushButton, QGridLayout, QLabel, QSlider
 from PyQt6.QtWidgets import QSpinBox, QVBoxLayout, QHBoxLayout
 from PyQt6.QtCore import Qt, QSize, pyqtSignal
-from data import Modes
+from data import Modes, PhysicalSignalManager, SimulationSignalManager
 
 
 class SlidersWidget(QWidget):
@@ -32,20 +32,27 @@ class SlidersWidget(QWidget):
         self.vertical_layout = QVBoxLayout(self)
         self.vertical_layout.setObjectName("verticalLayout")
 
-        # Widget con sliders y spinboxes
-        self.widget = QWidget(self)
+        # Holder que contendrá alternativamente los sliders o el panel cartesiano
+        self.controls_holder = QWidget(self)
+        self.controls_holder_layout = QVBoxLayout(self.controls_holder)
+        self.controls_holder_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Widget con sliders y spinboxes (hijo del holder)
+        self.widget = QWidget(self.controls_holder)
         self.widget.setObjectName("widget")
         self.container = QGridLayout(self.widget)
         self.container.setObjectName("gridLayout_3")
 
-        # Configuración de cada θ: (label, slider_min, slider_max, slider_val, spin_min, spin_max)
+        # Configuración de cada θ: (label, slider_min, slider_max)
+        # Los valores de slider están desplazados por 150 respecto al spinbox
+        # slider = spin + 150
         theta_config = [
-            ("θ1", 60,  240),
-            ("θ2", 60,  240),
-            ("θ3", 60,  240),
-            ("θ4", 60,  240),
-            ("θ5", 60,  240),
-            ("θ6", 38,  171)
+            ("θ1", 50, 250),   # spin: -100 .. 100
+            ("θ2", 60, 240),   # spin: -90  .. 90
+            ("θ3", 30, 270),   # spin: -120 .. 120
+            ("θ4", 50, 250),   # spin: -100 .. 100
+            ("θ5", 39, 270),   # spin: -111 .. 120
+            ("θ6", 38, 171)    # mantener igual
         ]
 
         label_names = ["label", "label_3", "label_4",
@@ -97,7 +104,20 @@ class SlidersWidget(QWidget):
 
             self.container.addWidget(group_widget, grid_row, grid_col)
 
-        self.vertical_layout.addWidget(self.widget)
+        # Importar dinámicamente el widget de cinemática y añadirlo al holder
+        try:
+            from gui.kinematics_interface import KinematicsWidget
+            self.kinematics_widget = KinematicsWidget()
+        except Exception:
+            self.kinematics_widget = None
+
+        # Añadir ambos al holder (se mostrará solo uno a la vez)
+        self.controls_holder_layout.addWidget(self.widget)
+        if self.kinematics_widget is not None:
+            self.controls_holder_layout.addWidget(self.kinematics_widget)
+            self.kinematics_widget.hide()
+
+        self.vertical_layout.addWidget(self.controls_holder)
 
         # Widget con botones
         self.buttons_widget = QWidget()
@@ -132,7 +152,7 @@ class SlidersWidget(QWidget):
         # Esto hace que se vean en la interfaz valores de -150 a 150 pero al robot se le envian
         # de 0 a 300
         self.slider_1.valueChanged.connect(
-            lambda value: self.spin_box_1.setValue(value - 150))
+                lambda value: self.spin_box_1.setValue(value - 150))
         self.spin_box_1.valueChanged.connect(
             lambda value: self.slider_1.setValue(value + 150))
 
@@ -184,6 +204,16 @@ class SlidersWidget(QWidget):
         self.pose_3_button.clicked.connect(self.set_pose_3)
         self.pose_4_button.clicked.connect(self.set_pose_4)
 
+        # Conectar recepción de cambio de modo desde los SignalManagers para ajustar la UI
+        try:
+            PhysicalSignalManager.get_instance().change_mode_signal.connect(self._on_mode_changed)
+        except Exception:
+            pass
+        try:
+            SimulationSignalManager.get_instance().change_mode_signal.connect(self._on_mode_changed)
+        except Exception:
+            pass
+
     def update_class_status(self):
         """ Actualiza los valores almacenados de los slider/spinBox (estan conectados)
         """
@@ -196,6 +226,21 @@ class SlidersWidget(QWidget):
             self.slider_5.value(),
             self.slider_6.value(),
         ]
+
+    def _on_mode_changed(self, mode):
+        """Muestra sliders en modo angular y panel cartesiano en modo cinemático."""
+        try:
+            from data import Modes
+            if mode is Modes.KINEMATIC:
+                if getattr(self, 'kinematics_widget', None) is not None:
+                    self.widget.hide()
+                    self.kinematics_widget.show()
+            else:
+                if getattr(self, 'kinematics_widget', None) is not None:
+                    self.kinematics_widget.hide()
+                    self.widget.show()
+        except Exception:
+            pass
 
     def reset_values(self):
         """ Regresa a su estado original los valores de los slider/spinBox (estan conectados)

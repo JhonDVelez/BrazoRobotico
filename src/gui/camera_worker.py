@@ -88,7 +88,6 @@ class CameraWorker(QThread):
 
     def set_camera_index(self, index: int):
         if hasattr(self, "camera_chess_board"):
-            print(f"worker: {index}")
             self.camera_chess_board.set_camera_index(index)
 
     def run(self):

@@ -42,7 +42,6 @@ class CircleEstimation:
 
     def get_all_circles(self, frame_umat: cv2.UMat, drawn_frame_umat: cv2.UMat, search_mask_corners: np.ndarray):
 
-        # print(search_mask_corners)
         if search_mask_corners is not None:
             mask = np.zeros(frame_umat.get().shape[:2], dtype="uint8")
             cv2.fillPoly(mask, [search_mask_corners], color=255)

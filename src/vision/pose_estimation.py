@@ -99,7 +99,6 @@ class PoseEstimation:
         puntos_undistorted = cv2.undistortPoints(
             punto_np, self.camera_matrix, self.dist_coeffs)
         x_prime, y_prime = puntos_undistorted[0, 0]
-        # print(pixel_point)
         # x_prime, y_prime
         # Vector de dirección del rayo en el sistema de coordenadas de la cámara
         d_cam = np.array([x_prime, y_prime, 1])

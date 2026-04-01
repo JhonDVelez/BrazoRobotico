@@ -40,7 +40,6 @@ class CameraControl:
         self.camera_index = 0
 
     def set_camera_index(self, index: int):
-        print(index)
         self.camera_index = index
 
     def camera_on(self) -> bool:

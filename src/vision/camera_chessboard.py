@@ -25,7 +25,6 @@ class CameraChessBoard:
 
         dictionary_id = cv2.aruco.DICT_6X6_250
         aruco_dict = cv2.aruco.getPredefinedDictionary(dictionary_id)
-        print(board_size)
         self.charuco_board = cv2.aruco.CharucoBoard(
             size=(12, 5),
             squareLength=0.03,
@@ -40,7 +39,6 @@ class CameraChessBoard:
 
     def set_camera_index(self, index: int):
         if hasattr(self, "camera"):
-            print(f"chess: {index}")
             self.camera.set_camera_index(index)
 
     def camera_on(self):

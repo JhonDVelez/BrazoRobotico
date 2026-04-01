@@ -343,7 +343,6 @@ class ChessboardDetector:
             pt = tuple(corner[0].astype(int))
             cv2.circle(vis, pt, self.dynamic_dot_size, (220, 60, 0), -1)
 
-        # print("new")
         physical_corners = results["physical_corners"]
         for corner, phy_corner in zip(corners.reshape(-1, 1, 2), physical_corners.reshape(-1, 1, 2)):
             corner = corner[0]

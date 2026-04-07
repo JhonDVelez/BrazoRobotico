@@ -56,8 +56,6 @@ class _SignalManager(QObject):
 class SimulationSignalManager(_SignalManager):
     """ SignalManager específico para simulación
     """
-    update_model_signal = pyqtSignal(list)
-
     _instance = None
 
     @classmethod
@@ -132,17 +130,6 @@ class SearchSignalManager:
             return self._charuco, self._sphere
 
 
-class CameraSelectionManager:
-
-    _instance = None
-
-    @classmethod
-    def get_instance(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-
 class GlobalTimer(QObject):
     # Pulso de sincronización
     sync_simulation_tick = pyqtSignal()
@@ -206,9 +193,6 @@ class GlobalTimer(QObject):
     def stop(self):
         if self._timer.isActive():
             self._timer.stop()
-
-    def is_running(self) -> bool:
-        return self._timer.isActive()
 
 
 def deg_to_rad(pos):

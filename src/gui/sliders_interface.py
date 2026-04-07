@@ -126,18 +126,6 @@ class SlidersWidget(QWidget):
         self.button_container = QGridLayout(self.buttons_widget)
         self.button_container.setObjectName("gridLayout")
 
-        button_config = [
-            ("pose_1_button", "Pose 1", 0, 0),
-            ("pose_2_button", "Pose 2", 0, 1),
-            ("pose_3_button", "Pose 3", 1, 0),
-            ("pose_4_button", "Pose 4", 1, 1),
-        ]
-
-        for attr, text, row, col in button_config:
-            btn = QPushButton(text, self.buttons_widget)
-            setattr(self, attr, btn)
-            self.button_container.addWidget(btn, row, col)
-
         # self.vertical_layout.addWidget(self.buttons_widget) # Agrega o quita los botones de pose
         self.setSizePolicy(QSizePolicy.Policy.Expanding,
                            QSizePolicy.Policy.Expanding)
@@ -152,7 +140,7 @@ class SlidersWidget(QWidget):
         # Esto hace que se vean en la interfaz valores de -150 a 150 pero al robot se le envian
         # de 0 a 300
         self.slider_1.valueChanged.connect(
-                lambda value: self.spin_box_1.setValue(value - 150))
+            lambda value: self.spin_box_1.setValue(value - 150))
         self.spin_box_1.valueChanged.connect(
             lambda value: self.slider_1.setValue(value + 150))
 
@@ -199,18 +187,14 @@ class SlidersWidget(QWidget):
         self.slider_6.valueChanged.connect(self.update_class_status)
         self.spin_box_6.valueChanged.connect(self.update_class_status)
 
-        self.pose_1_button.clicked.connect(self.set_pose_1)
-        self.pose_2_button.clicked.connect(self.set_pose_2)
-        self.pose_3_button.clicked.connect(self.set_pose_3)
-        self.pose_4_button.clicked.connect(self.set_pose_4)
-
         # Conectar recepción de cambio de modo desde los SignalManagers para ajustar la UI
         try:
             PhysicalSignalManager.get_instance().change_mode_signal.connect(self._on_mode_changed)
         except Exception:
             pass
         try:
-            SimulationSignalManager.get_instance().change_mode_signal.connect(self._on_mode_changed)
+            SimulationSignalManager.get_instance(
+            ).change_mode_signal.connect(self._on_mode_changed)
         except Exception:
             pass
 
@@ -289,54 +273,3 @@ class SlidersWidget(QWidget):
             self.slider_6.setValue(int(vals[5]))
         except Exception:
             pass
-
-    @classmethod
-    def set_sliders_state(cls) -> list[int]:
-        """ Metodo de clase que no requiere instancia de la clase para su ejecucion, 
-            encargada de cambiar los valores almacenados de los sliders
-        """
-        return cls.sliders_status
-
-    def set_pose_1(self):
-        """ Pose por defecto, se proporcionan los ángulos de los 6 motores, tener en cuenta que para
-            el spinbox el rango es de -150 a 150 mientras que para el slider es de 0 a 300
-        """
-        self.spin_box_1.setValue(-90)
-        self.spin_box_2.setValue(-30)
-        self.spin_box_3.setValue(-70)
-        self.spin_box_4.setValue(0)
-        self.spin_box_5.setValue(30)
-        self.spin_box_6.setValue(-60)
-
-    def set_pose_2(self):
-        """ Pose por defecto, se proporcionan los ángulos de los 6 motores, tener en cuenta que para
-            el spinbox el rango es de -150 a 150 mientras que para el slider es de 0 a 300
-        """
-        self.spin_box_1.setValue(-90)
-        self.spin_box_2.setValue(-40)
-        self.spin_box_3.setValue(-80)
-        self.spin_box_4.setValue(55)
-        self.spin_box_5.setValue(30)
-        self.spin_box_6.setValue(21)
-
-    def set_pose_3(self):
-        """ Pose por defecto, se proporcionan los ángulos de los 6 motores, tener en cuenta que para
-            el spinbox el rango es de -150 a 150 mientras que para el slider es de 0 a 300
-        """
-        self.spin_box_1.setValue(-40)
-        self.spin_box_2.setValue(-10)
-        self.spin_box_3.setValue(-44)
-        self.spin_box_4.setValue(-100)
-        self.spin_box_5.setValue(0)
-        self.spin_box_6.setValue(21)
-
-    def set_pose_4(self):
-        """ Pose por defecto, se proporcionan los ángulos de los 6 motores, tener en cuenta que para
-            el spinbox el rango es de -150 a 150 mientras que para el slider es de 0 a 300
-        """
-        self.spin_box_1.setValue(10)
-        self.spin_box_2.setValue(-60)
-        self.spin_box_3.setValue(-60)
-        self.spin_box_4.setValue(-70)
-        self.spin_box_5.setValue(33)
-        self.spin_box_6.setValue(70)

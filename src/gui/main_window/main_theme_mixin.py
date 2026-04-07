@@ -15,8 +15,6 @@ class MainThemeMixin:
     """ Mixin donde se gestionan los temas, colores, cambio entre claro y oscuro tanto de forma
         manual con el botón o de forma automática con el tema de windows.
     """
-    theme_change = pyqtSignal(str)
-
     actual_theme = None
 
     def update_theme(self, scheme: Qt.ColorScheme):
@@ -74,10 +72,10 @@ class MainThemeMixin:
             """)
         self.logo_label.setPixmap(self.laser_w)
         self.theme_action.setIcon(self.sun_icon)
-        self.graph_interface.angular_graph_object.graph_widget.setBackground(
-            pg.mkColor((32, 33, 36)))
-        self.graph_interface.cartesian_graph_object.graph_widget.setBackground(
-            pg.mkColor((32, 33, 36)))
+        # self.graph_interface.angular_graph_object.graph_widget.setBackground(
+        #     pg.mkColor((32, 33, 36)))
+        # self.graph_interface.cartesian_graph_object.graph_widget.setBackground(
+        #     pg.mkColor((32, 33, 36)))
 
     def load_light_theme(self):
         """ Modificaciones para el tema claro de qdarktheme.
@@ -105,10 +103,6 @@ class MainThemeMixin:
             """)
         self.logo_label.setPixmap(self.laser_b)
         self.theme_action.setIcon(self.moon_icon)
-        self.graph_interface.angular_graph_object.graph_widget.setBackground(
-            pg.mkColor((248, 249, 250)))
-        self.graph_interface.cartesian_graph_object.graph_widget.setBackground(
-            pg.mkColor((248, 249, 250)))
 
 
 class ThemeManager(QObject):
@@ -117,8 +111,6 @@ class ThemeManager(QObject):
     """
     _instance = None
     theme_changed = pyqtSignal(bool)
-    color_schemes = None
-    theme_map = None
 
     @classmethod
     def get_instance(cls):

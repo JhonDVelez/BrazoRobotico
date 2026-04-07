@@ -1,11 +1,6 @@
-from http.server import CGIHTTPRequestHandler
-import os
 import ctypes
 from ctypes import wintypes, cast, POINTER
-from ctypes.wintypes import MSG
-import win32gui
 import win32con
-import win32gui_struct
 from qframelesswindow import FramelessMainWindow
 from PyQt6.QtWidgets import QMessageBox, QVBoxLayout, QWidget, QLabel, QApplication
 from PyQt6.QtCore import QAbstractNativeEventFilter, QCoreApplication, QTimer, Qt
@@ -15,7 +10,6 @@ from data import SearchSignalManager
 from data import config_manager as cfg
 
 # os.environ["QT_LOGGING_RULES"] = "qt.qpa.window=false"
-DBT_DEVTYP_DEVICEINTERFACE = 0x00000005
 DBT_DEVTYP_PORT = 0x00000003
 
 
@@ -34,7 +28,6 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         self.stopped = True
         self.camera_paused = False
         self.hab_simulation = True
-        self.dark_theme = True
         self.theme_manager = ThemeManager.get_instance()
         self.com = None
         self.com_connected_label = QLabel("Micro no conectado")

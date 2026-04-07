@@ -1,6 +1,5 @@
 """ En este modulo se define el menu que se integrara a la barra de titulo y como se comporta.
 """
-from argparse import Action
 import os
 from collections import Counter
 from PyQt6.QtGui import QAction, QKeySequence, QIcon, QPixmap, QActionGroup
@@ -32,6 +31,7 @@ class MainMenuMixin:
         settings = cfg.get("settings.json")
 
         # Mapeamos el submenu para el menu vista
+        # id_key, json_key, (attr_name, label_show, label_hide, shortcut, status, is_checkable)
         mapping_vista = {
             "content":
             {
@@ -97,6 +97,26 @@ class MainMenuMixin:
                         action.setShortcut(QKeySequence(shortcut))
                         action.setStatusTip(status)
                         setattr(self, attr_name, action)
+
+        mapping_graphics = {
+            "grid": {
+                "show": True,
+                "div": {
+                    "time": 10,
+                    "angle": 10
+                },
+            },
+            "cursor": {
+                "cursor1": {
+                    "activated": True,
+                    "position": -100
+                },
+                "cursor2": {
+                    "activated": True,
+                    "position": -900
+                },
+            }
+        }
 
         self.sun_icon = QIcon(os.path.join(
             os.path.dirname(__file__), "..", "icons", "sun.png"))

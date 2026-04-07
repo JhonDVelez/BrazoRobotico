@@ -101,22 +101,6 @@ class RobotWorker(QThread):
             self.cm904 = None
             return
 
-        # Esperar respuesta con timeout
-        # timeout = 2.0
-        # start = time.time()
-        # try:
-        #     while not self.cm904.in_waiting:
-        #         if time.time() - start > timeout:
-        #             print("Timeout: el micro no respondió")
-        #             return
-        #         # time.sleep(0.001)
-        # except Exception as e:
-        #     print(f"Error comprobando in_waiting: {e}")
-        #     self.signal_manager.is_connected = False
-        #     self.cm904 = None
-        #     return
-
-        # Lectura robusta: ensamblar tramas fragmentadas usando un buffer
         try:
             timeout = 2.0
             start = time.time()
@@ -221,9 +205,6 @@ class RobotWorker(QThread):
         #     self.cm904 = None
         # except Exception as e:
         #     print(f"Error lectura: {e}")
-
-    def request_data(self):
-        self.signal_manager.get_data_signal.emit()
 
     def stop(self):
         self._running = False

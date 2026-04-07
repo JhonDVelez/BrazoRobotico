@@ -96,28 +96,3 @@ class CircleEstimation:
             cv2.circle(frame, c, 5, (0, 0, 255), -1)
             cv2.putText(frame, color, (c[0] - 20, c[1] - r - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-
-    def get_color_mask(self, frame: cv2.UMat):
-        # 1. Convertir a LAB para aislar el amarillo
-        # return self.segmentar_esfera_precision(original_frame)
-        lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
-
-        # 2. Separar canales
-        l, a, b = cv2.split(lab)
-
-        _, mask_yellow = cv2.threshold(b, 155, 255, cv2.THRESH_BINARY)
-
-        # 3. Limpieza morfológica (Elimina ruido de la sombra o reflejos)
-        kernel = np.ones((5, 5), np.uint8)
-        mask_yellow = cv2.morphologyEx(mask_yellow, cv2.MORPH_OPEN, kernel)
-        mask_yellow = cv2.morphologyEx(mask_yellow, cv2.MORPH_CLOSE, kernel)
-
-        # 4. Encontrar el círculo usando Hough o Contornos
-        # Usamos la máscara limpia para detectar bordes solo del objeto amarillo
-        edges = cv2.Canny(mask_yellow, 100, 200)
-
-        # Visualización (como en tu código original)
-        mask_bgr = cv2.cvtColor(mask_yellow, cv2.COLOR_GRAY2BGR)
-        edge_bgr = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
-
-        return mask_bgr

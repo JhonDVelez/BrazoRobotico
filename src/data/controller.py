@@ -40,8 +40,6 @@ class DataFlow(QThread):
 
     def __init__(self, mode: Modes, unit: Units, domain: Domains) -> None:
         super().__init__()
-        self.actual_pos = None  # Posición actual del robot simulación o físico
-        self.source_pos = None  # Posiciones deseadas de la fuente seleccionada
         self.mode = mode
         self.units = unit
         self.signal_manager = None

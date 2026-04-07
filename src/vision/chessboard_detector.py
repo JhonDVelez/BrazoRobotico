@@ -60,8 +60,6 @@ class ChessboardDetector:
         self.thickness = max(
             0.6, int(self.base_font_scale * thickness_base / font_scale_base)
         )
-        self.dot_size = int(self.font_scale * 4)
-        self.line_thickness = int(self.font_scale * 2)
 
         self.label_thickness = None
         self.dynamic_dot_size = None
@@ -124,7 +122,6 @@ class ChessboardDetector:
         # ── Grilla completa (interiores + exteriores) ──────────────────────────
         full_grid_3d, cols, rows = self._get_full_grid_corners(board)
         interior_set = self._get_interior_ids_set(board)
-        visible_ids = set(charuco_ids.flatten())
 
         # Proyectar TODA la grilla con la homografía
         grid_2d = full_grid_3d[:, :2].reshape(-1, 1, 2)

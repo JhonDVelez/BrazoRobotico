@@ -1,12 +1,10 @@
 """ Modulo donde se define el comportamiento de los botones presentes en la interfaz a excepción de
     los ubicados en la barra de menu.
 """
-from tabnanny import check
-
 from PyQt6.QtCore import pyqtSlot
-from ..sliders_interface import SlidersWidget
 from data import SearchSignalManager
 from data import config_manager as cfg
+from ..sliders_interface import SlidersWidget
 
 
 class MainActionsMixin:

@@ -1,8 +1,6 @@
-from PyQt6.QtWidgets import QVBoxLayout, QGridLayout, QSplitter, QGroupBox, QPushButton, QApplication
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QSizePolicy
-from PyQt6.QtGui import QIcon
-from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (
+    QVBoxLayout, QGridLayout, QPushButton, QApplication, QWidget, QHBoxLayout, QSizePolicy)
+from PyQt6.QtCore import QSize
 from qframelesswindow import FramelessMainWindow
 from .main_window import MainTitleBarMixin, CalibrationMenuMixin
 from .calibration_interface import CalibrationInterface

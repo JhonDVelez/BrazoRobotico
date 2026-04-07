@@ -12,7 +12,6 @@ class PhysicsWorker(QThread):
         super().__init__()
         self.target_position = [0, 0, 0, 0, 0, 0]
         self.target_position_prev = [1, 0, 0, 0, 0, 0]
-        self.model_ogl = None
         self.physic = None
         self.timer = None
         self._running = False
@@ -23,6 +22,7 @@ class PhysicsWorker(QThread):
         self.sync_timer = GlobalTimer.get_instance()
         self.sync_timer.update_tick.connect(self.update_simulation)
         self.sync_timer.model_tick.connect(self.update_3d_model)
+        self.sync_timer.sync_simulation_tick.connect(self.update_graphs)
         self.sync_timer.start()
 
         self.physic = RobotArmPhysics()
@@ -75,7 +75,7 @@ class PhysicsWorker(QThread):
                     self.target_position_prev = self.target_position
                 # Actualiza la simulation si la diferencia entre los ángulos objetivos y los ángulos
                 # actuales es mayor o igual a 0.01 rad o 0.573°
-                if any(abs(x - y) >= 0.001 for x, y in zip(self.target_position, self.physic.get_joint_positions())):
+                if any(abs(x - y) >= 0.0005 for x, y in zip(self.target_position, self.physic.get_joint_positions())):
                     self.physic.step_simulation()
 
     @pyqtSlot()
@@ -87,17 +87,24 @@ class PhysicsWorker(QThread):
             self.signal_manager.model_position_signal.emit(
                 self.physic.get_joint_positions())
 
+    @pyqtSlot()
+    def update_graphs(self):
+        """ Envía datos de posiciones a las gráficas cada 100ms
+        """
+        if self._running:
+            self.signal_manager.sensor_position_signal.emit(
+                self.physic.get_joint_positions())
+
     @pyqtSlot(list)
     def update_target(self, target_position):
-        """ Actualiza los ángulos objetivos de la simulación y envía datos al modelo 3D y las 
-            gráficas
+        """ Actualiza los ángulos objetivos de la simulación y envía datos al modelo 3D
 
         Args:
             target_position (list): Lista de 6 posiciones con los ángulos objetivos en radianes
         """
         # print(self._elapsed.restart()) # Mostrar cada cuanto se entra en la función
-        # Envia datos al modelo 3D y la grafica
-        self.signal_manager.sensor_position_signal.emit(
+        # Envia datos al modelo 3D
+        self.signal_manager.model_position_signal.emit(
             self.physic.get_joint_positions())
 
         self.target_position = [

@@ -61,6 +61,26 @@ DEFAULTS: dict[str, dict] = {
         ],
         "chessboard": {"x": 5, "y": 12},
     },
+    "graphics.json": {
+        "grid": {
+            "show": True,
+            "div": {
+                "time": 10,
+                "angle": 10,
+                "position": 50,
+            },
+        },
+        "cursor": {
+            "cursor1": {
+                "activated": True,
+                "position": -100,
+            },
+            "cursor2": {
+                "activated": True,
+                "position": -900,
+            },
+        }
+    }
 }
 
 

@@ -19,8 +19,6 @@ class RobotArmPhysics(QWidget):
         self.joint_indices = []
         self.joint_names = []
         self.joint_positions = []
-        self.joint_velocities = []
-        self.initial_states = []
         self.robot_id = None
 
     def get_robot_id(self) -> int:
@@ -81,13 +79,3 @@ class RobotArmPhysics(QWidget):
             # Solo considerar articulaciones móviles (revolute o prismatic)
             if joint_type in [p.JOINT_REVOLUTE, p.JOINT_PRISMATIC]:
                 self.joint_indices.append(i)
-
-    def reset_simulation(self):
-        """ Borra los modelos del robot y el suelo para quitar la carga gráfica por completo.
-        """
-        p.resetJointState(self.robot_id, 1, 0)
-        p.resetJointState(self.robot_id, 2, 0)
-        p.resetJointState(self.robot_id, 3, 0)
-        p.resetJointState(self.robot_id, 4, 0)
-        p.resetJointState(self.robot_id, 5, 0)
-        p.resetJointState(self.robot_id, 6, 0)

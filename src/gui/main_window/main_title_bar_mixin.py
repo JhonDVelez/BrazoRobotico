@@ -107,8 +107,3 @@ class MainTitleBarMixin(TitleBarBase):
         """
         super().resizeEvent(event)
         QTimer.singleShot(0, self._balance_widths)
-
-    def set_title(self, title):
-        """ Método para cambiar el título
-        """
-        self.title_label.setText(title)

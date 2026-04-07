@@ -81,7 +81,6 @@ class CameraWorker(QThread):
 
         self._running = True
         self._paused = False
-        self._busy = False
         self._lock = threading.Lock()
 
         self.is_calibration = is_calibration
@@ -127,14 +126,10 @@ class CameraWorker(QThread):
             self.camera_chess_board.camera_off()
 
     def _emit_frame_ready(self, frame: np.ndarray):
-        with self._lock:
-            self._busy = False
         if frame is not None:
             self.frame_ready.emit(frame)
 
     def _emit_error(self, msg: str):
-        with self._lock:
-            self._busy = False
         self.error_occurred.emit(msg)
 
     def stop(self):

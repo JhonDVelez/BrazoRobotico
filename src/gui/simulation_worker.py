@@ -10,7 +10,6 @@ class SimWorker(QThread):
 
     def __init__(self, root_object, robot_id):
         super().__init__()
-        self.hwnd = None
         self.timer = None
         self.root_object = root_object
         self.joint_names = [

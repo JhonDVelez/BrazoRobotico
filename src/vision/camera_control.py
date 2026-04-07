@@ -117,13 +117,6 @@ class CameraControl:
                 pass
             self.cap = None
 
-    def toggle_camera(self):
-        """Alterna el estado de la cámara"""
-        if self.camera_is_on():
-            self.camera_off()
-        else:
-            self.camera_on()
-
     def apply_division_trick(self, img):
         """ El truco de la división: Esta es la forma más agresiva de "ignorar" una sombra.
             Al dividir la imagen por una versión muy borrosa de sí misma, se elimina la zona

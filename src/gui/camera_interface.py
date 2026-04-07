@@ -22,12 +22,8 @@ class CameraInterface(ImageUtilsMixin):
         self.video_worker = None
         self.camera_chess_board = None
         self.process_running = False
-        self.app_running = None
         self.grid_enabled = False
         self.geometry_enabled = False
-        self.fps = 0
-        self._frame_count = 0
-        self._last_fps_update = 0
         self.theme_manager = ThemeManager.get_instance()
         self.is_calibration = is_calibration
         self.camera_index = None

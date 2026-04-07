@@ -128,7 +128,7 @@ class KinematicsWorker(QThread):
             # forzar cálculo inmediato con la última telemetría disponible
             self.update_sensor_data(self.current_positions)
 
-    def update_sensor_data(self, positions, temps=None):
+    def update_sensor_data(self, positions):
         """Slot conectado a PhysicalSignalManager.data_received. Cada vez que
            el microcontrolador envía una traza de posiciones se recalcula el
            siguiente comando en caso de haber un objetivo definido.

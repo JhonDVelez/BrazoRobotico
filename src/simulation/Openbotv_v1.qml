@@ -221,7 +221,7 @@ Node {
                             }
                             Node {
                                 id: endEffectorTip
-                                position: Qt.vector3d(5, 157, 0)
+                                position: Qt.vector3d(-3.3, 152.2, 0.83)
 
                                 // Punto visible en la punta
                                 Model {

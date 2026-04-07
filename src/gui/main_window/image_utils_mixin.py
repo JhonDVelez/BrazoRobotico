@@ -130,27 +130,6 @@ class ImageUtilsMixin(QWidget):
         # 5. Convertir a QPixmap
         return QPixmap.fromImage(q_img)
 
-    @classmethod
-    def qpixmap_a_numpy(cls, pixmap):
-        """ Convierte un QPixmap de PyQt6 a un array de OpenCV (numpy BGR).
-        """
-        # 1. Convertir QPixmap a QImage
-        qimg = pixmap.toImage()
-
-        # 2. Convertir QImage a formato RGBA8888 para asegurar compatibilidad
-        qimg = qimg.convertToFormat(QImage.Format.Format_RGBA8888)
-
-        width = qimg.width()
-        height = qimg.height()
-
-        # 3. Obtener los bits de la imagen y convertirlos a un array de NumPy
-        ptr = qimg.bits()
-        ptr.setsize(height * width * 4)
-        arr = np.array(ptr).reshape(height, width, 4)  # RGBA
-
-        # 4. Convertir de RGBA a BGR (formato estándar de OpenCV)
-        return cv2.cvtColor(arr, cv2.COLOR_RGBA2BGR)
-
 
 class ToastLabel(QLabel):
     def __init__(self, parent=None):

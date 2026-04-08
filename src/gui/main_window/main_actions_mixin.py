@@ -150,6 +150,7 @@ class MainActionsMixin:
         """
         from ..calibration_window import CameraCalibrationWindow
 
+        self.clear_camera_selection()
         self.camera_interface.stop_video()
 
         self.calibration_window = CameraCalibrationWindow()

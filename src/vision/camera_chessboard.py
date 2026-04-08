@@ -23,7 +23,7 @@ class CameraChessBoard:
         self.show_phys = True
         self.is_calibration = is_calibration
 
-        dictionary_id = cv2.aruco.DICT_6X6_250
+        dictionary_id = cv2.aruco.DICT_4X4_50
         aruco_dict = cv2.aruco.getPredefinedDictionary(dictionary_id)
         self.charuco_board = cv2.aruco.CharucoBoard(
             size=(12, 5),
@@ -35,7 +35,7 @@ class CameraChessBoard:
 
         self.detector = ChessboardDetector(
             board_size, aruco_dict, self.charuco_board, self.charuco_detector)
-        self.camera = CameraControl()
+        self.camera = CameraControl(is_calibration)
 
     def set_camera_index(self, index: int):
         if hasattr(self, "camera"):

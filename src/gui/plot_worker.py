@@ -22,13 +22,14 @@ class upgradableGraph:
 
         # Parámetros de escala
         self.x_scale = 10.0  # s/div (10 segundos por división)
+        # unidades por división (se establecerá según el tipo de gráfico)
         self.y_scale = 1.0
         self.grid_visible = True
 
         self.__setup_buffers(display_window)
         self.__setup_plots(y_range, title, pos)
 
-        self.cursor = PlotCursor(self.plot_item, self.display_window)
+        self.cursor = PlotCursor(self.plot_item)
         self.cursor_line = self.cursor.get_cursor_line()
         self.cursor_label = self.cursor.get_cursor_label()
 
@@ -41,14 +42,21 @@ class upgradableGraph:
     # --- Setup ----------------------------------------------------------------------------------
 
     def __setup_buffers(self, display_window: int):
+        # Parámetros de buffer
         self.buffer_size = 10000
         self.display_window = min(display_window, self.buffer_size)
 
+        # Buffers independientes
         self.y_sim = np.zeros(self.buffer_size, dtype=np.float32)
         self.y_phy = np.zeros(self.buffer_size, dtype=np.float32)
         self.temp_phy = ""
 
-        self.x_data = np.arange(-self.display_window, 0, dtype=np.float32)
+        # Eje X fijo centrado (comportamiento osciloscopio)
+        self.x_data = np.arange(
+            -self.display_window,
+            0,
+            dtype=np.float32
+        )
 
         self.write_index = 0
         self.buffer_full = False
@@ -61,17 +69,23 @@ class upgradableGraph:
             layout.setSpacing(0)
             self.graph_widget.setLayout(layout)
 
-        plot_item = pg.PlotItem(title=title)
+        # Inyectar el eje personalizado
+        self.x_axis = TimeAxisItem(orientation='bottom')
+        plot_item = pg.PlotItem(title=title, axisItems={'bottom': self.x_axis})
+
         self.plot_widget = pg.PlotWidget(plotItem=plot_item)
         self.plot_widget.setViewportMargins(5, 0, 5, 0)
         self.plot_item = self.plot_widget.getPlotItem()
         self.view_box = self.plot_item.getViewBox()
         layout.addWidget(self.plot_widget, pos[0], pos[1])
 
+        self.y_axis = self.plot_item.getAxis('left')
+
+        # Forzar que el arrastre del mouse sea solo pan, no zoom de eje X
         self.view_box.setMouseMode(pg.ViewBox.PanMode)
 
+        # Configuraciones de funcionamiento
         self.plot_item.autoBtn.clicked.disconnect()
-        self.plot_item.showGrid(x=True, y=True, alpha=0.5)
 
         # Optimizaciones del plot
         self.plot_item.setDownsampling(mode='peak')
@@ -79,35 +93,39 @@ class upgradableGraph:
         self.plot_item.enableAutoRange(axis='y', enable=False)
         self.plot_item.enableAutoRange(axis='x', enable=False)
         self.plot_item.setRange(
-            xRange=[-self.display_window, 0], yRange=y_range, padding=0.0)
+            xRange=[0, self.display_window],
+            yRange=y_range,
+            padding=0.0
+        )
         self.plot_item.setMenuEnabled(False)
-
         self.view_box.sigRangeChanged.connect(self.fix_x_right_limit)
         self.view_box.sigRangeChanged.connect(self._save_y_view_state)
-
+        self.view_box.setXRange(-self.display_window, 0, padding=0)
         y_min, y_max = y_range
+        # Limitar el pan del mouse
         self.view_box.setLimits(xMin=-self.display_window,
                                 xMax=0, yMin=y_min, yMax=y_max)
         self.view_box.wheelEvent = lambda ev: ev.ignore()
 
-        self.x_axis = self.plot_widget.getAxis('bottom')
-        self.y_axis = self.plot_widget.getAxis('left')
-
-        # Curvas
+        # Curvas independientes
         pen_sim = pg.mkPen(color=(42, 176, 147), width=3)
         pen_phy = pg.mkPen(color=(189, 89, 42), width=2)
+
         self.curve_sim = self.plot_item.plot(pen=pen_sim, skipFiniteCheck=True)
         self.curve_phy = self.plot_item.plot(pen=pen_phy, skipFiniteCheck=True)
 
+        # Texto de indicador de temperatura
         self.temp_text = pg.TextItem(self.temp_phy, anchor=(1, 0))
         self.plot_item.addItem(self.temp_text)
         self.plot_item.getViewBox().sigRangeChanged.connect(self._update_text_pos)
-
         self._save_y_view_state(
             self.view_box, self.plot_item.getViewBox().viewRange())
         self._update_text_pos()
-        self.update_x_ticks(10)
-        self.update_y_ticks(50)
+
+        # --- REEMPLAZO DE LA GRID MANUAL ---
+        self.set_x_scale(10.0)  # Setea 10s/div y configura los ticks de X
+        # Setea 50 unidades/div y configura los ticks de Y
+        self.set_y_scale(50.0)
 
     # --- Actualizaciones visuales ----------------------------------------------------------------
 
@@ -122,8 +140,6 @@ class upgradableGraph:
         """Asegura que el rango X no exceda los límites permitidos sin deformar la escala."""
         x_range, _ = view_range
         x_min, x_max = x_range
-
-        # Mantiene el ancho exacto visible
         current_width = x_max - x_min
         needs_correction = False
 
@@ -144,53 +160,6 @@ class upgradableGraph:
             self.plot_item.showGrid(
                 x=self.grid_visible, y=self.grid_visible, alpha=0.5)
 
-    def update_x_ticks(self, s_per_div):
-        # Mantenemos la lógica de la grid para los ticks visuales formateados
-        visible_points = s_per_div * 100
-        major_step = s_per_div * 10
-        major_positions = np.arange(
-            0, self.display_window + major_step/2, major_step)
-        major_ticks = [(-pos, f"{pos*0.1:g}") for pos in major_positions]
-
-        num_minor_per_div = 10
-        minor_step = major_step / num_minor_per_div
-        minor_positions = []
-
-        for i in range(len(major_positions) - 1):
-            start = major_positions[i]
-            for j in range(1, num_minor_per_div):
-                pos = start + j * minor_step
-                if pos < self.display_window:
-                    minor_positions.append(pos)
-
-        minor_ticks = [(-pos, "") for pos in minor_positions]
-        self.x_axis.setTicks([major_ticks, minor_ticks])
-        self.view_box.setXRange(-visible_points, 0, padding=0)
-        self.plot_item.showGrid(x=self.grid_visible,
-                                y=self.grid_visible, alpha=0.5)
-
-    def update_y_ticks(self, units_per_div: float):
-        y_min, y_max = self.y_range
-        major_step = units_per_div
-        major_positions = np.arange(y_min, y_max + major_step/2, major_step)
-        major_ticks = [(pos, f"{pos:g}") for pos in major_positions]
-
-        num_minor_per_div = 10
-        minor_step = major_step / num_minor_per_div
-        minor_positions = []
-
-        for i in range(len(major_positions) - 1):
-            start = major_positions[i]
-            for j in range(1, num_minor_per_div):
-                pos = start + j * minor_step
-                if pos < y_max:
-                    minor_positions.append(pos)
-
-        minor_ticks = [(pos, "") for pos in minor_positions]
-        self.y_axis.setTicks([major_ticks, minor_ticks])
-        self.plot_item.showGrid(x=self.grid_visible,
-                                y=self.grid_visible, alpha=0.5)
-
     # --- Manejo de datos entrantes ---------------------------------------------------------------
 
     def add_phy(self, pos_value, temp_value):
@@ -205,8 +174,8 @@ class upgradableGraph:
             self.write_index = 0
             self.buffer_full = True
 
-        # ELIMINADO: self.cursor.update_data(...)
-        # Ya no bloqueamos el hilo de ingreso de datos.
+        self.cursor.update_data(self.x_data, self.y_sim,
+                                self.y_phy, self.write_index)
 
     def show_no_data(self):
         self.curve_sim.clear()
@@ -251,17 +220,17 @@ class upgradableGraph:
                 y_phy_data = self.y_phy[start_idx:self.write_index]
             else:
                 wrap_amount = self.display_window - self.write_index
-                y_sim_data = np.concatenate(
-                    [self.y_sim[-wrap_amount:], self.y_sim[:self.write_index]])
-                y_phy_data = np.concatenate(
-                    [self.y_phy[-wrap_amount:], self.y_phy[:self.write_index]])
+                y_sim_data = np.concatenate([
+                    self.y_sim[-wrap_amount:],
+                    self.y_sim[:self.write_index]
+                ])
+                y_phy_data = np.concatenate([
+                    self.y_phy[-wrap_amount:],
+                    self.y_phy[:self.write_index]
+                ])
 
             self.curve_sim.setData(self.x_data, y_sim_data)
             self.curve_phy.setData(self.x_data, y_phy_data)
-
-        # --- OPTIMIZACIÓN: Actualizamos el cursor solo al dibujar ---
-        self.cursor.update_data(self.x_data, self.y_sim,
-                                self.y_phy, self.write_index)
 
     # --- Manejo de tema --------------------------------------------------------------------------
 
@@ -282,7 +251,7 @@ class upgradableGraph:
             self.plot_widget.setBackground(pg.mkColor((248, 249, 250)))
 
     # --- Menú de contexto personalizado ----------------------------------------------------------
-    # ... (El código de tu menú se mantiene exactamente igual) ...
+
     def __setup_context_menu(self):
         self.plot_widget.setContextMenuPolicy(
             Qt.ContextMenuPolicy.CustomContextMenu)
@@ -307,8 +276,8 @@ class upgradableGraph:
         x_scale_menu.addSeparator()
         custom_x_action = x_scale_menu.addAction("Personalizado...")
         custom_x_action.triggered.connect(self._set_custom_x_scale)
-        menu.addSeparator()
 
+        menu.addSeparator()
         y_scale_menu = menu.addMenu("Escala Y (unidades/div)")
         if "motor" in self.title.lower():
             presets_y = [10, 20, 30, 50, 75, 100, 150]
@@ -323,8 +292,8 @@ class upgradableGraph:
         y_scale_menu.addSeparator()
         custom_y_action = y_scale_menu.addAction("Personalizado...")
         custom_y_action.triggered.connect(self._set_custom_y_scale)
-        menu.addSeparator()
 
+        menu.addSeparator()
         export_action = menu.addAction("Exportar datos")
         export_action.triggered.connect(self._export_data)
         menu.exec(self.plot_widget.mapToGlobal(pos))
@@ -334,17 +303,36 @@ class upgradableGraph:
         self.plot_item.showGrid(x=self.grid_visible,
                                 y=self.grid_visible, alpha=0.5)
 
+    # --- IMPLEMENTACIÓN DE SET_TICK_SPACING NATIVO ---
+
     def set_x_scale(self, s_per_div: float):
+        """Cambia la escala X usando el motor interno de pyqtgraph."""
         if s_per_div <= 0:
             return
-        self.update_x_ticks(s_per_div)
         self.x_scale = s_per_div
 
+        # 1 segundo = 10 puntos en X. Por lo tanto, el salto principal es (s_per_div * 10)
+        major_step = s_per_div * 10
+        minor_step = s_per_div  # Subdivisión visual
+
+        self.x_axis.setTickSpacing(major=major_step, minor=minor_step)
+
+        # Actualizar rango visible para mantener las 10 divisiones de ancho
+        visible_points = s_per_div * 100
+        self.view_box.setXRange(-visible_points, 0, padding=0)
+        self.plot_item.showGrid(x=self.grid_visible,
+                                y=self.grid_visible, alpha=0.5)
+
     def set_y_scale(self, units_per_div: float):
+        """Cambia la escala Y usando el motor interno de pyqtgraph."""
         if units_per_div <= 0:
             return
         self.y_scale = units_per_div
-        self.update_y_ticks(units_per_div)
+
+        major_step = units_per_div
+        minor_step = units_per_div / 10
+
+        self.y_axis.setTickSpacing(major=major_step, minor=minor_step)
         self._apply_y_scale()
 
     def _save_y_view_state(self, view_box, view_range):
@@ -378,6 +366,7 @@ class upgradableGraph:
         spinbox.setSuffix(" s")
         h_layout.addWidget(spinbox)
         layout.addLayout(h_layout)
+
         button_layout = QHBoxLayout()
         ok_button = QPushButton("OK")
         cancel_button = QPushButton("Cancelar")
@@ -402,6 +391,7 @@ class upgradableGraph:
         spinbox.setValue(int(self.y_scale))
         h_layout.addWidget(spinbox)
         layout.addLayout(h_layout)
+
         ok_button = QPushButton("OK")
         cancel_button = QPushButton("Cancelar")
         ok_button.clicked.connect(
@@ -420,6 +410,7 @@ class upgradableGraph:
         )
         if not file_path:
             return
+
         try:
             available_data = self.buffer_size if self.buffer_full else self.write_index
             if available_data == 0:
@@ -438,6 +429,7 @@ class upgradableGraph:
                     f.write("Tiempo (s),Simulación,Físico\n")
                     for row in data:
                         f.write(f"{row[0]:.1f},{row[1]:.4f},{row[2]:.4f}\n")
+
                 QMessageBox.information(
                     self.plot_widget, "Éxito", f"Datos exportados correctamente a:\n{file_path}")
 
@@ -462,19 +454,14 @@ class upgradableGraph:
 # --- Cursor personalizado para mediciones --------------------------------------------------------
 
 class PlotCursor:
-    def __init__(self, parent: pg.PlotItem, display_window: int = 1000) -> None:
+    def __init__(self, parent: pg.PlotItem) -> None:
         self.plot_item = parent
-        self.display_window = display_window
         self.view_box = parent.getViewBox()
         self.x_data = None
         self.y_sim = None
         self.y_phy = None
         self.write_index = None
         self.relative_pos = 0.5
-
-        # --- OPTIMIZACIÓN: Caché de la vista ---
-        self.current_view_range = [[-1000, 0], [-10, 10]]
-
         self.__setup_cursor()
 
     def get_cursor_line(self):
@@ -492,18 +479,11 @@ class PlotCursor:
         font.setPixelSize(12)
         self.cursor_label.setFont(font)
         self.cursor_line.sigPositionChanged.connect(self.update_cursor)
-
-        # Vinculamos la actualización del caché en lugar de recalcular por pixel
-        self.view_box.sigRangeChanged.connect(self._on_view_changed)
-
+        self.view_box.sigRangeChanged.connect(
+            self.adjust_cursor_on_range_change)
         self.cursor_line.setValue(init_pos)
         self.plot_item.addItem(self.cursor_line, ignoreBounds=True)
         self.plot_item.addItem(self.cursor_label, ignoreBounds=True)
-
-    def _on_view_changed(self, view_box, view_range):
-        """ Actualiza el caché de la vista y reajusta la posición relativa """
-        self.current_view_range = view_range
-        self.adjust_cursor_on_range_change()
 
     def update_data(self, x_data, y_sim, y_phy, write_index):
         self.x_data = x_data
@@ -513,7 +493,7 @@ class PlotCursor:
         self.update_cursor()
 
     def adjust_cursor_on_range_change(self):
-        x_min, x_max = self.current_view_range[0]
+        x_min, x_max = self.view_box.viewRange()[0]
         new_x = x_min + self.relative_pos * (x_max - x_min)
         self.cursor_line.blockSignals(True)
         self.cursor_line.setValue(new_x)
@@ -525,35 +505,36 @@ class PlotCursor:
             return
 
         x_val = self.cursor_line.value()
-        x_val = max(self.x_data[0], min(x_val, self.x_data[-1]))
+        x_val = np.clip(x_val, self.x_data[0], self.x_data[-1])
 
-        # Usar caché en vez de getViewBox().viewRange()
-        [x_min, x_max], [y_min, y_max] = self.current_view_range
-
+        x_min, x_max = self.view_box.viewRange()[0]
         if x_max > x_min:
             self.relative_pos = (x_val - x_min) / (x_max - x_min)
 
-        # --- OPTIMIZACIÓN O(1) de Numpy Argmin ---
-        idx = int(x_val + self.display_window)
+        real_x = self.x_data[np.argmin(np.abs(self.x_data - x_val))]
+        real_y_sim = self.y_sim[int(self.write_index + x_val)]
+        real_y_phy = self.y_phy[int(self.write_index + x_val)]
 
-        real_x = self.x_data[idx]
-
-        # Índices con protección del buffer circular mediante módulo
-        y_idx = int((self.write_index + x_val) % len(self.y_sim))
-        real_y_sim = self.y_sim[y_idx]
-        real_y_phy = self.y_phy[y_idx]
+        [x_min, x_max], [y_min, y_max] = self.plot_item.getViewBox().viewRange()
 
         view_width = x_max - x_min
         view_height = y_max - y_min
 
-        text = f"X: {-real_x:.1f}\nY sim: {real_y_sim:.2f}\nY phy: {real_y_phy:.2f}"
+        # MULTIPLICAMOS X POR -0.1 AQUÍ TAMBIÉN PARA QUE EL TEXTO COINCIDA CON LA ESCALA EN SEGUNDOS
+        text = f"X: {-real_x * 0.1:.1f} s\nY sim: {real_y_sim:.2f}\nY phy: {real_y_phy:.2f}"
+
         self.cursor_label.setText(text)
+        self.cursor_label.setPos(real_x, np.clip(real_y_sim, y_min, y_max))
 
-        # Mantener etiqueta dentro de los límites en Y
-        y_pos = max(min(real_y_sim, y_max), y_min)
-        self.cursor_label.setPos(real_x, y_pos)
+        self.cursor_label.setAnchor((1 if real_x > x_max - (view_width * 0.18)
+                                    else 0, 0 if real_y_sim > y_max - (view_height * 0.4) else 1))
 
-        # Anclaje Dinámico basado en caché
-        anchor_x = 1 if real_x > x_max - (view_width * 0.18) else 0
-        anchor_y = 0 if real_y_sim > y_max - (view_height * 0.4) else 1
-        self.cursor_label.setAnchor((anchor_x, anchor_y))
+
+# --- CLASE PARA EJE X (Transforma puntos a segundos y positivos) ---------------------------------
+
+
+class TimeAxisItem(pg.AxisItem):
+    def tickStrings(self, values, scale, spacing):
+        # Cada punto en X equivale a 0.1s (10 Hz).
+        # Multiplicamos por -0.1 para mostrar segundos positivos
+        return [f"{-v * 0.1:g}" for v in values]

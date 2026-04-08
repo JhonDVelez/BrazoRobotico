@@ -17,7 +17,7 @@ class CalibrationInterface(CameraInterface):
     def __init__(self, parent):
         super().__init__(parent, is_calibration=True)
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(
-            cv2.aruco.DICT_6X6_250)
+            cv2.aruco.DICT_4X4_50)
         self.board = cv2.aruco.CharucoBoard(
             size=(12, 5),        # Número de cuadros (ancho, alto)
             squareLength=0.03,  # Tamaño del lado del cuadrado (metros)
@@ -124,15 +124,23 @@ class CalibrationInterface(CameraInterface):
                     all_ids.append(charuco_ids)
 
                     # Feedback visual (presiona cualquier tecla para saltar a la siguiente foto más rápido)
-                    # cv2.drawChessboardCorners(
-                    #     img, dimensiones_tablero, esquinas_refinadas, ret)
-                    # cv2.imshow('Detectando...', img)
-                    # cv2.waitKey(500)
+                    cv2.drawChessboardCorners(
+                        img, [12, 5], charuco_corners, 1 if n else 0)
+                    cv2.imshow('Detectando...', img)
+                    cv2.waitKey(500)
+            print(f"Total de imágenes procesadas: {len(self._temporal_files)}")
+            print(
+                f"Imágenes con suficientes corners (>=6): {len(all_corners)}")
             camera_matrix = None
             dist_coeffs = None
             if len(all_corners) >= 10:
-                _, camera_matrix, dist_coeffs, _, _ = self.calibrate(
+                ret, camera_matrix, dist_coeffs, _, _ = self.calibrate(
                     all_corners, all_ids, image_size, self.board)
+                print(f"Error de reproyección: {ret}")
+                if ret > 1.0:  # Umbral arbitrario, ajustar según necesidad
+                    print("Error de reproyección alto, calibración posiblemente mala")
+                    self.show_popup()
+                    return
 
             if camera_matrix is None or dist_coeffs is None:
                 self.show_popup()
@@ -146,6 +154,13 @@ class CalibrationInterface(CameraInterface):
                           value=np.array(dist_coeffs).tolist())
             # cfg.set_value("camera.json", "rvecs", np.array(rvecs).tolist())
             # cfg.set_value("camera.json", "tvecs", np.array(tvecs).tolist())
+            # Limpiar archivos temporales
+            for file in self._temporal_files:
+                try:
+                    os.remove(file)
+                except OSError:
+                    pass
+            self._temporal_files.clear()
         except Exception as e:
             print(f"Error inesperado al leer el temporal: {e}")
             return
@@ -153,8 +168,14 @@ class CalibrationInterface(CameraInterface):
     def detect_corners(self, gray, board, aruco_dict):
         """Detecta corners ChArUco en una imagen en escala de grises."""
         params = cv2.aruco.DetectorParameters()
+
         detector = cv2.aruco.ArucoDetector(aruco_dict, params)
         marker_corners, marker_ids, _ = detector.detectMarkers(gray)
+
+        print(
+            f"Marcadores detectados: {len(marker_ids) if marker_ids is not None else 0}")
+        if marker_ids is not None:
+            print(f"IDs de marcadores: {marker_ids.flatten()}")
 
         if marker_ids is None or len(marker_ids) < 4:
             return None, None, 0
@@ -165,6 +186,11 @@ class CalibrationInterface(CameraInterface):
         )
 
         n = len(charuco_corners) if charuco_corners is not None else 0
+        print(f"Corners ChArUco detectados: {n}")
+        if charuco_corners is not None and n > 0:
+            print(f"Primeros 5 corners: {charuco_corners[:5].flatten()}")
+            print(
+                f"IDs ChArUco: {charuco_ids.flatten() if charuco_ids is not None else 'None'}")
         return charuco_corners, charuco_ids, n
 
     def calibrate(self, all_corners, all_ids, image_size, board):
@@ -186,10 +212,10 @@ class CalibrationInterface(CameraInterface):
     def show_popup(self):
         # Create a QMessageBox instance
         dlg = QMessageBox(self)
-        dlg.setWindowTitle("A Simple Pop-up")
-        dlg.setText("This is an informational message.")
+        dlg.setWindowTitle("Error de Calibración")
+        dlg.setText("No se pudo realizar la calibración. Verifica que el tablero ChArUco sea visible en las imágenes y que haya suficientes puntos detectados.")
         # Set standard buttons and icon
         dlg.setStandardButtons(QMessageBox.StandardButton.Ok)
-        dlg.setIcon(QMessageBox.Icon.Information)
+        dlg.setIcon(QMessageBox.Icon.Warning)
         # Execute the dialog (makes it modal and blocks interaction with the parent)
         dlg.exec()

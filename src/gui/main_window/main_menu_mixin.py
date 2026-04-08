@@ -258,7 +258,7 @@ class MainMenuMixin:
         available_cams = [(cam.name)
                           for cam in available_cameras]
 
-        if self.last_cameras is not None and Counter(self.last_cameras) == Counter(available_cams):
+        if self.last_cameras is not None and Counter(self.last_cameras) == Counter(available_cams) and self.cameras_submenu.actions():
             return
 
         self.last_cameras = available_cams
@@ -281,17 +281,36 @@ class MainMenuMixin:
                     cam_action.setChecked(True)
         else:
             self.cameras_submenu.setEnabled(False)
-            if hasattr(self, "camera_interface"):
-                self.camera_interface.stop_video()
+            interface = getattr(self, 'camera_interface', None) or getattr(
+                self, 'calibration_interface', None)
+            if interface:
+                interface.stop_video()
 
-        if not self.cameras_group.checkedAction() and hasattr(self, "camera_interface"):
-            self.camera_interface.set_camera_index(None)
+        if not self.cameras_group.checkedAction():
+            interface = getattr(self, 'camera_interface', None) or getattr(
+                self, 'calibration_interface', None)
+            if interface:
+                interface.set_camera_index(None)
 
     def camera_checkable_change(self, checked):
         action = self.sender()
         if action and checked:
-            self.camera_interface.set_camera_index(action.data()[0])
+            interface = getattr(self, 'camera_interface', None) or getattr(
+                self, 'calibration_interface', None)
+            if interface:
+                interface.set_camera_index(action.data()[0])
             self.last_camera_name = action.data()[1]
+
+    def clear_camera_selection(self):
+        self.last_camera_name = None
+        for action in self.cameras_group.actions():
+            action.setChecked(False)
+
+        interface = getattr(self, 'camera_interface', None) or getattr(
+            self, 'calibration_interface', None)
+        if interface:
+            interface.stop_video()
+            interface.set_camera_index(None)
 
     def _stop_threads(self):
         """ Detiene y elimina los hilos activos de forma segura

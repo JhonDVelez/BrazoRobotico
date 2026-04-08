@@ -1,18 +1,18 @@
 """ En este modulo se define el menu que se integrara a la barra de titulo y como se comporta.
 """
 import os
-from PyQt6.QtGui import QAction, QKeySequence, QIcon, QPixmap, QActionGroup
-from PyQt6.QtWidgets import QMenuBar, QSizePolicy, QLabel, QStatusBar
-from PyQt6.QtCore import Qt
-from serial.tools import list_ports
-from robot.openbotv_worker import RobotWorker
-from data import DataFlow
+from PyQt6.QtGui import QAction, QKeySequence, QActionGroup
+from PyQt6.QtWidgets import QMenuBar, QStatusBar
+from .main_menu_mixin import MainMenuMixin
 
 
-class CalibrationMenuMixin:
-    """ Mixin encargado de definir el menu para la ventana de calibracion, 
+class CalibrationMenuMixin(MainMenuMixin):
+    """ Mixin encargado de definir el menu para la ventana de calibración, 
         las acciones que hará y su comportamiento con estas
     """
+
+    def __init__(self):
+        super().__init__()
 
     def create_calibration_actions(self):
         """ Define las acciones que tendrá el menu asi como sus atajos, texto de la barra de estado
@@ -41,11 +41,12 @@ class CalibrationMenuMixin:
         self.menu_bar.setContentsMargins(0, 0, 0, 0)
         self.menu_bar.adjustSize()
 
-        self.vista_menu = self.menu_bar.addMenu("&Archivo")
-        self.vista_menu.addAction(self.open_action)
-        self.vista_menu.addAction(self.save_action)
-        self.vista_menu.addSeparator()
-        self.vista_menu.addAction(self.exit_action)
+        self.camera_menu = self.menu_bar.addMenu("&Cámara")
+        self.cameras_submenu = self.camera_menu.addMenu(
+            "&Entradas de video")
+
+        self.cameras_group = QActionGroup(self)
+        self.cameras_group.setExclusive(True)
 
     def create_status_bar(self):
         """ Crea la barra de estado y conecta la visualization del estado de conexión del puerto 

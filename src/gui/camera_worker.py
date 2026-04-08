@@ -71,7 +71,7 @@ class CameraWorker(QThread):
         data = cfg.get("camera.json", "chessboard")
         x = data["x"]
         y = data["y"]
-        self.camera_chess_board = CameraChessBoard((y, x))
+        self.camera_chess_board = CameraChessBoard((y, x), is_calibration)
         self.camera_chess_board.set_camera_index(camera_index)
         self.pose_estimation = PoseEstimation(
             self.camera_chess_board.charuco_board)

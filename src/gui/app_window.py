@@ -173,6 +173,8 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         if hasattr(self, 'connect_action'):
             self.connect_action.triggered.connect(self.connect_robot)
 
+        self.get_cameras()
+
     def closeEvent(self, event):
         """ Gestiona el evento de cerrado presentando una ventana para verificar la salida """
 

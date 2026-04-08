@@ -60,7 +60,7 @@ class CameraControl:
 
             # En Linux, usamos V4L2
             elif sys.platform == "linux":
-                self.cap = cv2.VideoCapture(camera_index, cv2.CAP_V4L2)
+                self.cap = cv2.VideoCapture(self.camera_index, cv2.CAP_V4L2)
 
             if not self.cap or not self.cap.isOpened():
                 raise IOError("No se pudo abrir la cámara")

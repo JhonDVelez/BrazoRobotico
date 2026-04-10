@@ -124,10 +124,11 @@ class CalibrationInterface(CameraInterface):
                     all_ids.append(charuco_ids)
 
                     # Feedback visual (presiona cualquier tecla para saltar a la siguiente foto más rápido)
-                    cv2.drawChessboardCorners(
-                        img, [12, 5], charuco_corners, 1 if n else 0)
-                    cv2.imshow('Detectando...', img)
-                    cv2.waitKey(500)
+                    # if charuco_corners is not None and charuco_ids is not None:
+                    #     cv2.aruco.drawDetectedCornersCharuco(
+                    #         img, charuco_corners, charuco_ids, (0, 255, 0))
+                    # cv2.imshow('Detectando...', img)
+                    # cv2.waitKey(500)
             print(f"Total de imágenes procesadas: {len(self._temporal_files)}")
             print(
                 f"Imágenes con suficientes corners (>=6): {len(all_corners)}")

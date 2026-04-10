@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (QWidget, QGridLayout, QMenu, QSpinBox, QLabel,
                              QVBoxLayout, QHBoxLayout, QDialog, QFileDialog, QMessageBox, QPushButton)
 from PyQt6.QtCore import Qt
 from .main_window.main_theme_mixin import ThemeManager
+from data import config_manager as cfg
 
 
 class upgradableGraph:
@@ -13,7 +14,8 @@ class upgradableGraph:
     tipo osciloscopio para una señal doble (Sim + Físico) con escalas configurables.
     """
 
-    def __init__(self, graph_widget: QWidget, title: str, pos: list, y_range: list, display_window: int = 1000):
+    def __init__(self, graph_widget: QWidget, title: str, pos: list, y_range: list,
+                 display_window: int = 1000, config: list = None):
         super().__init__()
         self.graph_widget = graph_widget
         self.title = title
@@ -24,10 +26,10 @@ class upgradableGraph:
         self.x_scale = 10.0  # s/div (10 segundos por división)
         # unidades por división (se establecerá según el tipo de gráfico)
         self.y_scale = 1.0
-        self.grid_visible = True
+        self.graph_index, self.graphic_type, init_scale, self.grid_visible = config
 
         self.__setup_buffers(display_window)
-        self.__setup_plots(y_range, title, pos)
+        self.__setup_plots(y_range, title, pos, init_scale)
 
         self.cursor = PlotCursor(self.plot_item)
         self.cursor_line = self.cursor.get_cursor_line()
@@ -61,7 +63,7 @@ class upgradableGraph:
         self.write_index = 0
         self.buffer_full = False
 
-    def __setup_plots(self, y_range: list, title, pos):
+    def __setup_plots(self, y_range: list, title, pos, init_scale: list[int] = [10, 50]):
         layout = self.graph_widget.layout()
         if layout is None:
             layout = QGridLayout(self.graph_widget)
@@ -123,9 +125,10 @@ class upgradableGraph:
         self._update_text_pos()
 
         # --- REEMPLAZO DE LA GRID MANUAL ---
-        self.set_x_scale(10.0)  # Setea 10s/div y configura los ticks de X
+        # Setea 10s/div y configura los ticks de X
+        self.set_x_scale(init_scale[0])
         # Setea 50 unidades/div y configura los ticks de Y
-        self.set_y_scale(50.0)
+        self.set_y_scale(init_scale[1])
 
     # --- Actualizaciones visuales ----------------------------------------------------------------
 
@@ -280,9 +283,9 @@ class upgradableGraph:
         menu.addSeparator()
         y_scale_menu = menu.addMenu("Escala Y (unidades/div)")
         if "motor" in self.title.lower():
-            presets_y = [10, 20, 30, 50, 75, 100, 150]
+            presets_y = [10, 20, 30, 50]
         else:
-            presets_y = [50, 100, 200, 500, 1000]
+            presets_y = [20, 50, 100, 200]
 
         for preset in presets_y:
             action = y_scale_menu.addAction(f"{preset}")
@@ -302,6 +305,9 @@ class upgradableGraph:
         self.grid_visible = not self.grid_visible
         self.plot_item.showGrid(x=self.grid_visible,
                                 y=self.grid_visible, alpha=0.5)
+        con = cfg.get("graphics.json", "grid", self.graphic_type)
+        con[self.graph_index][2] = self.grid_visible
+        cfg.set_value("graphics.json", "grid", self.graphic_type, value=con)
 
     # --- IMPLEMENTACIÓN DE SET_TICK_SPACING NATIVO ---
 
@@ -322,6 +328,9 @@ class upgradableGraph:
         self.view_box.setXRange(-visible_points, 0, padding=0)
         self.plot_item.showGrid(x=self.grid_visible,
                                 y=self.grid_visible, alpha=0.5)
+        con = cfg.get("graphics.json", "grid", self.graphic_type)
+        con[self.graph_index][0] = s_per_div
+        cfg.set_value("graphics.json", "grid", self.graphic_type, value=con)
 
     def set_y_scale(self, units_per_div: float):
         """Cambia la escala Y usando el motor interno de pyqtgraph."""
@@ -334,6 +343,9 @@ class upgradableGraph:
 
         self.y_axis.setTickSpacing(major=major_step, minor=minor_step)
         self._apply_y_scale()
+        con = cfg.get("graphics.json", "grid", self.graphic_type)
+        con[self.graph_index][1] = units_per_div
+        cfg.set_value("graphics.json", "grid", self.graphic_type, value=con)
 
     def _save_y_view_state(self, view_box, view_range):
         _, y_range = view_range

@@ -155,9 +155,6 @@ class MainActionsMixin:
 
         self.calibration_window = CameraCalibrationWindow()
         self.calibration_window.show()
-        signal_manager = SearchSignalManager().get_instance()
-        signal_manager.set_charuco(True)
-        signal_manager.set_sphere(False)
 
     @pyqtSlot(bool)
     def toggle_activation_simulation_event(self, checked: bool):
@@ -171,12 +168,10 @@ class MainActionsMixin:
     @pyqtSlot(bool)
     def toggle_charuco_search(self, checked: bool):
         SearchSignalManager().get_instance().set_charuco(checked)
-        cfg.set_value("settings.json", "camera", "charuco", value=checked)
 
     @pyqtSlot(bool)
     def toggle_sphere_search(self, checked: bool):
-        SearchSignalManager().get_instance().set_sphere(checked)
-        cfg.set_value("settings.json", "camera", "sphere", value=checked)
+        SearchSignalManager().get_instance().set_ellipse(checked)
 
     def toggle_sliders_controls(self, checked: bool):
         if checked:

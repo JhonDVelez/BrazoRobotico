@@ -10,6 +10,7 @@ from PyQt6.QtGui import QPixmap, QIcon
 from gui.camera_worker import CameraWorker
 from gui.main_window.main_theme_mixin import ThemeManager
 from gui.main_window.image_utils_mixin import ImageUtilsMixin, ToastLabel
+from data import DrawViewSignalManager
 
 
 class CameraInterface(ImageUtilsMixin):
@@ -20,11 +21,12 @@ class CameraInterface(ImageUtilsMixin):
         super().__init__(parent=None)
         self.parent = parent
         self.video_worker = None
-        self.camera_chess_board = None
+        self.camera = None
         self.process_running = False
-        self.grid_enabled = False
-        self.geometry_enabled = False
+
         self.theme_manager = ThemeManager.get_instance()
+        self.draw_view_manager = DrawViewSignalManager().get_instance()
+        self.grid_enabled, self.ellipse_enabled = self.draw_view_manager.get_state()
         self.is_calibration = is_calibration
         self.camera_index = None
         self.__setup_ui()
@@ -99,13 +101,15 @@ class CameraInterface(ImageUtilsMixin):
         self.geometry_button.setFixedSize(30, 30)
         self.geometry_button.setStyleSheet("background-color: white;")
         # Iconos para el botón de encendido o apagado de la referencia visual de las esferas
-        self.show_geometry_icon = QIcon(os.path.join(
+        self.show_ellipse_icon = QIcon(os.path.join(
             os.path.dirname(__file__), 'icons', 'geometryOn.png'))
         self.hide_geometry_icon = QIcon(os.path.join(
             os.path.dirname(__file__), 'icons', 'geometryOff.png'))
 
-        self.grid_button.setIcon(self.show_grid_icon)
-        self.geometry_button.setIcon(self.show_geometry_icon)
+        self.grid_button.setIcon(
+            self.hide_grid_icon if self.grid_enabled else self.show_grid_icon)
+        self.geometry_button.setIcon(
+            self.hide_geometry_icon if self.ellipse_enabled else self.show_ellipse_icon)
 
         buttons_layout.addWidget(self.video_button)
         buttons_layout.addWidget(self.grid_button)
@@ -139,21 +143,21 @@ class CameraInterface(ImageUtilsMixin):
     def toggle_grid(self):
         """Alterna el dibujo de rejilla en el procesamiento de frames"""
         self.grid_enabled = not self.grid_enabled
-        if self.video_worker is not None and self.video_worker.camera_chess_board is not None:
-            self.video_worker.camera_chess_board.show_grid = self.grid_enabled
+        if self.video_worker is not None:
+            self.draw_view_manager.set_charuco(self.grid_enabled)
 
         self.grid_button.setIcon(
             self.hide_grid_icon if self.grid_enabled else self.show_grid_icon)
 
     def toggle_geometry(self):
         """Alterna el dibujo de rejilla en el procesamiento de frames"""
-        self.geometry_enabled = not self.geometry_enabled
+        self.ellipse_enabled = not self.ellipse_enabled
 
-        if self.video_worker is not None and self.video_worker.pose_estimation is not None:
-            self.video_worker.pose_estimation.show_circles = self.geometry_enabled
+        if self.video_worker is not None:
+            self.draw_view_manager.set_ellipse(self.ellipse_enabled)
 
         self.geometry_button.setIcon(
-            self.hide_geometry_icon if self.geometry_enabled else self.show_geometry_icon)
+            self.hide_geometry_icon if self.ellipse_enabled else self.show_ellipse_icon)
 
     def on_frame_ready(self, frame: np.ndarray):
         """ Slot para manejar el frame listo del worker thread.
@@ -195,18 +199,20 @@ class CameraInterface(ImageUtilsMixin):
 
             self.video_worker = CameraWorker(camera_index=self.camera_index,
                                              is_calibration=self.is_calibration)
-            self.camera_chess_board = self.video_worker.camera_chess_board
-            self.camera_chess_board.show_grid = self.grid_enabled
+            self.camera = self.video_worker.camera
+
+            self.parent.camera_interval_submenu.setEnabled(True)
 
             # Conectar señales
             self.video_worker.frame_ready.connect(self.on_frame_ready)
             self.video_worker.error_occurred.connect(self.on_video_error)
 
             # Iniciar el hilo
-            self.video_worker.start()
+
             self.process_running = True
 
             self.video_button.setIcon(self.camera_off_icon)
+            self.video_worker.start()
         except (RuntimeError, OSError) as e:
             print(f"Error al iniciar video: {e}")
             self.on_video_error(str(e))
@@ -229,6 +235,8 @@ class CameraInterface(ImageUtilsMixin):
                         self.on_video_error)
                 except Exception:
                     pass
+
+                self.parent.camera_interval_submenu.setEnabled(False)
 
                 self.video_worker.stop()
                 if self.video_worker.isRunning():

@@ -1,11 +1,12 @@
-from unittest import result
-
+import trace
+import traceback
 import cv2
 import numpy as np
+from PyQt6.QtCore import QRunnable
 from data import config_manager as cfg
 
 
-class ChessboardDetector:
+class ChArUcoDetection(QRunnable):
     """Clase separada para detección de tableros ChArUco.
 
     El detector mantiene datos precomputados para el tamaño de tablero
@@ -14,57 +15,30 @@ class ChessboardDetector:
     homografía precisa y extrapolar la malla completa, incluso con oclusiones.
     """
 
-    def __init__(
-        self,
-        board_size: tuple[int, int] = (12, 5),
-        aruco_dict=None,
-        charuco_board=None,
-        charuco_detector=None
-    ):
+    def __init__(self, frame, frame_id, detection_callback, error_callback):
         """Inicializa el detector de tableros ChArUco.
-
-        Args:
-            board_size (Tuple[int, int], optional): Número de esquinas internas 
-                del tablero (filas, columnas). Por defecto es ``(7, 7)``.
-            dictionary_id (int, optional): Diccionario ArUco a utilizar.
-            square_length (float, optional): Longitud del lado del cuadro (metros).
-            marker_length (float, optional): Longitud del lado del marcador ArUco (metros).
         """
         super().__init__()
-        self.board_size = board_size
-        rows, cols = board_size
+        self.frame = frame.get().copy()
+        self.frame_id = frame_id
+        self.detection_callback = detection_callback
+        self.error_callback = error_callback
 
         # Incializa los detectores para el codigo ArUco y almacena los de ChArUco
-        self.aruco_dict = aruco_dict
+        dictionary_id = cv2.aruco.DICT_4X4_50
+        self.aruco_dict = cv2.aruco.getPredefinedDictionary(dictionary_id)
+        self.charuco_board = cv2.aruco.CharucoBoard(
+            size=(12, 5),
+            squareLength=0.03,
+            markerLength=0.022,
+            dictionary=self.aruco_dict
+        )
+        self.charuco_detector = cv2.aruco.CharucoDetector(self.charuco_board)
         detector_params = cv2.aruco.DetectorParameters()
         self.aruco_detector = cv2.aruco.ArucoDetector(
-            charuco_board.getDictionary(), detector_params)
-        self.charuco_board = charuco_board
-        self.charuco_detector = charuco_detector
+            self.charuco_board.getDictionary(), detector_params)
 
-        # Configuraciones guardadas de la cámara
-        camera = cfg.load("camera.json")
-        camera_resolution = camera.get("resolution", {})
-        camera_width = camera_resolution.get("width", 1280)
-
-        # Inicializa la configuración de escala automática de texto e indicadores del tablero.
-        font_scale_base = 0.3
-        thickness_base = 0.4
-
-        self.base_font_scale = (camera_width / 1280) * font_scale_base
-        self.font_scale = self.base_font_scale
-        self.font_scale_min = 0.25
-        self.font_scale_max = 0.6
-        self.font = cv2.FONT_HERSHEY_DUPLEX
-
-        self.thickness = max(
-            0.6, int(self.base_font_scale * thickness_base / font_scale_base)
-        )
-
-        self.label_thickness = None
-        self.dynamic_dot_size = None
-
-    def detect_corners(self, frame) -> None | dict:
+    def run(self) -> None | dict:
         """Detecta las esquinas del tablero ChArUco en un frame.
 
         Convierte la imagen a escala de grises y utiliza el detector ChArUco.
@@ -76,35 +50,48 @@ class ChessboardDetector:
             np.ndarray | None: Matriz de esquinas extrapoladas con forma 
             (rows + 2, cols + 2, 2) o None si falla la detección.
         """
-        if frame is None:
-            return None
+        try:
+            if self.frame is None:
+                self.detection_callback(self.frame_id, None)
+                return
 
-        marker_corners, marker_ids, _ = self.aruco_detector.detectMarkers(
-            frame)
+            marker_corners, marker_ids, _ = self.aruco_detector.detectMarkers(
+                self.frame)
 
-        if marker_ids is None or len(marker_ids) < 4:
-            return None
+            if marker_ids is None or len(marker_ids) < 4:
+                self.detection_callback(self.frame_id,  None)
+                return
 
-        charuco_corners, charuco_ids, _, _ = self.charuco_detector.detectBoard(
-            frame, markerCorners=marker_corners, markerIds=marker_ids
-        )
+            charuco_corners, charuco_ids, _, _ = self.charuco_detector.detectBoard(
+                self.frame, markerCorners=marker_corners, markerIds=marker_ids
+            )
 
-        if charuco_corners is None or len(charuco_corners) < 4:
-            return None
+            if charuco_corners is None or len(charuco_corners) < 4:
+                self.detection_callback(self.frame_id, None)
+                return
 
-        # Homografía con los corners interiores visibles
-        all_obj_points, all_img_points = self.charuco_board.matchImagePoints(
-            charuco_corners, charuco_ids)
-        obj_2d = all_obj_points[:, :2].astype(np.float32)
-        img_2d = all_img_points[:, :].astype(np.float32)
-        H, _ = cv2.findHomography(obj_2d, img_2d, cv2.RANSAC, 3.0)
+            # Homografía con los corners interiores visibles
+            all_obj_points, all_img_points = self.charuco_board.matchImagePoints(
+                charuco_corners, charuco_ids)
 
-        extrapolated_results = self.__extrapolate_corners(
-            self.charuco_board, charuco_corners, charuco_ids, H)
+            if all_obj_points is None or all_img_points is None:
+                self.detection_callback(self.frame_id, None)
+                return
 
-        unified_results = self.build_unified_grid(extrapolated_results)
+            obj_2d = all_obj_points[:, :2].astype(np.float32)
+            img_2d = all_img_points[:, :].astype(np.float32)
+            H, _ = cv2.findHomography(obj_2d, img_2d, cv2.RANSAC, 3.0)
 
-        return self.to_physical_coordinates(unified_results)
+            extrapolated_results = self.__extrapolate_corners(
+                self.charuco_board, charuco_corners, charuco_ids, H)
+
+            unified_results = self.build_unified_grid(extrapolated_results)
+
+            self.detection_callback(
+                self.frame_id, self.to_physical_coordinates(unified_results))
+        except Exception:
+            self.error_callback(
+                f"Error al detectar el tablero: {traceback.format_exc()} (ChArUcoDetector)")
 
     def __extrapolate_corners(self, board, charuco_corners, charuco_ids, H) -> np.ndarray:
         """Extrapola las esquinas externas usando la homografía calculada.
@@ -273,101 +260,9 @@ class ChessboardDetector:
 
         r.update({"unified_corners": unified_corners,
                   "unified_ids": unified_ids,
-                  "search_mask": mask
+                  "roi": mask
                   })
         return r
-
-    def _get_dynamic_font_scale(self, corners: np.ndarray) -> float:
-        """Calcula la escala de fuente basada en ancho de celda medida en pixeles.
-
-        Se hacen dos mediciones en filas opuestas para estimar el ancho de celda y
-        se promedian. Se aplican límites mínimo y máximo preestablecidos.
-        """
-        if corners is None:
-            return self.base_font_scale
-
-        rows, cols = corners.shape[:2]
-        if rows < 2 or cols < 2:
-            return self.base_font_scale
-
-        try:
-            top_left = corners[0, 0].astype(float)
-            top_right = corners[0, cols - 1].astype(float)
-            bottom_left = corners[rows - 1, 0].astype(float)
-            bottom_right = corners[rows - 1, cols - 1].astype(float)
-        except Exception:
-            return self.base_font_scale
-
-        width_top = np.linalg.norm(top_right - top_left) / max(1, cols - 1)
-        width_bottom = np.linalg.norm(
-            bottom_right - bottom_left) / max(1, cols - 1)
-        avg_cell_width = (width_top + width_bottom) / 2.0
-
-        if avg_cell_width <= 0:
-            return self.base_font_scale
-
-        dynamic_scale = (avg_cell_width / 30.0) * self.base_font_scale
-        self.font_scale = float(
-            np.clip(dynamic_scale, self.font_scale_min, self.font_scale_max))
-
-        self.label_thickness = max(
-            0.6, int(round(self.thickness * self.font_scale /
-                     max(0.01, self.base_font_scale)))
-        )
-        self.dynamic_dot_size = int(self.font_scale * 8)
-
-    def draw_grid(self, frame, results):
-        """ Dibuja la red final obtenida luego de la extrapolación sobre la imagen de referencia
-            del tablero de ajedrez.
-        """
-        vis = frame.copy()
-        cols, rows = results["grid_shape"]
-        corners = results["unified_corners"].reshape(rows, cols, 2)
-        self._get_dynamic_font_scale(corners)
-
-        # Corners interiores visibles → verde
-        for corner in results["visible_corners"]:
-            pt = tuple(corner[0].astype(int))
-            cv2.circle(vis, pt, self.dynamic_dot_size, (0, 230, 0), -1)
-
-        # Corners interiores ocultos → naranja
-        for corner in results["estimated_interior"]:
-            pt = tuple(corner[0].astype(int))
-            cv2.circle(vis, pt, self.dynamic_dot_size, (0, 140, 255), -1)
-
-        # Corners exteriores estimados → azul
-        for corner in results["exterior_corners"]:
-            pt = tuple(corner[0].astype(int))
-            cv2.circle(vis, pt, self.dynamic_dot_size, (220, 60, 0), -1)
-
-        physical_corners = results["physical_corners"]
-        for corner, phy_corner in zip(corners.reshape(-1, 1, 2), physical_corners.reshape(-1, 1, 2)):
-            corner = corner[0]
-            phy_corner = phy_corner[0]
-            cv2.putText(
-                vis,
-                f"[{phy_corner[1]},{phy_corner[0]}]",
-                tuple(corner.astype(int) + [-25, 15]),
-                cv2.FONT_HERSHEY_COMPLEX_SMALL,
-                self.font_scale,
-                (0, 0, 255),
-                self.label_thickness,
-                cv2.LINE_AA
-            )
-
-            # Leyenda
-            # legends = [
-            #     ((0, 230, 0),   "Interior visible"),
-            #     ((0, 140, 255), "Interior oculto"),
-            #     ((220, 60, 0),  "Exterior estimado"),
-            # ]
-            # for i, (color, label) in enumerate(legends):
-            #     y = 25 + i * 22
-            #     cv2.circle(vis, (15, y), 6, color, -1)
-            #     cv2.putText(vis, label, (26, y + 5),
-            #                 cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 1, cv2.LINE_AA)
-
-        return vis
 
     def to_physical_coordinates(
         self,
@@ -385,7 +280,14 @@ class ChessboardDetector:
         Returns:
             np.ndarray | None: Matriz con coordenadas físicas o None.
         """
-        cols, rows = results["grid_shape"]
+        shape = None
+        if results is not None and "grid_shape" in results:
+            shape = results["grid_shape"]
+
+        if shape is None:
+            return None
+        cols, rows = shape
+
         corners = results["unified_corners"].reshape(
             rows, cols, 2)
         if corners is None:

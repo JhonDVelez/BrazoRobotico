@@ -1,13 +1,11 @@
-from .camera_chessboard import CameraChessBoard
 from .camera_control import CameraControl
-from .chessboard_detector import ChessboardDetector
+from .charuco_detection import ChArUcoDetection
 from .pose_estimation import PoseEstimation
-from .circle_estimation import CircleEstimation
+from .ellipse_detection import EllipseDetection
 
 __all__ = [
-    "CameraChessBoard",
     "CameraControl",
-    "ChessboardDetector",
+    "ChArUcoDetection",
     "PoseEstimation",
-    "CircleEstimation",
+    "EllipseDetection",
 ]

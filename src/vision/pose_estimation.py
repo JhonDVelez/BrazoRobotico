@@ -1,15 +1,9 @@
 import numpy as np
 import cv2
 from data import config_manager as cfg
-from vision.circle_estimation import CircleEstimation
 
 
 class PoseEstimation:
-    # Radio de la esfera en metros
-    SPHERE_RADIUS_M = 0.02
-    # Tamaño de celda del tablero ChArUco en metros
-    BOARD_CELL_SIZE_M = 0.03
-
     def __init__(self, charuco_board: cv2.aruco.CharucoBoard) -> None:
         self.prev_circles = None
         self.mask_corners = None
@@ -17,13 +11,12 @@ class PoseEstimation:
         self.show_circles = False
         self.charuco_board = charuco_board
 
-        self.circle_estimator = CircleEstimation()
-
         camera = cfg.get("camera.json")
-        self.camera_matrix = np.array(camera.get("matrix"), dtype=np.float64)
-        self.dist_coeffs = np.array(
-            camera.get("distortion coefficients"), dtype=np.float64
-        )
+        self.camera_matrix = np.array(camera.get("matrix"))
+        self.dist_coeffs = np.array(camera.get("distortion coefficients"))
+
+        self.sphere_radius = 0.02
+        self.board_cell_size = 0.03
 
     def get_sphere_pose(
         self,
@@ -37,79 +30,103 @@ class PoseEstimation:
         umat_drawn_frame = cv2.UMat(
             drawn_frame) if drawn_frame is not None else umat_frame
 
-        sphere_results = self.circle_estimator.get_all_circles(
-            umat_frame, umat_drawn_frame, search_mask_corners
-        )
-        if sphere_results is not None and self.show_circles:
-            self.circle_estimator._draw_detection(drawn_frame, sphere_results)
+        print("calcula pose de esfera")
 
-        # --- LOCALIZACIÓN CON CORRECCIÓN GEOMÉTRICA (Triángulos Semejantes) ---
-        if sphere_results is not None and charuco_results is not None and "physical_corners" in charuco_results:
-            # 1. Preparar puntos: píxeles y sus coordenadas físicas (en mm)
-            img_pts = charuco_results["unified_corners"].astype(np.float32)
-            phys_pts_2d = charuco_results["physical_corners"].reshape(
-                -1, 2).astype(np.float32)
+        # sphere_results = self.circle_estimator.get_all_circles(
+        #     umat_frame, umat_drawn_frame, search_mask_corners
+        # )
 
-            # Calcular la homografía directa de píxeles a milímetros en el plano Z=0
-            H_mm, _ = cv2.findHomography(img_pts, phys_pts_2d)
+        # if charuco_results is None or sphere_results is None:
+        #     return drawn_frame
 
-            # 2. Calcular la pose de la cámara para obtener su altura (H) y posición (Cx, Cy)
-            obj_pts = np.hstack((phys_pts_2d, np.zeros(
-                (phys_pts_2d.shape[0], 1)))).astype(np.float32)
-            dist_zeros = np.zeros((4, 1))  # El frame ya tiene undistort previo
+        # cam_pos, rvec, tvec, R = self.get_camera_pose(charuco_results)
+        # if cam_pos is None:
+        #     return drawn_frame
 
-            success, rvec, tvec = cv2.solvePnP(
-                obj_pts, img_pts, self.camera_matrix, dist_zeros, flags=cv2.SOLVEPNP_ITERATIVE
-            )
-
-            if success and H_mm is not None:
-                # Obtener matriz de rotación e invertirla para ubicar la cámara en el mundo
-                R, _ = cv2.Rodrigues(rvec)
-                camera_pos_world = -np.dot(R.T, tvec)
-
-                Cx = float(camera_pos_world[0][0])
-                Cy = float(camera_pos_world[1][0])
-                Cz = float(camera_pos_world[2][0])  # Altura de la cámara (H)
-
-                h_esfera = self.SPHERE_RADIUS_M * \
-                    1000.0  # Altura de la bola (h) en mm
-
-                for color, data in sphere_results.items():
-                    u, v = data["centro"]
-
-                    # A. Proyectar el píxel al plano xy del tablero (genera error de proyección)
-                    pt_px = np.array([[[float(u), float(v)]]])
-                    pt_plano = cv2.perspectiveTransform(pt_px, H_mm)
-                    Ppx = pt_plano[0][0][0]
-                    Ppy = pt_plano[0][0][1]
-
-                    # B. Calcular posición real por triángulos semejantes
-                    Dx = Ppx - Cx
-                    Dy = Ppy - Cy
-                    D = np.hypot(Dx, Dy)
-
-                    if D != 0:
-                        # d = D * (h / H)
-                        d = D * (h_esfera / Cz)
-
-                        # Componentes del offset (dx, dy)
-                        dx = d * (Dx / D)
-                        dy = d * (Dy / D)
-                    else:
-                        dx, dy = 0, 0
-
-                    # Aplicar los offsets para acercar la coordenada real a la cámara
-                    Ptx = Ppx - dx
-                    Pty = Ppy - dy
-
-                    data["posicion_xy_mm"] = (Ptx, Pty)
-
-                    if drawn_frame is not None:
-                        texto_pos = f"X:{int(Ptx)} Y:{int(Pty)}"
-                        cv2.putText(
-                            drawn_frame, texto_pos,
-                            (int(u) - 40, int(v) + int(data["radio"]) + 20),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 153, 255), 2
-                        )
+        # for color, datos in sphere_results.items():
+        #     centro = datos["centro"]   # np.array([u, v])
+        #     xyz = self.find_sphere_center_on_board(
+        #         pixel_point=centro,
+        #         c_world=cam_pos,
+        #         rvec=rvec,
+        #         R_cam=R,
+        #         sphere_radius=self.sphere_radius,
+        #     )
+        #     if xyz is not None:
+        #         print(f"[{color}] Posición 3D en tablero: {xyz}")
 
         return drawn_frame
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # POSE DE LA CÁMARA
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def get_camera_pose(self, charuco_results: dict):
+        """Retorna la posición de la cámara en coordenadas del tablero.
+
+        Args:
+            charuco_results: diccionario con los resultados del tablero ChArUco.
+
+        Returns:
+            c_world : np.ndarray [X, Y, Z] — posición de la cámara en coords mundo.
+                      c_world[0] → nadir X  (equivale al "400" hardcodeado en RBE3001)
+                      c_world[1] → nadir Y  (equivale al "0"   hardcodeado en RBE3001)
+                      c_world[2] → altura de la cámara sobre el tablero
+            rvec    : vector de rotación (Rodrigues)
+            tvec    : vector de traslación
+            R       : matriz de rotación 3×3
+        """
+        charuco_corners = np.array(charuco_results["visible_corners"])
+        charuco_ids = np.array(charuco_results["visible_ids"])
+
+        success, rvec, tvec = cv2.aruco.estimatePoseCharucoBoard(
+            charuco_corners, charuco_ids,
+            self.charuco_board, self.camera_matrix, self.dist_coeffs,
+            None, None,
+        )
+        if not success:
+            return None, None, None, None
+
+        R, _ = cv2.Rodrigues(rvec)
+        # Centro óptico de la cámara en coordenadas mundo: C = -R^T · t
+        c_world = (-R.T @ tvec).flatten()
+
+        return c_world, rvec, tvec, R
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # LOCALIZACIÓN 3D DE LA ESFERA — método de intersección rayo-plano
+    # (más preciso que triángulos semejantes)
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def find_sphere_center_on_board(
+        self,
+        pixel_point: tuple[float, float],
+        c_world: np.ndarray,
+        rvec: np.ndarray,
+        R_cam: np.ndarray,
+        sphere_radius: float,
+    ) -> np.ndarray | None:
+        """Halla el centro XYZ de una esfera usando intersección rayo-plano.
+
+        La esfera reposa sobre el tablero (Z=0), por lo que su centro
+        está en Z = sphere_radius. Se lanza un rayo desde la cámara
+        hacia el centroide detectado y se intersecta con ese plano.
+
+        Args:
+            pixel_point  : (u, v) centro del círculo detectado en imagen.
+            c_world      : Posición [X, Y, Z] de la cámara en coords del tablero.
+                           Viene de get_camera_pose().
+            rvec         : Vector de rotación (no usado aquí, se recibe por consistencia).
+            R_cam        : Matriz de rotación 3×3 cámara→mundo.
+            sphere_radius: Radio de la esfera en las mismas unidades que el tablero.
+
+        Returns:
+            np.ndarray [x, y, sphere_radius] en coords del tablero, o None si falla.
+
+        Geometría:
+            Un punto sobre el rayo: P = c_world + k * d_world
+            Queremos Z = sphere_radius:
+                sphere_radius = c_world[2] + k * d_world[2]
+                k = (sphere_radius - c_world[2]) / d_world[2]
+        """
+        # 1. Eliminar distorsión y normalizar el punto imagen → rayo en cámara

@@ -115,19 +115,84 @@ class SearchSignalManager:
         self._lock = threading.Lock()
         state = cfg.get("settings.json", "camera")
         self._charuco = state.get("charuco")
-        self._sphere = state.get("sphere")
+        self._ellipse = state.get("ellipse")
 
-    def set_charuco(self, value: bool):
+    def set_charuco(self, checked: bool):
         with self._lock:
-            self._charuco = value
+            self._charuco = checked
+            cfg.set_value("settings.json", "camera", "charuco", value=checked)
 
-    def set_sphere(self, value: bool):
+    def set_ellipse(self, checked: bool):
         with self._lock:
-            self._sphere = value
+            self._ellipse = checked
+            cfg.set_value("settings.json", "camera", "ellipse", value=checked)
 
-    def get(self):
+    def get_state(self):
         with self._lock:
-            return self._charuco, self._sphere
+            return self._charuco, self._ellipse
+
+
+class DrawViewSignalManager:
+    _instance = None
+    _lock_instance = threading.Lock()
+
+    @classmethod
+    def get_instance(cls):
+        """ Permite gestionar la búsqueda del tablero y las esferas mediante señales, el usuario
+            puede decidir si quiere buscar o no mediante la cámara
+
+        Returns:
+            DrawViewSignalManager: instancia única de la clase
+        """
+        with cls._lock_instance:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+                cls._instance._init_state()
+        return cls._instance
+
+    def _init_state(self):
+        self._lock = threading.Lock()
+        state = cfg.get("settings.json", "camera", "view")
+        self._charuco = state.get("charuco")
+        self._ellipse = state.get("ellipse")
+
+    def set_charuco(self, checked: bool):
+        with self._lock:
+            self._charuco = checked
+            cfg.set_value("settings.json", "camera",
+                          "view", "charuco", value=checked)
+
+    def set_ellipse(self, checked: bool):
+        with self._lock:
+            self._ellipse = checked
+            cfg.set_value("settings.json", "camera",
+                          "view", "ellipse", value=checked)
+
+    def get_state(self):
+        with self._lock:
+            return self._charuco, self._ellipse
+
+
+class CameraSignalManager(QObject):
+    """ Manejo de las señales para el control del flujo de frames de la cámara
+    """
+    charuco_done = pyqtSignal(int, object)   # (frame_id, data)
+    ellipses_done = pyqtSignal(int, object)  # (frame_id, data)
+    fusion_done = pyqtSignal(int, object)    # (frame_id, data)
+
+    _instance = None
+
+    @classmethod
+    def get_instance(cls):
+        """ Permite obtener una única instancia del objeto evitando que se generen multiples señales
+            de comunicación. En caso de que no haya ninguna instancia entonces se crea una nueva.
+
+        Returns:
+            CameraSignalManager: instancia única de la clase
+        """
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
 
 
 class GlobalTimer(QObject):
@@ -193,6 +258,55 @@ class GlobalTimer(QObject):
     def stop(self):
         if self._timer.isActive():
             self._timer.stop()
+
+
+class FrameCounter(QObject):
+    """Cuenta fotogramas y emite `process_frame_signal` cada N frames.
+
+    Uso:
+    - Obtener instancia con `FrameCounter.get_instance(interval)`
+    - Llamar `tick(frame)` por cada fotograma entrante
+    - Conectar a `process_frame_signal` para ejecutar procesamiento cada N frames
+    """
+    process_frame_signal = pyqtSignal()
+
+    _instance = None
+    _initialized = False
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    def __init__(self):
+        if FrameCounter._initialized:
+            return
+        super().__init__()
+        self._interval = cfg.get("settings.json", "camera", "view", "interval")
+        self._counter = 0
+        self._lock = threading.Lock()
+        FrameCounter._initialized = True
+
+    def tick(self):
+        """Incrementa contador; emite `process_frame_signal` cada `_interval` frames."""
+        with self._lock:
+            self._counter += 1
+            if self._counter >= self._interval:
+                try:
+                    self.process_frame_signal.emit()
+                finally:
+                    self._counter = 0
+
+    def reset(self):
+        with self._lock:
+            self._counter = 0
+
+    def set_interval(self, interval: int):
+        with self._lock:
+            self._interval = int(interval)
+            self._counter = 0
+            cfg.set_value("settings.json", "camera", "view", "interval",value=self._interval)
 
 
 def deg_to_rad(pos):

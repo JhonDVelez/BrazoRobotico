@@ -81,8 +81,8 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
             state = bool(camera[key])
             if key == "charuco":
                 search_manager.set_charuco(state)
-            elif key == "sphere":
-                search_manager.set_sphere(state)
+            elif key == "ellipse":
+                search_manager.set_ellipse(state)
 
         self.hab_simulation = settings.get(
             "simulation").get("activated", True)

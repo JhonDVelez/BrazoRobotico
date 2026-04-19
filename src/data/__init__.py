@@ -6,12 +6,14 @@ from .control_utils import (
     SimulationSignalManager,
     PhysicalSignalManager,
     SearchSignalManager,
+    DrawViewSignalManager,
     Domains,
     Modes,
     Units,
     rad_to_deg,
     deg_to_rad,
-    GlobalTimer)
+    GlobalTimer,
+    FrameCounter)
 from .controller import DataFlow
 from .config_manager import *
 
@@ -19,11 +21,13 @@ __all__ = [
     "SimulationSignalManager",
     "PhysicalSignalManager",
     "SearchSignalManager",
+    "DrawViewSignalManager",
     "Domains",
     "Modes",
     "Units",
     "rad_to_deg",
     "deg_to_rad",
     "DataFlow",
-    "GlobalTimer"
+    "GlobalTimer",
+    "FrameCounter",
 ]

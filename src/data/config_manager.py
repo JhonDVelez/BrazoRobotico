@@ -38,7 +38,8 @@ DEFAULTS: dict[str, dict] = {
         },
         "camera": {
             "charuco": False,
-            "sphere": False,
+            "ellipse": False,
+            "view": {"charuco": False, "ellipse": False, "interval": 4},
         },
         "mode": {
             "sliders": True,

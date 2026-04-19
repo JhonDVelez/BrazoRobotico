@@ -20,7 +20,7 @@ class CameraControl:
        Optimizada para usar UMat (OpenCL) en preprocesado.
     """
 
-    def __init__(self, is_calibration: bool = False):
+    def __init__(self, camera_index: int = 0, is_calibration: bool = False):
         super().__init__()
         self.cap: Optional[cv2.VideoCapture] = None
         self.camera_ready = False
@@ -37,10 +37,7 @@ class CameraControl:
             camera_config.get("distortion coefficients"))
 
         self.is_calibration = is_calibration
-        self.camera_index = 0
-
-    def set_camera_index(self, index: int):
-        self.camera_index = index
+        self.camera_index = camera_index
 
     def camera_on(self) -> bool:
         """Enciende la cámara con configuración optimizada"""

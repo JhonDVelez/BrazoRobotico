@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import QMenuBar, QSizePolicy, QLabel, QStatusBar, QFrame
 from PyQt6.QtCore import Qt
 from serial.tools import list_ports
 from robot.openbotv_worker import RobotWorker
-from data import DataFlow
+from data import DataFlow, FrameCounter
 from data import config_manager as cfg
 from cv2_enumerate_cameras import enumerate_cameras
 from .main_theme_mixin import ThemeManager
@@ -98,26 +98,6 @@ class MainMenuMixin:
                         action.setStatusTip(status)
                         setattr(self, attr_name, action)
 
-        mapping_graphics = {
-            "grid": {
-                "show": True,
-                "div": {
-                    "time": 10,
-                    "angle": 10
-                },
-            },
-            "cursor": {
-                "cursor1": {
-                    "activated": True,
-                    "position": -100
-                },
-                "cursor2": {
-                    "activated": True,
-                    "position": -900
-                },
-            }
-        }
-
         self.sun_icon = QIcon(os.path.join(
             os.path.dirname(__file__), "..", "icons", "sun.png"))
         self.moon_icon = QIcon(os.path.join(
@@ -170,6 +150,22 @@ class MainMenuMixin:
         self.camera_menu.addAction(self.charuco_action)
         self.camera_menu.addAction(self.sphere_action)
         self.camera_menu.addAction(self.camera_calibration_action)
+
+        self.camera_interval_submenu = self.camera_menu.addMenu(
+            "&Intervalo")
+        self.camera_interval_group = QActionGroup(self)
+        self.camera_interval_group.setExclusive(True)
+        presets_interval = [1, 2, 4, 10]
+        pre_interval = cfg.get("settings.json", "camera", "view", "interval")
+        for preset in presets_interval:
+            action = self.camera_interval_submenu.addAction(f"{preset}")
+            action.setCheckable(True)
+            self.camera_interval_group.addAction(action)
+            if preset == pre_interval:
+                action.setChecked(True)
+            action.triggered.connect(
+                lambda checked, i=preset: self.interval_selection_change(i))
+        self.camera_interval_submenu.setEnabled(False)
 
         self.mode_menu = self.menu_bar.addMenu("&Modo")
         self.mode_menu.addAction(self.sliders_action)
@@ -311,6 +307,9 @@ class MainMenuMixin:
         if interface:
             interface.stop_video()
             interface.set_camera_index(None)
+
+    def interval_selection_change(self, interval):
+        FrameCounter().get_instance().set_interval(interval)
 
     def _stop_threads(self):
         """ Detiene y elimina los hilos activos de forma segura

@@ -1,132 +1,127 @@
+import math
+import traceback
 import numpy as np
 import cv2
-from data import config_manager as cfg
+from PyQt6.QtCore import QRunnable
 
 
-class PoseEstimation:
-    def __init__(self, charuco_board: cv2.aruco.CharucoBoard) -> None:
-        self.prev_circles = None
-        self.mask_corners = None
-        self.show_mask = False
-        self.show_circles = False
-        self.charuco_board = charuco_board
-
-        camera = cfg.get("camera.json")
-        self.camera_matrix = np.array(camera.get("matrix"))
-        self.dist_coeffs = np.array(camera.get("distortion coefficients"))
-
-        self.sphere_radius = 0.02
-        self.board_cell_size = 0.03
-
-    def get_sphere_pose(
-        self,
-        original_frame,
-        drawn_frame=None,
-        processed_frame=None,
-        charuco_results=None,
-        search_mask_corners=None,
-    ):
-        umat_frame = cv2.UMat(original_frame)
-        umat_drawn_frame = cv2.UMat(
-            drawn_frame) if drawn_frame is not None else umat_frame
-
-        print("calcula pose de esfera")
-
-        # sphere_results = self.circle_estimator.get_all_circles(
-        #     umat_frame, umat_drawn_frame, search_mask_corners
-        # )
-
-        # if charuco_results is None or sphere_results is None:
-        #     return drawn_frame
-
-        # cam_pos, rvec, tvec, R = self.get_camera_pose(charuco_results)
-        # if cam_pos is None:
-        #     return drawn_frame
-
-        # for color, datos in sphere_results.items():
-        #     centro = datos["centro"]   # np.array([u, v])
-        #     xyz = self.find_sphere_center_on_board(
-        #         pixel_point=centro,
-        #         c_world=cam_pos,
-        #         rvec=rvec,
-        #         R_cam=R,
-        #         sphere_radius=self.sphere_radius,
-        #     )
-        #     if xyz is not None:
-        #         print(f"[{color}] Posición 3D en tablero: {xyz}")
-
-        return drawn_frame
-
-    # ──────────────────────────────────────────────────────────────────────────
-    # POSE DE LA CÁMARA
-    # ──────────────────────────────────────────────────────────────────────────
-
-    def get_camera_pose(self, charuco_results: dict):
-        """Retorna la posición de la cámara en coordenadas del tablero.
-
-        Args:
-            charuco_results: diccionario con los resultados del tablero ChArUco.
-
-        Returns:
-            c_world : np.ndarray [X, Y, Z] — posición de la cámara en coords mundo.
-                      c_world[0] → nadir X  (equivale al "400" hardcodeado en RBE3001)
-                      c_world[1] → nadir Y  (equivale al "0"   hardcodeado en RBE3001)
-                      c_world[2] → altura de la cámara sobre el tablero
-            rvec    : vector de rotación (Rodrigues)
-            tvec    : vector de traslación
-            R       : matriz de rotación 3×3
+class PoseEstimation(QRunnable):
+    def __init__(self, results: dict, camera_matrix, dist_coeffs,
+                 sphere_radius, custom_origin_offset, error_callback):
+        """ Constructor de la tarea.
         """
-        charuco_corners = np.array(charuco_results["visible_corners"])
-        charuco_ids = np.array(charuco_results["visible_ids"])
+        super().__init__()
+        self.ellipse_results = results.get("ellipses")
+        self.charuco_results = results.get("charuco")
+        self.charuco_board = results.get("board")
+        self.rvec = self.charuco_results.get("rvec")
+        self.tvec = self.charuco_results.get("tvec")
+        self.camera_matrix = camera_matrix
+        self.dist_coeffs = dist_coeffs
+        self.sphere_radius = sphere_radius
+        self.error_callback = error_callback
 
-        success, rvec, tvec = cv2.aruco.estimatePoseCharucoBoard(
-            charuco_corners, charuco_ids,
-            self.charuco_board, self.camera_matrix, self.dist_coeffs,
-            None, None,
-        )
-        if not success:
-            return None, None, None, None
+        # El offset C que el usuario define como el nuevo (0,0)
+        self.custom_origin_offset = np.array(
+            custom_origin_offset).reshape(3, 1)
 
-        R, _ = cv2.Rodrigues(rvec)
-        # Centro óptico de la cámara en coordenadas mundo: C = -R^T · t
-        c_world = (-R.T @ tvec).flatten()
-
-        return c_world, rvec, tvec, R
-
-    # ──────────────────────────────────────────────────────────────────────────
-    # LOCALIZACIÓN 3D DE LA ESFERA — método de intersección rayo-plano
-    # (más preciso que triángulos semejantes)
-    # ──────────────────────────────────────────────────────────────────────────
-
-    def find_sphere_center_on_board(
-        self,
-        pixel_point: tuple[float, float],
-        c_world: np.ndarray,
-        rvec: np.ndarray,
-        R_cam: np.ndarray,
-        sphere_radius: float,
-    ) -> np.ndarray | None:
-        """Halla el centro XYZ de una esfera usando intersección rayo-plano.
-
-        La esfera reposa sobre el tablero (Z=0), por lo que su centro
-        está en Z = sphere_radius. Se lanza un rayo desde la cámara
-        hacia el centroide detectado y se intersecta con ese plano.
-
-        Args:
-            pixel_point  : (u, v) centro del círculo detectado en imagen.
-            c_world      : Posición [X, Y, Z] de la cámara en coords del tablero.
-                           Viene de get_camera_pose().
-            rvec         : Vector de rotación (no usado aquí, se recibe por consistencia).
-            R_cam        : Matriz de rotación 3×3 cámara→mundo.
-            sphere_radius: Radio de la esfera en las mismas unidades que el tablero.
-
-        Returns:
-            np.ndarray [x, y, sphere_radius] en coords del tablero, o None si falla.
-
-        Geometría:
-            Un punto sobre el rayo: P = c_world + k * d_world
-            Queremos Z = sphere_radius:
-                sphere_radius = c_world[2] + k * d_world[2]
-                k = (sphere_radius - c_world[2]) / d_world[2]
+    def run(self):
         """
-        # 1. Eliminar distorsión y normalizar el punto imagen → rayo en cámara
+        Función principal ejecutada por el QThreadPool.
+        """
+        try:
+            if self.rvec is None or self.tvec is None:
+                self.error_callback("Could not estimate ChArUco board pose.")
+                return
+
+            # Matriz de rotación (De Mundo a Cámara)
+            rotation_matrix, _ = cv2.Rodrigues(self.rvec)
+
+            final_poses = {}
+
+            # 2. Procesar cada esfera encontrada (por color)
+            for color_name, ellipse_data in self.ellipse_results.items():
+
+                # 3. Calcular la coordenada de la esfera relativa a la cámara (Algoritmo Sección 3)
+                p_cam = self._calculate_sphere_camera_coordinates(ellipse_data)
+
+                # 4. Transformar al sistema de coordenadas original del tablero ChArUco
+                p_world = self._transform_to_board_coordinates(
+                    p_cam, rotation_matrix, self.tvec)
+
+                # 5. Aplicar el desplazamiento para que el punto 'C' sea el nuevo (0,0,0)
+                p_final = self._apply_custom_origin(p_world)
+
+                # Guardar el resultado aplanado [X, Y, Z]
+                final_poses[color_name] = p_final.flatten().tolist()
+
+            # Emitir los resultados cuando termine
+            print(final_poses)
+
+        except Exception as e:
+            self.error_callback(str(e))
+
+    def _calculate_sphere_camera_coordinates(self, ellipse_data):
+        """
+        Aplica el algoritmo matemático exacto (Sección 3) para encontrar 
+        la posición P de la esfera respecto a la cámara.
+        """
+        # Extraer parámetros de la cámara
+        # Distancia focal (asumiendo píxeles cuadrados fx ~ fy)
+        f = self.camera_matrix[0, 0]
+        u_0 = self.camera_matrix[0, 2]  # Punto principal X
+        v_0 = self.camera_matrix[1, 2]  # Punto principal Y
+
+        # Extraer parámetros de la elipse
+        u_m, v_m = ellipse_data["center"]
+        # Asumiendo que 'a' es el semi-eje mayor (la mitad del largo total)
+        a = ellipse_data["major"]
+
+        # Distancia en píxeles desde el centro de la elipse al punto principal
+        delta_m = math.hypot(u_m - u_0, v_m - v_0)
+
+        # Ecuaciones trigonométricas del artículo
+        term1 = math.atan((delta_m + a) / f)
+        term2 = math.atan((delta_m - a) / f)
+
+        phi = (term1 + term2) / 2.0
+        theta = (term1 - term2) / 2.0
+
+        # Distancia desde el centro óptico al centro de la esfera (Módulo de OP)
+        distance_op = self.sphere_radius * \
+            math.sqrt(math.pow(math.tan(theta), 2) + 1) / math.tan(theta)
+
+        # Proyección del centro de la esfera en el plano de la imagen (Punto Q)
+        if delta_m < 1e-5:
+            # Si la esfera está perfectamente centrada en el punto principal
+            u_q, v_q = u_0, v_0
+        else:
+            u_q = u_0 + (f * math.tan(phi) / delta_m) * (u_m - u_0)
+            v_q = v_0 + (f * math.tan(phi) / delta_m) * (v_m - v_0)
+
+        # Módulo de OQ (Distancia en píxeles)
+        distance_oq = math.sqrt(
+            math.pow(u_q - u_0, 2) + math.pow(v_q - v_0, 2) + math.pow(f, 2))
+
+        # Posición 3D final relativa a la cámara
+        x_cam = (distance_op / distance_oq) * (u_q - u_0)
+        y_cam = (distance_op / distance_oq) * (v_q - v_0)
+        z_cam = (distance_op / distance_oq) * f
+
+        return np.array([[x_cam], [y_cam], [z_cam]])
+
+    def _transform_to_board_coordinates(self, p_cam, rotation_matrix, tvec):
+        """
+        Convierte el punto P del sistema de la cámara al sistema original del tablero.
+        """
+        # P_world = R^T * (P_cam - tvec)
+        p_world = rotation_matrix.T @ (p_cam - tvec)
+        return p_world
+
+    def _apply_custom_origin(self, p_world):
+        """
+        Desplaza las coordenadas para que el punto elegido actúe como el origen (0,0,0).
+        """
+        # Restar el offset físico definido por el usuario
+        p_final = p_world - self.custom_origin_offset
+        return p_final

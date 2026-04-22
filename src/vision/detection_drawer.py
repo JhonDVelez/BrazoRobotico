@@ -6,9 +6,9 @@ from data import config_manager as cfg
 
 
 class DetectionDrawer(QRunnable):
-    def __init__(self, frame: cv2.UMat, results: dict, view: tuple, frame_callback, error_callback) -> None:
+    def __init__(self, frame: np.ndarray, results: dict, view: tuple, frame_callback, error_callback) -> None:
         super().__init__()
-        self.frame = frame.get().copy()
+        self.frame = frame
         self.results = results
         self.charuco_view, self.ellipse_view = view
         self.frame_callback = frame_callback
@@ -46,7 +46,7 @@ class DetectionDrawer(QRunnable):
         # print(
         #     f"charuco: {grid_results is not None}\tellipses: {ellipses_results is not None}")
 
-        # Dibujar ChArUco — fallo aislado
+        # Dibujar ChArUco
         if grid_results is not None and self.charuco_view:
             try:
                 frame_out = self._draw_grid(frame_out, grid_results)
@@ -54,7 +54,7 @@ class DetectionDrawer(QRunnable):
                 self.error_callback(
                     f"Error al dibujar ChArUco: {traceback.format_exc()} (DetectionDrawer)")
 
-        # Dibujar elipses — fallo aislado
+        # Dibujar elipses
         if ellipses_results is not None and self.ellipse_view:
             try:
                 frame_out = self._draw_ellipse(frame_out, ellipses_results)

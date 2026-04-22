@@ -20,13 +20,11 @@ class CameraControl:
        Optimizada para usar UMat (OpenCL) en preprocesado.
     """
 
-    def __init__(self, camera_index: int = 0, is_calibration: bool = False):
+    def __init__(self, camera_index: int = 0, camera_config: dict = None, is_calibration: bool = False):
         super().__init__()
         self.cap: Optional[cv2.VideoCapture] = None
         self.camera_ready = False
 
-        # Configuraciones por defecto
-        camera_config = cfg.load("camera.json")
         # Configuraciones básicas de la cámara
         self.default_width = camera_config.get("resolution")["width"]
         self.default_height = camera_config.get("resolution")["height"]

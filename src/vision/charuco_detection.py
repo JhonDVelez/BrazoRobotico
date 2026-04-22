@@ -24,6 +24,11 @@ class ChArUcoDetection(QRunnable):
         self.detection_callback = detection_callback
         self.error_callback = error_callback
 
+        camera_config = cfg.load("camera.json")
+        self.camera_matrix = np.array(camera_config.get("matrix"))
+        self.dist_coeff = np.array(
+            camera_config.get("distortion coefficients"))
+
         # Incializa los detectores para el codigo ArUco y almacena los de ChArUco
         dictionary_id = cv2.aruco.DICT_4X4_50
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(dictionary_id)
@@ -58,7 +63,7 @@ class ChArUcoDetection(QRunnable):
             marker_corners, marker_ids, _ = self.aruco_detector.detectMarkers(
                 self.frame)
 
-            if marker_ids is None or len(marker_ids) < 4:
+            if marker_ids is None or len(marker_ids) < 6:
                 self.detection_callback(self.frame_id,  None)
                 return
 
@@ -86,6 +91,16 @@ class ChArUcoDetection(QRunnable):
                 self.charuco_board, charuco_corners, charuco_ids, H)
 
             unified_results = self.build_unified_grid(extrapolated_results)
+
+            _, rvec, tvec = cv2.solvePnP(
+                all_obj_points,
+                all_img_points,
+                self.camera_matrix,
+                self.dist_coeff,
+                flags=cv2.SOLVEPNP_ITERATIVE
+            )
+
+            unified_results.update({"rvec": rvec, "tvec": tvec})
 
             self.detection_callback(
                 self.frame_id, self.to_physical_coordinates(unified_results))
@@ -150,6 +165,8 @@ class ChArUcoDetection(QRunnable):
                 exterior_ids.append((col, row))
 
         return {
+            "charuco_corners":          charuco_corners,
+            "charuco_ids":              charuco_ids,
             "visible_corners":          interior_corners,
             "visible_ids":              interior_ids,
             "estimated_interior":       estimated_interior,
@@ -158,6 +175,7 @@ class ChArUcoDetection(QRunnable):
             "exterior_ids":             exterior_ids,
             "homography":               H,
             "grid_shape":               (cols, rows),
+            "board":                    self.charuco_board,
         }
 
     def _get_interior_ids_set(self, board):

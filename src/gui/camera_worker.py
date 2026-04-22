@@ -11,6 +11,7 @@ from vision.camera_control import CameraControl
 from vision.pose_estimation import PoseEstimation
 from vision.detection_drawer import DetectionDrawer
 from data import SearchSignalManager, DrawViewSignalManager
+from data import config_manager as cfg
 from data.control_utils import FrameCounter
 
 
@@ -34,10 +35,18 @@ class CameraWorker(QThread):
         self.results = {}  # {fid: {"charuco":..., "ellipses":...}}
         self.max_buffer = 3
         self.last_roi = None  # Region de interes
+        self.sphere_radius = 0.02  # radio de la esfera en m
+        self.custom_origin = (0.0, 0.0, 0.0)
+
+        # Carga de datos de configuración
+        camera_config = cfg.load("camera.json")
+        self.camera_matrix = np.array(camera_config.get("matrix"))
+        self.dist_coeff = np.array(
+            camera_config.get("distortion coefficients"))
 
         self.thread_pool = QThreadPool().globalInstance()
-        self.thread_pool.setMaxThreadCount(4)
-        self.camera = CameraControl(camera_index, is_calibration)
+        self.camera = CameraControl(
+            camera_index, camera_config, is_calibration)
         self.search_manager = SearchSignalManager().get_instance()
         self.draw_view_manager = DrawViewSignalManager.get_instance()
         self.frame_counter = FrameCounter.get_instance()
@@ -56,11 +65,12 @@ class CameraWorker(QThread):
                 if frame is None:
                     raise IOError("No se pudo obtener frame de la cámara")
 
-                if self.thread_pool.activeThreadCount() >= 1:
+                if self.thread_pool.activeThreadCount() >= self.thread_pool.maxThreadCount():
                     continue
 
                 if self.is_calibration:
                     self._emit_frame_ready(frame)
+                    continue
                 elif self._process_frame:
                     charuco_state, ellipse_state = self.search_manager.get_state()
                     self.frame_id += 1
@@ -74,7 +84,7 @@ class CameraWorker(QThread):
                     self._process_frame = False
 
                 view = self.draw_view_manager.get_state()
-                self.thread_pool.start(DetectionDrawer(frame_umat, self.results.get(
+                self.thread_pool.start(DetectionDrawer(frame, self.results.get(
                     self.frame_id-1), view, self._emit_frame_ready, self._emit_error))
                 self.frame_counter.tick()
 
@@ -137,7 +147,7 @@ class CameraWorker(QThread):
             else:
                 self.last_roi = None
 
-            # self._try_launch_fusion(fid)
+            self._try_pose_estimation(fid)
             self._trim_buffer()
 
     @pyqtSlot(int, object)
@@ -147,19 +157,19 @@ class CameraWorker(QThread):
                 fid, {"charuco": None, "ellipses": None})
             entry["ellipses"] = data
 
-            # self._try_launch_fusion(fid)
+            self._try_pose_estimation(fid)
             self._trim_buffer()
 
-    def _try_launch_fusion(self, fid: int):
+    def _try_pose_estimation(self, fid: int):
         entry = self.results.get(fid)
         if not entry:
             return
         if entry["charuco"] is not None and entry["ellipses"] is not None:
-            # Lanzar C SOLO cuando ambos existen para el mismo fid
-            # self.pool.start(FusionWorker(
-            #     fid, entry["charuco"], entry["ellipses"], self.signals))
-            # limpiar ese fid para no reprocesar
-            del self.results[fid]
+            self.thread_pool.start(PoseEstimation(
+                entry, self.camera_matrix,
+                self.dist_coeff, self.sphere_radius,
+                self.custom_origin,
+                self._emit_error))
 
     def _trim_buffer(self):
         # Evitar backlog en tiempo real

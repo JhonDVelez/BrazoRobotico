@@ -1,16 +1,13 @@
-import ctypes
-from ctypes import wintypes, cast, POINTER
-import win32con
 from qframelesswindow import FramelessMainWindow
 from PyQt6.QtWidgets import QMessageBox, QVBoxLayout, QWidget, QLabel, QApplication
-from PyQt6.QtCore import QAbstractNativeEventFilter, QCoreApplication, QTimer, Qt
+from PyQt6.QtCore import QCoreApplication, Qt
 from .main_window import (MainInitMixin, MainActionsMixin, ThemeManager,
                           MainMenuMixin, MainThemeMixin, MainTitleBarMixin)
+from .device_monitor import get_device_monitor
 from data import SearchSignalManager
 from data import config_manager as cfg
 
 # os.environ["QT_LOGGING_RULES"] = "qt.qpa.window=false"
-DBT_DEVTYP_PORT = 0x00000003
 
 
 class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuMixin,
@@ -109,9 +106,10 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         self.resize(1280, 720)
         self.center_window()
 
-        self._dev_filter = DeviceEventFilter(
+        # Instalar monitor de dispositivos multiplataforma
+        self._device_monitor = get_device_monitor(
             self.get_com_ports, self.get_cameras)
-        QCoreApplication.instance().installNativeEventFilter(self._dev_filter)
+        self._device_monitor.install_filter(QCoreApplication.instance())
 
     def setup_connections(self):
         """ Configura las conexiones de eventos para los botones de la interfaz
@@ -204,40 +202,3 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
             event.accept()
         else:
             event.ignore()
-
-
-class DEV_BROADCAST_HDR(ctypes.Structure):
-    _fields_ = [
-        ("dbch_size", wintypes.DWORD),
-        ("dbch_devicetype", wintypes.DWORD),
-        ("dbch_reserved", wintypes.DWORD),
-    ]
-
-
-class DeviceEventFilter(QAbstractNativeEventFilter):
-
-    def __init__(self, serial_callback, camera_callback):
-        super().__init__()
-        self.serial_callback = serial_callback
-        self.camera_callback = camera_callback
-
-    def nativeEventFilter(self, eventType, message):
-        msg = wintypes.MSG.from_address(message.__int__())
-
-        if msg.message == win32con.WM_DEVICECHANGE:
-            # print("Evento detectado:", msg.wParam, msg.lParam)
-
-            if msg.wParam in (win32con.DBT_DEVICEARRIVAL,
-                              win32con.DBT_DEVICEREMOVECOMPLETE):
-
-                hdr = cast(msg.lParam, POINTER(DEV_BROADCAST_HDR)).contents
-
-                if hdr.dbch_devicetype == win32con.DBT_DEVTYP_PORT:
-                    # Evento de puerto serial
-                    QTimer.singleShot(0, self.serial_callback)
-
-            elif msg.wParam == win32con.DBT_DEVNODES_CHANGED:
-                # Posible cámara (u otro dispositivo)
-                QTimer.singleShot(0, self.camera_callback)
-
-        return False, 0

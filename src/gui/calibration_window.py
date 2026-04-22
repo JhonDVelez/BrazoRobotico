@@ -1,11 +1,10 @@
-import win32con
-from ctypes import wintypes
 from PyQt6.QtWidgets import (
     QVBoxLayout, QGridLayout, QPushButton, QApplication, QWidget, QHBoxLayout, QSizePolicy)
-from PyQt6.QtCore import QSize, QAbstractNativeEventFilter, QTimer, QCoreApplication
+from PyQt6.QtCore import QSize, QCoreApplication
 from qframelesswindow import FramelessMainWindow
 from .main_window import MainTitleBarMixin, CalibrationMenuMixin
 from .calibration_interface import CalibrationInterface
+from .device_monitor import get_device_monitor
 
 
 class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
@@ -44,7 +43,10 @@ class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
         self.setup_connections()
         self.clear_camera_selection()
 
-        QCoreApplication.instance().installNativeEventFilter(self._dev_filter)
+        # Instalar monitor de dispositivos multiplataforma (solo para cámaras)
+        self._device_monitor = get_device_monitor(
+            camera_callback=self.get_cameras, camera_only=True)
+        self._device_monitor.install_filter(QCoreApplication.instance())
         self.get_cameras()
 
     def setup_ui(self, main_widget):
@@ -85,8 +87,6 @@ class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
         if hasattr(self, 'calibrate_button'):
             self.calibrate_button.clicked.connect(self.calibrate)
 
-        self._dev_filter = CameraEventFilter(self.get_cameras)
-
     def capture_pixmap(self):
         self.calibration_interface.save_pixmap = True
 
@@ -97,21 +97,6 @@ class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
         if hasattr(self, "calibration_interface"):
             self.calibration_interface.stop_video()
         self.clear_camera_selection()
-        QCoreApplication.instance().removeNativeEventFilter(self._dev_filter)
+        if hasattr(self, "_device_monitor"):
+            self._device_monitor.uninstall_filter()
         event.accept()
-
-
-class CameraEventFilter(QAbstractNativeEventFilter):
-
-    def __init__(self, camera_callback):
-        super().__init__()
-        self.camera_callback = camera_callback
-
-    def nativeEventFilter(self, _eventType, message):
-        msg = wintypes.MSG.from_address(message.__int__())
-
-        if msg.message == win32con.WM_DEVICECHANGE and msg.wParam == win32con.DBT_DEVNODES_CHANGED:
-            # Posible cámara (u otro dispositivo)
-            QTimer.singleShot(0, self.camera_callback)
-
-        return False, 0

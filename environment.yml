@@ -3,12 +3,13 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.10  # Puedes ajustar la versión de python aquí
+  - python=3.13.12
   - matplotlib=3.10.6
   - numpy=2.2.6
   - pandas=2.3.2
   - pyserial=3.5
   - pyqtgraph=0.13.7
+  - pyudev=0.24.1
   - pybullet
   - pip
   - pip:

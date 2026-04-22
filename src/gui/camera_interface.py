@@ -140,6 +140,18 @@ class CameraInterface(ImageUtilsMixin):
     def set_camera_index(self, index: int | None):
         self.camera_index = index
 
+    def _get_selected_camera_name(self):
+        if hasattr(self.parent, 'last_camera_name') and self.parent.last_camera_name:
+            return self.parent.last_camera_name
+        return None
+
+    def _set_camera_connection_status(self, text: str):
+        if hasattr(self.parent, 'camera_connected_label'):
+            self.parent.camera_connected_label.setText(text)
+
+    def _reset_camera_connection_status(self):
+        self._set_camera_connection_status("Cámara no conectada")
+
     def toggle_grid(self):
         """Alterna el dibujo de rejilla en el procesamiento de frames"""
         self.grid_enabled = not self.grid_enabled
@@ -195,6 +207,7 @@ class CameraInterface(ImageUtilsMixin):
             if self.camera_index is None:
                 self.toast.show_message(
                     "No hay ninguna cámara seleccionada", 4000)
+                self._reset_camera_connection_status()
                 return
 
             self.video_worker = CameraWorker(camera_index=self.camera_index,
@@ -213,8 +226,15 @@ class CameraInterface(ImageUtilsMixin):
 
             self.video_button.setIcon(self.camera_off_icon)
             self.video_worker.start()
+
+            camera_name = self._get_selected_camera_name()
+            if camera_name:
+                self._set_camera_connection_status(camera_name)
+            else:
+                self._set_camera_connection_status("Cámara conectada")
         except (RuntimeError, OSError) as e:
             print(f"Error al iniciar video: {e}")
+            self._reset_camera_connection_status()
             self.on_video_error(str(e))
 
     def stop_video(self):
@@ -248,6 +268,7 @@ class CameraInterface(ImageUtilsMixin):
             except Exception as e:
                 print(f"Error en la ejecucion al detener el video: {e}")
 
+        self._reset_camera_connection_status()
         self.load_image()
 
     def pause_video(self):

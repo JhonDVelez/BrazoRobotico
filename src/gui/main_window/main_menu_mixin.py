@@ -1,6 +1,8 @@
 """ En este modulo se define el menu que se integrara a la barra de titulo y como se comporta.
 """
 import os
+import subprocess
+import sys
 from collections import Counter
 from PyQt6.QtGui import QAction, QKeySequence, QIcon, QPixmap, QActionGroup
 from PyQt6.QtWidgets import QMenuBar, QSizePolicy, QLabel, QStatusBar, QFrame
@@ -9,6 +11,7 @@ from serial.tools import list_ports
 from robot.openbotv_worker import RobotWorker
 from data import DataFlow, FrameCounter
 from data import config_manager as cfg
+import cv2
 from cv2_enumerate_cameras import enumerate_cameras
 from .main_theme_mixin import ThemeManager
 
@@ -28,10 +31,11 @@ class MainMenuMixin:
         """ Define las acciones que tendrá el menu asi como sus atajos, texto de la barra de estado
             e iconos utilizados como botones.
         """
+        # Carga del archivo de configuraciones 
         settings = cfg.get("settings.json")
 
-        # Mapeamos el submenu para el menu vista
-        # id_key, json_key, (attr_name, label_show, label_hide, shortcut, status, is_checkable)
+        # Se define un formato de diccionario para crear las acciones del menu
+        # primary_key, secondary_key, (attr_name, label_show, label_hide, shortcut, status, is_checkable)
         mapping_vista = {
             "content":
             {
@@ -76,26 +80,36 @@ class MainMenuMixin:
             }
         }
 
+        # Crea una tupla para iterar las distintas acciones 
         mapping_all = (mapping_vista, mapping_mode,
                        mapping_camera, mapping_simulation)
 
         for mapping in mapping_all:
-            for main_key, (creation_data) in mapping.items():
+            # Obtiene la llave principal y el diccionario que contiene
+            for main_key, creation_data in mapping.items():
+                # Carga los datos guardados con la llave principal
                 saved_config = settings.get(main_key)
+                # Obtiene los datos de creación
                 for key, (attr_name, label_show, label_hide, shortcut, status, is_checkable) in creation_data.items():
                     action = None
                     if key in saved_config:
+                        # Define el label basado en la configuración guardada
                         if saved_config.get(key):
                             action = QAction(label_hide, self)
                         else:
                             action = QAction(label_show, self)
                         action.setChecked(saved_config.get(key))
                     else:
+                        # Si no se tiene el dato guardado en el json se usa el label por defecto
                         action = QAction(label_hide, self)
                     if action is not None:
+                        # Si la accion fue creada se configura el comportamiento y el status 
+                        # de la barra de estado
                         action.setCheckable(is_checkable)
                         action.setShortcut(QKeySequence(shortcut))
                         action.setStatusTip(status)
+                        # Se crea el objeto en esta clase usando self, el nombre del atributo y la 
+                        # acción creada
                         setattr(self, attr_name, action)
 
         self.sun_icon = QIcon(os.path.join(
@@ -249,31 +263,158 @@ class MainMenuMixin:
                     not self.stopped):
                 self.connect_action.setEnabled(True)
 
-    def get_cameras(self):
-        available_cameras = enumerate_cameras(apiPreference=1400)
-        available_cams = [(cam.name)
-                          for cam in available_cameras]
+    def _read_sysfs_value(self, path):
+        try:
+            with open(path, encoding='utf-8', errors='replace') as f:
+                return f.readline().strip()
+        except OSError:
+            return None
 
-        if self.last_cameras is not None and Counter(self.last_cameras) == Counter(available_cams) and self.cameras_submenu.actions():
+    def _get_udev_camera_name(self, sysfs_device_path):
+        try:
+            result = subprocess.run(
+                ['udevadm', 'info', '-q', 'property', '-p', sysfs_device_path],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+        except FileNotFoundError:
+            return None
+
+        if result.returncode != 0:
+            return None
+
+        vendor = None
+        model = None
+        for line in result.stdout.splitlines():
+            if line.startswith('ID_MODEL_FROM_DATABASE='):
+                model = line.split('=', 1)[1].strip()
+            elif line.startswith('ID_MODEL=') and model is None:
+                model = line.split('=', 1)[1].strip()
+            elif line.startswith('ID_VENDOR_FROM_DATABASE='):
+                vendor = line.split('=', 1)[1].strip()
+            elif line.startswith('ID_VENDOR=') and vendor is None:
+                vendor = line.split('=', 1)[1].strip()
+
+        if model:
+            if vendor and vendor not in model:
+                return f"{vendor} {model}"
+            return model
+        return None
+
+    def _is_host_controller_name(self, product_name, manufacturer_name):
+        if not product_name and not manufacturer_name:
+            return False
+        if product_name and 'Host Controller' in product_name:
+            return True
+        if manufacturer_name and manufacturer_name.startswith('Linux ') and 'xhci' in manufacturer_name.lower():
+            return True
+        return False
+
+    def _get_camera_product_name(self, camera_path):
+        device_name = os.path.basename(camera_path)
+        video_device_path = os.path.join('/sys/class/video4linux', device_name, 'device')
+        if not os.path.exists(video_device_path):
+            return None
+
+        udev_name = self._get_udev_camera_name(video_device_path)
+        if udev_name:
+            return udev_name
+
+        current_path = os.path.realpath(video_device_path)
+        while current_path and current_path.startswith('/sys'):
+            product = self._read_sysfs_value(os.path.join(current_path, 'product'))
+            manufacturer = self._read_sysfs_value(os.path.join(current_path, 'manufacturer'))
+            if product and not self._is_host_controller_name(product, manufacturer):
+                if manufacturer and manufacturer not in product:
+                    return f"{manufacturer} {product}"
+                return product
+            parent_path = os.path.dirname(current_path)
+            if parent_path == current_path:
+                break
+            current_path = parent_path
+        return None
+
+    def _get_camera_display_name(self, cam):
+        if cam.name and "UVC Camera" not in cam.name:
+            return cam.name
+
+        product_name = self._get_camera_product_name(cam.path)
+        if product_name:
+            return product_name
+
+        if cam.vid is not None and cam.pid is not None:
+            return f"{cam.name} ({cam.vid:04X}:{cam.pid:04X})"
+
+        return cam.name
+
+    def _get_camera_sysfs_device(self, cam):
+        device_name = os.path.basename(cam.path) if cam.path else None
+        if not device_name:
+            return None
+        video_device_path = os.path.join('/sys/class/video4linux', device_name, 'device')
+        if not os.path.exists(video_device_path):
+            return None
+        return os.path.realpath(video_device_path)
+
+    def _get_unique_camera_menu_name(self, cam, existing_names):
+        display_name = self._get_camera_display_name(cam)
+        if display_name in existing_names:
+            suffix = os.path.basename(cam.path) if cam.path else str(cam.index)
+            if suffix:
+                display_name = f"{display_name} ({suffix})"
+            else:
+                display_name = f"{display_name} ({cam.index})"
+            index = 1
+            while display_name in existing_names:
+                display_name = f"{self._get_camera_display_name(cam)} ({suffix}#{index})"
+                index += 1
+        existing_names.add(display_name)
+        return display_name
+
+    def get_cameras(self):
+        if sys.platform == "win32":
+            available_cameras = enumerate_cameras(cv2.CAP_DSHOW)
+        elif sys.platform == "linux":
+            available_cameras = enumerate_cameras(cv2.CAP_V4L2)
+        else:
+            available_cameras = enumerate_cameras()
+
+        unique_cameras = []
+        seen_devices = set()
+        for cam in available_cameras:
+            sysfs_device = self._get_camera_sysfs_device(cam)
+            unique_key = sysfs_device or cam.path or str(cam.index)
+            if unique_key in seen_devices:
+                continue
+            seen_devices.add(unique_key)
+            unique_cameras.append(cam)
+
+        camera_names = []
+        used_names = set()
+        for cam in unique_cameras:
+            camera_names.append(self._get_unique_camera_menu_name(cam, used_names))
+
+        if self.last_cameras is not None and Counter(self.last_cameras) == Counter(camera_names) and self.cameras_submenu.actions():
             return
 
-        self.last_cameras = available_cams
+        self.last_cameras = camera_names
 
         self.cameras_submenu.clear()
         for action in list(self.cameras_submenu.actions()):
             self.cameras_submenu.removeAction(action)
 
-        if available_cameras:
+        if unique_cameras:
             self.cameras_submenu.setEnabled(True)
-            for cam in available_cameras:
-                cam_action = self.cameras_submenu.addAction(cam.name)
+            for cam, display_name in zip(unique_cameras, camera_names):
+                cam_action = self.cameras_submenu.addAction(display_name)
                 cam_action.setCheckable(True)
-                cam_action.setData([cam.index, cam.name])
-                cam_action.setStatusTip(f"Conectar a camara {cam.name}")
+                cam_action.setData([cam.index, display_name])
+                cam_action.setStatusTip(f"Conectar a camara {display_name}")
                 self.cameras_group.addAction(cam_action)
                 cam_action.triggered.connect(self.camera_checkable_change)
 
-                if self.last_camera_name == cam.name:
+                if self.last_camera_name == display_name:
                     cam_action.setChecked(True)
         else:
             self.cameras_submenu.setEnabled(False)

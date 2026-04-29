@@ -30,14 +30,19 @@ View3D {
             gridInterval: 0.01
         }
         tonemapMode: SceneEnvironment.TonemapModeAces
-        antialiasingMode: SceneEnvironment.MSAA
+        temporalAAEnabled: true
         antialiasingQuality: SceneEnvironment.VeryHigh
     }
 
     DirectionalLight {
+        id: sun
+        castsShadow: true
+        shadowFactor: 100
+        shadowMapQuality: DirectionalLight.ShadowMapQualityHigh
+        brightness: 1.0
         visible: true
         eulerRotation.x: -45
-        eulerRotation.y: 45
+        eulerRotation.y: 45                   
     }
 
     Node {
@@ -134,7 +139,6 @@ View3D {
         anchors.left: parent.left
         anchors.margins: 10
         onClicked: {
-            position: 
             originNode.position = Qt.vector3d(0, 0.25, 0)
             originNode.eulerRotation = Qt.vector3d(-20, 135, 0)
             cameraNode.position = Qt.vector3d(0.1, 0, 1.3)

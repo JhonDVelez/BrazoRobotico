@@ -34,19 +34,19 @@
   </link>
   <link name="clamp2_link_1">
     <inertial>
-      <origin rpy="0 0 0" xyz="0.006996907618943539 0.012162832270244749 0.027954827886010836"/>
+      <origin rpy="0 0 -1.5708" xyz="0.006996907618943539 0.012162832270244749 0.027954827886010836"/>
       <mass value="0.13124936137262402"/>
       <inertia ixx="0.000102" ixy="-2e-06" ixz="6e-06" iyy="8.2e-05" iyz="-3e-06" izz="4.2e-05"/>
     </inertial>
     <visual>
-      <origin rpy="0 0 0" xyz="-0.021121 0.012617 -0.431403"/>
+      <origin rpy="0 0 -1.5708" xyz="-0.021121 0.012617 -0.431403"/>
       <geometry>
         <mesh filename="meshes/visual/clamp2_link_1.obj" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="silver"/>
     </visual>
     <collision>
-      <origin rpy="0 0 0" xyz="-0.021121 0.012617 -0.431403"/>
+      <origin rpy="0 0 -1.5708" xyz="-0.021121 0.012617 -0.431403"/>
       <geometry>
         <mesh filename="meshes/collision/clamp2_link_collision.stl" scale="0.0001 0.0001 0.0001"/>
       </geometry>
@@ -153,7 +153,7 @@
     </collision>
   </link>
   <joint name="clamp1_clamp2_joint" type="revolute">
-    <origin rpy="0 0 0" xyz="0.018074 0.000709 0.070177"/>
+    <origin rpy="0 0 1.5708" xyz="0.012074 0.028709 0.070177"/>
     <parent link="clamp_arm_link_1"/>
     <child link="clamp2_link_1"/>
     <axis xyz="0.022552 0.999728 -0.005939"/>

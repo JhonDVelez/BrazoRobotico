@@ -1,13 +1,13 @@
 import os
+from PyQt6.QtGui import QPixmap
+from PyQt6.QtQuick import QQuickView
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QVBoxLayout, QLabel, QSizePolicy, QWidget
 from data import Units, Modes, Domains, DataFlow
 from simulation import PhysicsWorker
 from gui.main_window.image_utils_mixin import ImageUtilsMixin
 from gui.main_window.main_theme_mixin import ThemeManager
 from gui.simulation_worker import SimWorker
-from PyQt6.QtGui import QPixmap
-from PyQt6.QtQuick import QQuickView
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QVBoxLayout, QLabel, QSizePolicy
 
 
 class SimInterface(ImageUtilsMixin):
@@ -67,7 +67,16 @@ class SimInterface(ImageUtilsMixin):
     def __integrate_preloaded_container(self):
         """Integra el contenedor completamente precargado en la interfaz"""
         try:
-            # Transferir parentesco del contenedor
+            if not self.quick_view:
+                print("Error: No hay vista precargada")
+                return
+            
+            self.window_container = QWidget.createWindowContainer(
+                self.quick_view,
+                self,
+                Qt.WindowType.Widget
+            )
+
             self.window_container.setParent(self)
 
             # Configurar políticas de tamaño

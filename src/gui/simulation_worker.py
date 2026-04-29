@@ -25,7 +25,7 @@ class SimWorker(QThread):
             "z",
             "y",
             "z",
-            "z"]
+            "x"]
 
         self.signal_manager = SimulationSignalManager.get_instance()
         self.signal_manager.update_robot_signal.connect(self.update_simulation)
@@ -40,7 +40,7 @@ class SimWorker(QThread):
         """
         if joint_positions is None:
             joint_positions = [0, 0, 0, 0, 0, 0]
-        for i in (1, 2):
+        for i in (1, 2, 4, 5):
             joint_positions[i] *= -1
         for motor_name, angle, direction in zip(self.joint_names,
                                                 joint_positions,
@@ -50,3 +50,5 @@ class SimWorker(QThread):
                 motor.setProperty("eulerRotation", QVector3D(0, 0, angle))
             elif direction == "y":
                 motor.setProperty("eulerRotation", QVector3D(0, angle, 0))
+            elif direction == "x":
+                motor.setProperty("eulerRotation", QVector3D(angle, 0, 0))

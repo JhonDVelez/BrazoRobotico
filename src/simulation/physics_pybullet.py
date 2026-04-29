@@ -43,7 +43,8 @@ class RobotArmPhysics(QWidget):
         """
         if self.robot_id is None or len(positions) != len(self.joint_indices):
             return
-
+        # Debido a la rotacion de la pinza se hace necesario cambiar la orientacion del movimiento
+        positions[-2:] = [-x for x in positions[-2:]]
         for i, pos in enumerate(positions):
             p.setJointMotorControl2(
                 bodyUniqueId=self.robot_id,

@@ -9,10 +9,11 @@ import cv2
 import traceback
 import pybullet as p
 import pybullet_data
-from PyQt6.QtGui import QGuiApplication, QPixmap, QFont, QIcon
+import PyQt6
+from PyQt6.QtCore import QUrl, Qt
+from PyQt6.QtGui import QGuiApplication, QPixmap, QFont, QIcon, QSurfaceFormat
 from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtQuick import QQuickView
-from PyQt6.QtCore import QUrl, Qt
 from qdarktheme.qtpy.QtWidgets import QSplashScreen
 from gui import MainWindow
 from data import config_manager as cfg
@@ -76,6 +77,7 @@ class CompletePreloader:
 
         try:
             self.preloaded_view = QQuickView()
+            self.preloaded_view.setFormat(surf_format)
             self.preloaded_view.setFlag(Qt.WindowType.WindowStaysOnBottomHint)
             self.preloaded_view.setResizeMode(
                 QQuickView.ResizeMode.SizeRootObjectToView)
@@ -89,14 +91,8 @@ class CompletePreloader:
             self.preloaded_view.create()
             if not self.preloaded_view.isVisible():
                 self.preloaded_view.show()
+                self.preloaded_view.update()
                 QGuiApplication.processEvents()
-                if sys.platform == "win32":
-                    self.preloaded_view.hide()
-
-            self.window_container = self.create_window_container(
-                self.preloaded_view,
-                self.dummy_parent
-            )
 
             splash.showMessage(
                 "Renderizando y cacheando recursos",
@@ -105,7 +101,7 @@ class CompletePreloader:
             )
             self.safe_initial_render()
             container = PreloadedContainer(
-                self.preloaded_view, self.window_container)
+                self.preloaded_view, None)
 
             splash.showMessage(
                 "Vista 3D completamente precargada",
@@ -117,40 +113,6 @@ class CompletePreloader:
 
         except Exception as e:
             print(f"Error en precarga completa: {e}")
-            import traceback
-            traceback.print_exc()
-            return None
-
-    def create_window_container(self, quick_view, parent):
-        """ Crea el window container durante la precarga
-        """
-        try:
-            from PyQt6.QtWidgets import QWidget
-
-            if hasattr(QWidget, 'createWindowContainer'):
-                # Configurar flags apropiados
-                container = QWidget.createWindowContainer(
-                    quick_view,
-                    parent,
-                    Qt.WindowType.Widget
-                )
-
-                if container:
-                    container.resize(160, 120)
-                    container.setMinimumSize(160, 120)
-                    for _ in range(3):
-                        QGuiApplication.processEvents()
-                        time.sleep(0.05)
-                    return container
-                else:
-                    print("Error: createWindowContainer retornó None")
-                    return None
-            else:
-                print("Error: createWindowContainer no disponible")
-                return None
-
-        except Exception as e:
-            print(f"Error creando window container en precarga: {e}")
             import traceback
             traceback.print_exc()
             return None
@@ -233,9 +195,20 @@ class CompletePreloader:
 
 if __name__ == '__main__':
     cfg.init_config()
+    
     if sys.platform == "win32":
         myappid = 'laser.openbotv.control.lab'  # string único
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+    
+    os.environ["QSG_RHI_BACKEND"] = "opengl"
+
+    surf_format = QSurfaceFormat()
+    surf_format.setDepthBufferSize(24)
+    surf_format.setStencilBufferSize(8)
+    surf_format.setSamples(4)
+    surf_format.setVersion(4, 1)   # OpenGL 4.1 mínimo para shadow maps
+    surf_format.setProfile(QSurfaceFormat.OpenGLContextProfile.CoreProfile)
+    QSurfaceFormat.setDefaultFormat(surf_format)
 
     app = QApplication(sys.argv)
     app.setStyle('fusion')

@@ -59,11 +59,10 @@ Node {
         id: material_005_material
         objectName: "Material.005"
         baseColorMap: _6_texture
-        roughness: 0.2
+        roughness: 0.5          // más rugosidad → sombra más perceptible (menos especular)
         metalness: 0.0
-        specularAmount: 0.5
-        clearcoatAmount: 0.3
-        clearcoatRoughnessAmount: 0.1
+        specularAmount: 0.3
+        clearcoatAmount: 0.0    // clearcoat añade capa brillante que oculta sombras propias
         indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
@@ -72,11 +71,10 @@ Node {
         id: material_001_material
         objectName: "Material.001"
         baseColorMap: _5_texture
-        roughness: 0.2
+        roughness: 0.5
         metalness: 0.0
-        specularAmount: 0.5
-        clearcoatAmount: 0.3
-        clearcoatRoughnessAmount: 0.1
+        specularAmount: 0.3
+        clearcoatAmount: 0.0
         indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
@@ -85,11 +83,10 @@ Node {
         id: material_002_material
         objectName: "Material.002"
         baseColorMap: _4_texture
-        roughness: 0.2
+        roughness: 0.5
         metalness: 0.0
-        specularAmount: 0.5
-        clearcoatAmount: 0.3
-        clearcoatRoughnessAmount: 0.1
+        specularAmount: 0.3
+        clearcoatAmount: 0.0
         indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
@@ -98,11 +95,10 @@ Node {
         id: material_003_material
         objectName: "Material.003"
         baseColorMap: _3_texture
-        roughness: 0.2
+        roughness: 0.5
         metalness: 0.0
-        specularAmount: 0.5
-        clearcoatAmount: 0.3
-        clearcoatRoughnessAmount: 0.1
+        specularAmount: 0.3
+        clearcoatAmount: 0.0
         indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
@@ -111,11 +107,10 @@ Node {
         id: material_004_material
         objectName: "Material.004"
         baseColorMap: _2_texture
-        roughness: 0.2
+        roughness: 0.5
         metalness: 0.0
-        specularAmount: 0.5
-        clearcoatAmount: 0.3
-        clearcoatRoughnessAmount: 0.1
+        specularAmount: 0.3
+        clearcoatAmount: 0.0
         indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
@@ -124,24 +119,21 @@ Node {
         id: material_007_material
         objectName: "Material.007"
         baseColorMap: _1_texture
-        roughness: 0.2
+        roughness: 0.5
         metalness: 0.0
-        specularAmount: 0.5
-        clearcoatAmount: 0.3
-        clearcoatRoughnessAmount: 0.1
+        specularAmount: 0.3
+        clearcoatAmount: 0.0
         indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
-        
     }
     PrincipledMaterial {
         id: material_006_material
         objectName: "Material.006"
-        roughness: 0.2
+        roughness: 0.5
         metalness: 0.0
-        specularAmount: 0.5
-        clearcoatAmount: 0.3
-        clearcoatRoughnessAmount: 0.1
+        specularAmount: 0.3
+        clearcoatAmount: 0.0
         indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
@@ -150,11 +142,10 @@ Node {
         id: material_008_material
         objectName: "Material.008"
         baseColorMap: _6_texture
-        roughness: 0.2
+        roughness: 0.5
         metalness: 0.0
-        specularAmount: 0.5
-        clearcoatAmount: 0.3
-        clearcoatRoughnessAmount: 0.1
+        specularAmount: 0.3
+        clearcoatAmount: 0.0
         indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque
@@ -166,6 +157,8 @@ Node {
         objectName: "base_link"
         scale: Qt.vector3d(0.001, 0.001, 0.001)
         source: "meshes/base_link_mesh.mesh"
+        castsShadows: true
+        receivesShadows: true
         materials: [
             material_005_material
         ]
@@ -174,22 +167,28 @@ Node {
             objectName: "arm1_link_1"
             position: Qt.vector3d(0.0213967, 122.693, 1.2751)
             source: "meshes/arm1_link_1_mesh.mesh"
+            castsShadows: true
+            receivesShadows: true   
             materials: [
                 material_001_material
             ]
             Model {
                 id: arm2_link_1
                 objectName: "arm2_link_1"
-                position: Qt.vector3d(-0.0400905, 32.5683, 1.2449)
+                position: Qt.vector3d(-0.0400905, 32.5683, 3.8)
                 source: "meshes/arm2_link_1_mesh.mesh"
+                castsShadows: true
+                receivesShadows: true
                 materials: [
                     material_002_material
                 ]
                 Model {
                     id: arm3_link_1
                     objectName: "arm3_link_1"
-                    position: Qt.vector3d(-0.13914, 93.4279, 0.583994)
+                    position: Qt.vector3d(-0.13914, 93.4279, -2)
                     source: "meshes/arm3_link_1_mesh.mesh"
+                    castsShadows: true
+                    receivesShadows: true
                     materials: [
                         material_003_material
                     ]
@@ -198,30 +197,35 @@ Node {
                         objectName: "arm4_link_1"
                         position: Qt.vector3d(1.97872, 82.5878, -3.04708)
                         source: "meshes/arm4_link_1_mesh.mesh"
+                        castsShadows: true
+                        receivesShadows: true
                         materials: [
                             material_004_material
                         ]
                         Model {
                             id: clamp_arm_link_1
                             objectName: "clamp_arm_link_1"
-                            position: Qt.vector3d(1.51373, 29.5679, -0.888374)
+                            position: Qt.vector3d(1.51373, 29.5679, 5)
                             source: "meshes/clamp_arm_link_1_mesh.mesh"
+                            castsShadows: true
+                            receivesShadows: true
                             materials: [
                                 material_007_material
                             ]
                             Model {
                                 id: clamp2_link_1
                                 objectName: "clamp2_link_1"
-                                position: Qt.vector3d(18.0772, 70.2332, -0.108659)
-                                scale: Qt.vector3d(1000, 1000, 1000)
+                                position: Qt.vector3d(5.3, 73.0, -18.3)
                                 source: "meshes/clamp2_link_1_mesh.mesh"
+                                castsShadows: true
+                                receivesShadows: true
                                 materials: [
                                     material_006_material
                                 ]
                             }
                             Node {
                                 id: endEffectorTip
-                                position: Qt.vector3d(-3.3, 152.2, 0.83)
+                                position: Qt.vector3d(10, 152.2, 0.83)
 
                                 // Punto visible en la punta
                                 Model {
@@ -245,6 +249,8 @@ Node {
             id: base_link_001
             objectName: "base_link.001"
             source: "meshes/base_link_001_mesh.mesh"
+            castsShadows: true
+            receivesShadows: true
             materials: [
                 material_008_material
             ]

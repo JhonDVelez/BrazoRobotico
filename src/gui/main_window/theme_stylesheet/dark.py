@@ -31,7 +31,7 @@ QToolBar * {
 QWidget {
     background-color: rgba(32.000, 33.000, 36.000, 1.000);
     color: rgba(228.000, 231.000, 235.000, 1.000);
-    selection-background-color: rgba(241.000, 57.000, 47.000, 1.000);
+    selection-background-color: rgba(204.000, 28.000, 28.000, 1.000);
     selection-color: rgba(32.000, 33.000, 36.000, 1.000);
 }
 QWidget:disabled {
@@ -70,7 +70,7 @@ QMainWindow::separator {
 }
 QMainWindow::separator:hover,
 QMainWindow::separator:pressed {
-    background-color: rgba(241.000, 57.000, 47.000, 1.000);
+    background-color: rgba(204.000, 28.000, 28.000, 1.000);
 }
 QToolTip {
     background-color: rgba(41.000, 42.000, 45.000, 1.000);
@@ -113,7 +113,7 @@ QRadioButton {
 }
 QCheckBox:hover,
 QRadioButton:hover {
-    border-bottom: 2px solid rgba(241.000, 57.000, 47.000, 1.000);
+    border-bottom: 2px solid rgba(204.000, 28.000, 28.000, 1.000);
 }
 QCheckBox::indicator,
 QRadioButton::indicator {
@@ -278,7 +278,7 @@ QProgressBar {
     color: rgba(228.000, 231.000, 235.000, 1.000);
 }
 QProgressBar::chunk {
-    background-color: rgba(241.000, 57.000, 47.000, 1.000);
+    background-color: rgba(204.000, 28.000, 28.000, 1.000);
     border-radius: 3px;
 }
 QProgressBar::chunk:disabled {
@@ -291,13 +291,13 @@ QPushButton {
     color: rgba(255.000, 255.000, 255.000, 1.000);
 }
 QPushButton:hover {
-    background-color: rgba(60.000, 32.000, 30.000, 1.000);
+    background-color: rgba(52.000, 16.000, 16.000, 1.000);
 }
 QPushButton:pressed {
-    background-color: rgba(121.000, 56.000, 53.000, 1.000);
+    background-color: rgba(140.000, 28.000, 28.000, 1.000);
 }
 QPushButton:checked {
-    border-color: rgba(241.000, 57.000, 47.000, 1.000);
+    border-color: rgba(204.000, 28.000, 28.000, 1.000);
 }
 QPushButton:disabled {
     border-color: rgba(63.000, 64.000, 66.000, 1.000);
@@ -321,7 +321,7 @@ QToolButton:pressed {
 }
 QToolButton:selected,
 QToolButton:checked {
-    background-color: rgba(121.000, 56.000, 53.000, 1.000);
+    background-color: rgba(140.000, 28.000, 28.000, 1.000);
 }
 QToolButton::checked:disabled {
     background-color: rgba(63.000, 64.000, 66.000, 1.000);
@@ -335,7 +335,7 @@ QToolButton::menu-button {
     border: 1px solid transparent;
 }
 QToolButton::menu-button:hover, QToolButton::menu-button:checked:hover {
-    border-color: rgba(241.000, 57.000, 47.000, 1.000);
+    border-color: rgba(204.000, 28.000, 28.000, 1.000);
 }
 QToolButton::menu-indicator {
     height: 18px;
@@ -363,7 +363,7 @@ QComboBox {
 }
 QComboBox:focus,
 QComboBox:open {
-    border: 1px solid rgba(241.000, 57.000, 47.000, 1.000);
+    border: 1px solid rgba(204.000, 28.000, 28.000, 1.000);
 }
 QComboBox::drop-down {
     subcontrol-position: center right;
@@ -406,7 +406,7 @@ QSlider::groove:vertical {
     width: 4px;
 }
 QSlider::sub-page, QSlider::handle {
-    background-color: rgba(241.000, 57.000, 47.000, 1.000);
+    background-color: rgba(204.000, 28.000, 28.000, 1.000);
 }
 QSlider::sub-page:disabled,
 QSlider::add-page:disabled,
@@ -414,10 +414,10 @@ QSlider::handle:disabled {
     background-color: rgba(83.000, 87.000, 91.000, 1.000);
 }
 QSlider::add-page {
-    background-color: rgba(129.000, 39.000, 36.000, 1.000);
+    background-color: rgba(90.000, 20.000, 20.000, 1.000);
 }
 QSlider::handle:hover {
-    background-color: rgba(238.000, 74.000, 65.000, 1.000);
+    background-color: rgba(235.000, 60.000, 50.000, 1.000);
 }
 QSlider::handle:horizontal {
     width: 16px;
@@ -458,11 +458,11 @@ QTabBar::tab {
     padding: 3px;
 }
 QTabBar::tab:hover {
-    background-color: rgba(60.000, 32.000, 30.000, 1.000);
+    background-color: rgba(52.000, 16.000, 16.000, 1.000);
 }
 QTabBar::tab:selected {
-    color: rgba(241.000, 57.000, 47.000, 1.000);
-    background-color: rgba(121.000, 56.000, 53.000, 1.000);
+    color: rgba(204.000, 28.000, 28.000, 1.000);
+    background-color: rgba(140.000, 28.000, 28.000, 1.000);
 }
 QTabBar::tab:selected:disabled {
     background-color: rgba(83.000, 87.000, 91.000, 1.000);
@@ -475,10 +475,10 @@ QTabBar::tab:top {
     margin-left: 4px;
 }
 QTabBar::tab:top:selected {
-    border-bottom: 2px solid rgba(241.000, 57.000, 47.000, 1.000);
+    border-bottom: 2px solid rgba(204.000, 28.000, 28.000, 1.000);
 }
 QTabBar::tab:top:hover {
-    border-color: rgba(241.000, 57.000, 47.000, 1.000);
+    border-color: rgba(204.000, 28.000, 28.000, 1.000);
 }
 QTabBar::tab:top:selected:disabled {
     border-color: rgba(83.000, 87.000, 91.000, 1.000);
@@ -490,10 +490,10 @@ QTabBar::tab:bottom {
     margin-left: 4px;
 }
 QTabBar::tab:bottom:selected {
-    border-top: 2px solid rgba(241.000, 57.000, 47.000, 1.000);
+    border-top: 2px solid rgba(204.000, 28.000, 28.000, 1.000);
 }
 QTabBar::tab:bottom:hover {
-    border-color: rgba(241.000, 57.000, 47.000, 1.000);
+    border-color: rgba(204.000, 28.000, 28.000, 1.000);
 }
 QTabBar::tab:bottom:selected:disabled {
     border-color: rgba(83.000, 87.000, 91.000, 1.000);
@@ -505,10 +505,10 @@ QTabBar::tab:left {
     margin-top: 4px;
 }
 QTabBar::tab:left:selected {
-    border-right: 2px solid rgba(241.000, 57.000, 47.000, 1.000);
+    border-right: 2px solid rgba(204.000, 28.000, 28.000, 1.000);
 }
 QTabBar::tab:left:hover {
-    border-color: rgba(241.000, 57.000, 47.000, 1.000);
+    border-color: rgba(204.000, 28.000, 28.000, 1.000);
 }
 QTabBar::tab:left:selected:disabled {
     border-color: rgba(83.000, 87.000, 91.000, 1.000);
@@ -520,10 +520,10 @@ QTabBar::tab:right {
     margin-top: 4px;
 }
 QTabBar::tab:right:selected {
-    border-left: 2px solid rgba(241.000, 57.000, 47.000, 1.000);
+    border-left: 2px solid rgba(204.000, 28.000, 28.000, 1.000);
 }
 QTabBar::tab:right:hover {
-    border-color: rgba(241.000, 57.000, 47.000, 1.000);
+    border-color: rgba(204.000, 28.000, 28.000, 1.000);
 }
 QTabBar::tab:right:selected:disabled {
     border-color: rgba(83.000, 87.000, 91.000, 1.000);
@@ -540,7 +540,7 @@ QDockWidget::title {
 }
 QDockWidget::close-button:hover,
 QDockWidget::float-button:hover {
-    background-color: rgba(60.000, 32.000, 30.000, 1.000);
+    background-color: rgba(52.000, 16.000, 16.000, 1.000);
     border-radius: 2px
 }
 QFrame {
@@ -563,14 +563,14 @@ QToolBox {
     border: none;
 }
 QToolBox:selected {
-    border: 2px solid rgba(241.000, 57.000, 47.000, 1.000);
+    border: 2px solid rgba(204.000, 28.000, 28.000, 1.000);
 }
 QToolBox::tab {
     background-color: rgba(0.000, 0.000, 0.000, 1.000);
     border-bottom: 2px solid rgba(63.000, 64.000, 66.000, 1.000);
 }
 QToolBox::tab:selected {
-    border-bottom: 2px solid rgba(241.000, 57.000, 47.000, 1.000);
+    border-bottom: 2px solid rgba(204.000, 28.000, 28.000, 1.000);
 }
 QToolBox::tab:selected:disabled {
     border-bottom: 2px solid rgba(83.000, 87.000, 91.000, 1.000);
@@ -586,7 +586,7 @@ QSplitter::handle {
     background: qradialgradient(
         cx: 0.5, cy: 0.5, radius: 0.50,
         fx: 0.5, fy: 0.5,
-        stop:0 rgba(241.000, 57.000, 47.000, 0.400),
+        stop:0 rgba(204.000, 28.000, 28.000, 0.400),
         stop:1 rgba(0, 0, 0, 0.0)
     );
 }
@@ -598,7 +598,7 @@ QSplitter::handle:hover {
     background: qradialgradient(
         cx: 0.5, cy: 0.5, radius: 0.50,
         fx: 0.5, fy: 0.5,
-        stop:0 rgba(241.000, 57.000, 47.000, 0.800),
+        stop:0 rgba(204.000, 28.000, 28.000, 0.800),
         stop:1 rgba(0, 0, 0, 0.0)
     );
 }
@@ -636,7 +636,7 @@ QTextEdit:focus,
 QTextEdit:selected,
 QPlainTextEdit:focus,
 QPlainTextEdit:selected {
-    border: 1px solid rgba(241.000, 57.000, 47.000, 1.000);
+    border: 1px solid rgba(204.000, 28.000, 28.000, 1.000);
     selection-background-color: rgba(18.000, 80.000, 123.000, 1.000);
 }
 QTextEdit:!focus,
@@ -721,7 +721,7 @@ QTableView QTableCornerButton::section {
     background-color: rgba(63.000, 64.000, 66.000, 1.000);
 }
 QTableView QTableCornerButton::section:pressed {
-    background-color: rgba(241.000, 57.000, 47.000, 1.000);
+    background-color: rgba(204.000, 28.000, 28.000, 1.000);
 }
 QTableView QHeaderView{
     background-color: rgba(0.000, 0.000, 0.000, 1.000);
@@ -741,7 +741,7 @@ QHeaderView::section {
 }
 QHeaderView::section:horizontal:on,
 QHeaderView::section:vertical:on {
-    border-color: rgba(241.000, 57.000, 47.000, 1.000);
+    border-color: rgba(204.000, 28.000, 28.000, 1.000);
 }
 QHeaderView::section:horizontal:on:disabled,
 QHeaderView::section:vertical:on:disabled {
@@ -808,7 +808,7 @@ QAbstractSpinBox {
 }
 QLineEdit:focus,
 QAbstractSpinBox:focus {
-    border: 1px solid rgba(241.000, 57.000, 47.000, 1.000);
+    border: 1px solid rgba(204.000, 28.000, 28.000, 1.000);
 }
 QAbstractSpinBox::up-button,
 QAbstractSpinBox::down-button {
@@ -860,7 +860,7 @@ QDateTimeEdit::down-arrow[calendarPopup="true"] {
     image: none;
 }
 QDateTimeEdit QAbstractItemView {
-    border: 1px solid rgba(241.000, 57.000, 47.000, 1.000);
+    border: 1px solid rgba(204.000, 28.000, 28.000, 1.000);
 }
 QDateTimeEdit QCalendarWidget QAbstractItemView {
     padding: -1px;

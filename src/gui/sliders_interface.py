@@ -14,10 +14,11 @@ class SlidersWidget(QWidget):
     sliders_status = [150, 150, 150, 150, 150, 150]
     instance = None
 
-    def __init__(self, parent):
+    def __init__(self, parent, kinematics_widget=None):
         super().__init__(parent)
         SlidersWidget.instance = self
         self.parent = parent
+        self.kinematics_widget = kinematics_widget
         self.__setup_ui()
         self.__setup_connections()
 
@@ -103,13 +104,6 @@ class SlidersWidget(QWidget):
             group_layout.addWidget(spin)
 
             self.container.addWidget(group_widget, grid_row, grid_col)
-
-        # Importar dinámicamente el widget de cinemática y añadirlo al holder
-        try:
-            from gui.kinematics_interface import KinematicsWidget
-            self.kinematics_widget = KinematicsWidget()
-        except Exception:
-            self.kinematics_widget = None
 
         # Añadir ambos al holder (se mostrará solo uno a la vez)
         self.controls_holder_layout.addWidget(self.widget)
@@ -212,19 +206,8 @@ class SlidersWidget(QWidget):
         ]
 
     def _on_mode_changed(self, mode):
-        """Muestra sliders en modo angular y panel cartesiano en modo cinemático."""
-        try:
-            from data import Modes
-            if mode is Modes.KINEMATIC:
-                if getattr(self, 'kinematics_widget', None) is not None:
-                    self.widget.hide()
-                    self.kinematics_widget.show()
-            else:
-                if getattr(self, 'kinematics_widget', None) is not None:
-                    self.kinematics_widget.hide()
-                    self.widget.show()
-        except Exception:
-            pass
+        """Slot para cambios de modo. No oculta widgets ya que están en MainInitMixin."""
+        pass
 
     def reset_values(self):
         """ Regresa a su estado original los valores de los slider/spinBox (estan conectados)

@@ -59,10 +59,10 @@ Node {
         id: material_005_material
         objectName: "Material.005"
         baseColorMap: _6_texture
-        roughness: 0.5          // más rugosidad → sombra más perceptible (menos especular)
+        roughness: 0.5          
         metalness: 0.0
         specularAmount: 0.3
-        clearcoatAmount: 0.0    // clearcoat añade capa brillante que oculta sombras propias
+        clearcoatAmount: 0.0    
         indexOfRefraction: 1.45
         cullMode: PrincipledMaterial.NoCulling
         alphaMode: PrincipledMaterial.Opaque

@@ -1,6 +1,6 @@
 import numpy as np
 import pyqtgraph as pg
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QColor
 from PyQt6.QtWidgets import (QWidget, QGridLayout, QMenu, QSpinBox, QLabel,
                              QVBoxLayout, QHBoxLayout, QDialog, QFileDialog, QMessageBox, QPushButton)
 from PyQt6.QtCore import Qt
@@ -161,7 +161,7 @@ class upgradableGraph:
             view_box.setXRange(corrected_min, corrected_max, padding=0)
             view_box.blockSignals(False)
             self.plot_item.showGrid(
-                x=self.grid_visible, y=self.grid_visible, alpha=0.5)
+                x=self.grid_visible, y=self.grid_visible, alpha=0.3)
 
     # --- Manejo de datos entrantes ---------------------------------------------------------------
 
@@ -239,19 +239,21 @@ class upgradableGraph:
 
     def theme_changed(self, dark_t: bool):
         if dark_t:
-            self.cursor_label.setColor(pg.mkColor(241, 57, 47))
+            self.cursor_label.setColor(pg.mkColor(160, 30, 30))
             self.cursor_line.setPen(
                 pg.mkPen(pg.mkColor(150, 150, 150), width=2))
             self.cursor_line.setHoverPen(
-                pg.mkPen(pg.mkColor(241, 57, 47), width=2))
+                pg.mkPen(pg.mkColor(160, 30, 30), width=2))
             self.plot_widget.setBackground(pg.mkColor((32, 33, 36)))
+            self.cursor_label.fill.swap(pg.mkBrush(10, 10, 10, 100))
         else:
-            self.cursor_label.setColor(pg.mkColor(0, 129, 219))
+            self.cursor_label.setColor(pg.mkColor(0, 100, 180))
             self.cursor_line.setPen(
                 pg.mkPen(pg.mkColor(150, 150, 150), width=2))
             self.cursor_line.setHoverPen(
-                pg.mkPen(pg.mkColor(0, 129, 219), width=2))
+                pg.mkPen(pg.mkColor(0, 100, 180), width=2))
             self.plot_widget.setBackground(pg.mkColor((248, 249, 250)))
+            self.cursor_label.fill.setColor(QColor(180, 180, 180, 100))
 
     # --- Menú de contexto personalizado ----------------------------------------------------------
 
@@ -304,7 +306,7 @@ class upgradableGraph:
     def _toggle_grid(self):
         self.grid_visible = not self.grid_visible
         self.plot_item.showGrid(x=self.grid_visible,
-                                y=self.grid_visible, alpha=0.5)
+                                y=self.grid_visible, alpha=0.3)
         con = cfg.get("graphics.json", "grid", self.graphic_type)
         con[self.graph_index][2] = self.grid_visible
         cfg.set_value("graphics.json", "grid", self.graphic_type, value=con)
@@ -327,7 +329,7 @@ class upgradableGraph:
         visible_points = s_per_div * 100
         self.view_box.setXRange(-visible_points, 0, padding=0)
         self.plot_item.showGrid(x=self.grid_visible,
-                                y=self.grid_visible, alpha=0.5)
+                                y=self.grid_visible, alpha=0.3)
         con = cfg.get("graphics.json", "grid", self.graphic_type)
         con[self.graph_index][0] = s_per_div
         cfg.set_value("graphics.json", "grid", self.graphic_type, value=con)
@@ -363,7 +365,7 @@ class upgradableGraph:
         new_y_max = self.y_anchor_value + half_height
         self.view_box.setYRange(new_y_min, new_y_max, padding=0)
         self.plot_item.showGrid(x=self.grid_visible,
-                                y=self.grid_visible, alpha=0.5)
+                                y=self.grid_visible, alpha=0.3)
 
     def _set_custom_x_scale(self):
         dialog = QDialog(self.plot_widget)
@@ -485,7 +487,7 @@ class PlotCursor:
     def __setup_cursor(self, init_pos: int = -500):
         self.cursor_line = pg.InfiniteLine(
             angle=90, movable=True, span=(1, -1))
-        self.cursor_label = pg.TextItem(fill=pg.mkBrush(120, 120, 120, 50))
+        self.cursor_label = pg.TextItem(fill=pg.mkBrush(120, 120, 120, 255))
         font = QFont()
         font.setBold(True)
         font.setPixelSize(12)

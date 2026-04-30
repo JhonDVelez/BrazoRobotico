@@ -8,7 +8,7 @@ View3D {
     id: view3D
     anchors.fill: parent
 
-    // Propiedades expuestas para Python
+    // Properties exposed for Python
     property alias trackedPosition: trackedNode.scenePosition
     property real effectorY: robot.endEffector.scenePosition.y
     property real effectorX: robot.endEffector.scenePosition.x
@@ -16,6 +16,8 @@ View3D {
     property real sceneEffectorX: -effectorX * 1000
     property real sceneEffectorY: effectorY * 1000
     property real sceneEffectorZ: effectorZ * 1000
+    property url boardTexture: "maps/boardTexture.png"
+    property real x_offset: -0.1
 
     environment: ExtendedSceneEnvironment {
         backgroundMode: SceneEnvironment.SkyBox
@@ -46,30 +48,69 @@ View3D {
     }
 
     Node {
-        id: originNode
-        position: Qt.vector3d(0, 0.25, 0)
-        eulerRotation: Qt.vector3d(-20, 135, 0)
+        id: cameraOrigin
+        position.x: -0.15
+        position.y: 0.3
+        eulerRotation.y: -135
+        eulerRotation.x: -20
+
         PerspectiveCamera {
             id: cameraNode
-            position: Qt.vector3d(0.1, 0, 1.3)
-            clipFar: 10
-            clipNear: 0.05
+            clipNear: 0.001
+            clipFar: 3.0
+            z: 1.3
             fieldOfView: 30
         }
     }
 
     OrbitCameraController {
-        anchors.fill: parent
-        origin: originNode
         camera: cameraNode
+        origin: cameraOrigin
     }
 
     Openbotv_v1 {
         id: robot
         scale: Qt.vector3d(1, 1, 1)
+        position: Qt.vector3d(0, 0.09, 0)
     }
 
-    // Nodo "fantasma" que sigue al objeto que quieres trackear
+    Box {
+        id: box3D
+        scale: Qt.vector3d(1, 1, 1)
+        eulerRotation.y: 180
+        eulerRotation.z: 180
+        position: Qt.vector3d(view3D.x_offset+0.015, 0.105, 0.015)
+    }
+
+    Model {
+        id: tablero
+        
+        // Define X by Y dimensions
+        geometry: PlaneGeometry {
+            plane: PlaneGeometry.XZ
+            width: 0.36957
+            height: 0.159766
+        }
+        scale: Qt.vector3d(1, 1, 1)
+        position: Qt.vector3d(view3D.x_offset-0.085, 0.1, 0)
+        eulerRotation.y: -90
+
+        materials: [
+            PrincipledMaterial {
+                baseColorMap: Texture {
+                    generateMipmaps: true
+                    mipFilter: Texture.Linear
+                    source: view3D.boardTexture
+                }
+                roughness: 0.5
+                indexOfRefraction: 1.45
+                cullMode: PrincipledMaterial.NoCulling
+                alphaMode: PrincipledMaterial.Opaque
+            }
+        ]
+    }
+
+    // "Ghost" node that follows the object you want to track
     Node {
         id: trackedNode
         position: robot.endEffector ? robot.endEffector.scenePosition : Qt.vector3d(0, 0, 0)
@@ -110,18 +151,18 @@ View3D {
     Model {
         id: projectionCylinder
 
-        source: "#Cylinder"  // primitiva built-in
+        source: "#Cylinder"
 
         position: Qt.vector3d(
             effectorX,
-            effectorY / 2.0,   // centro entre Y=0 y endEffector.y
+            effectorY / 2.0,   // center between Y=0 and endEffector.y
             effectorZ
         )
 
         scale: Qt.vector3d(
-            0.00004,                       // radio fino en X
-            effectorY / 100,            // QtQuick3D #Cylinder tiene height=2 por defecto
-            0.00004                        // radio fino en Z
+            0.00004,                       // fine radius in X
+            effectorY / 100,            
+            0.00004                        // fine radius in Z
         )
 
         materials: [
@@ -139,9 +180,9 @@ View3D {
         anchors.left: parent.left
         anchors.margins: 10
         onClicked: {
-            originNode.position = Qt.vector3d(0, 0.25, 0)
-            originNode.eulerRotation = Qt.vector3d(-20, 135, 0)
-            cameraNode.position = Qt.vector3d(0.1, 0, 1.3)
+            cameraOrigin.position = Qt.vector3d(-0.15, 0.3, 0)
+            cameraOrigin.eulerRotation = Qt.vector3d(-20, -135, 0)
+            cameraNode.z = 1.3
         }
     }
 }

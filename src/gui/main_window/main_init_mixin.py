@@ -169,8 +169,8 @@ class MainInitMixin:
         """ Inicializa la interfaz de controladores con sliders que indica el
            angulo objetivo de cada motor del robot
         """
-        self.slider_widget = SlidersWidget(self)
         self.kinematics_widget = KinematicsWidget()
+        self.slider_widget = SlidersWidget(self, self.kinematics_widget)
         self.modes_widget = QWidget()
         if not self.modes_widget.layout():
             layout = QHBoxLayout(self.modes_widget)

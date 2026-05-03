@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Effects
 import QtQuick3D
 import QtQuick3D.Helpers
 import "."
@@ -13,52 +14,48 @@ View3D {
     property real effectorY: robot.endEffector.scenePosition.y
     property real effectorX: robot.endEffector.scenePosition.x
     property real effectorZ: robot.endEffector.scenePosition.z
-    property real sceneEffectorX: -effectorX * 1000
-    property real sceneEffectorY: effectorY * 1000
-    property real sceneEffectorZ: effectorZ * 1000
+    property real sceneEffectorX: -effectorX
+    property real sceneEffectorY: effectorY - 100
+    property real sceneEffectorZ: effectorZ
     property url boardTexture: "maps/boardTexture.png"
-    property real x_offset: -0.1
+    property url floorTexture: "maps/floorTexture.png"
+    property real x_offset: -100
+    property alias bgColor: env.clearColor
+    property alias bgMode: env.backgroundMode
+    property alias floorColor: floorMaterial.baseColor
 
-    environment: ExtendedSceneEnvironment {
-        backgroundMode: SceneEnvironment.SkyBox
-        lightProbe: Texture {
-            textureData: ProceduralSkyTextureData {
-                textureQuality: ProceduralSkyTextureData.SkyTextureQualityHigh
-                groundHorizonColor: "lightgray"
-                groundCurve: 0.2
-            }
-        }
+    environment: SceneEnvironment {
+        id: env
+        clearColor: "#311010"
+        backgroundMode: SceneEnvironment.Color
+        antialiasingMode: SceneEnvironment.MSAA
+        antialiasingQuality: SceneEnvironment.High
         InfiniteGrid { 
-            gridInterval: 0.01
+            gridInterval: 10
         }
-        tonemapMode: SceneEnvironment.TonemapModeAces
-        temporalAAEnabled: true
-        antialiasingQuality: SceneEnvironment.VeryHigh
     }
 
     DirectionalLight {
-        id: sun
+        eulerRotation.x: -35
+        eulerRotation.y: -45
         castsShadow: true
-        shadowFactor: 100
-        shadowMapQuality: DirectionalLight.ShadowMapQualityHigh
-        brightness: 1.0
-        visible: true
-        eulerRotation.x: -45
-        eulerRotation.y: 45                   
+        shadowMapQuality: Light.ShadowMapQualityVeryHigh
+        shadowFactor: 30
+        brightness: 1
     }
 
-    Node {
+    Model {
         id: cameraOrigin
-        position.x: -0.15
-        position.y: 0.3
+        position.x: -150
+        position.y: 300
         eulerRotation.y: -135
         eulerRotation.x: -20
 
         PerspectiveCamera {
             id: cameraNode
-            clipNear: 0.001
-            clipFar: 3.0
-            z: 1.3
+            clipNear: 1
+            clipFar: 30000
+            z: 1300
             fieldOfView: 30
         }
     }
@@ -70,16 +67,31 @@ View3D {
 
     Openbotv_v1 {
         id: robot
-        scale: Qt.vector3d(1, 1, 1)
-        position: Qt.vector3d(0, 0.09, 0)
+        scale: Qt.vector3d(1000, 1000, 1000)
+        position: Qt.vector3d(0, 90, 0)
     }
 
     Box {
         id: box3D
-        scale: Qt.vector3d(1, 1, 1)
+        scale: Qt.vector3d(1000, 1000, 1000)
         eulerRotation.y: 180
         eulerRotation.z: 180
-        position: Qt.vector3d(view3D.x_offset+0.015, 0.105, 0.015)
+        position: Qt.vector3d(view3D.x_offset+15, 105, 15)
+    }
+
+    Model {
+        id: floor
+        source: "meshes/floor.mesh"
+        scale: Qt.vector3d(3000, 1, 3000)
+        materials: [
+            PrincipledMaterial {
+                id: floorMaterial
+                baseColor: "black"
+                roughness: 0.5
+                indexOfRefraction: 1.45
+            }
+        ]
+        receivesShadows: true
     }
 
     Model {
@@ -88,11 +100,11 @@ View3D {
         // Define X by Y dimensions
         geometry: PlaneGeometry {
             plane: PlaneGeometry.XZ
-            width: 0.36957
-            height: 0.159766
+            width: 369.57
+            height: 159.766
         }
         scale: Qt.vector3d(1, 1, 1)
-        position: Qt.vector3d(view3D.x_offset-0.085, 0.1, 0)
+        position: Qt.vector3d(view3D.x_offset-85, 100, 0)
         eulerRotation.y: -90
 
         materials: [
@@ -100,6 +112,7 @@ View3D {
                 baseColorMap: Texture {
                     generateMipmaps: true
                     mipFilter: Texture.Linear
+                    magFilter: Texture.Linear
                     source: view3D.boardTexture
                 }
                 roughness: 0.5
@@ -108,6 +121,7 @@ View3D {
                 alphaMode: PrincipledMaterial.Opaque
             }
         ]
+        receivesShadows: true   
     }
 
     // "Ghost" node that follows the object you want to track
@@ -160,9 +174,9 @@ View3D {
         )
 
         scale: Qt.vector3d(
-            0.00004,                       // fine radius in X
+            0.04,                       // fine radius in X
             effectorY / 100,            
-            0.00004                        // fine radius in Z
+            0.04                        // fine radius in Z
         )
 
         materials: [
@@ -180,9 +194,9 @@ View3D {
         anchors.left: parent.left
         anchors.margins: 10
         onClicked: {
-            cameraOrigin.position = Qt.vector3d(-0.15, 0.3, 0)
+            cameraOrigin.position = Qt.vector3d(-150, 300, 0)
             cameraOrigin.eulerRotation = Qt.vector3d(-20, -135, 0)
-            cameraNode.z = 1.3
+            cameraNode.z = 1300
         }
     }
 }

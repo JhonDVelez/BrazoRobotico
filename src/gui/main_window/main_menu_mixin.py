@@ -31,25 +31,11 @@ class MainMenuMixin:
         """ Define las acciones que tendrá el menu asi como sus atajos, texto de la barra de estado
             e iconos utilizados como botones.
         """
-        # Carga del archivo de configuraciones 
+        # Carga del archivo de configuraciones
         settings = cfg.get("settings.json")
 
         # Se define un formato de diccionario para crear las acciones del menu
         # primary_key, secondary_key, (attr_name, label_show, label_hide, shortcut, status, is_checkable)
-        mapping_vista = {
-            "content":
-            {
-                "camera": ("camera_action", "Cámara", "Cámara",
-                           "Ctrl+h", "Mostrar/Ocultar la cámara", True),
-                "model": ("model_action", "Simulación", "Simulación",
-                          "Ctrl+j", "Mostrar/Ocultar el modelo 3D de la simulación", True),
-                "graphs": ("graphs_action", "Gráficas", "Gráficas",
-                           "Ctrl+k", "Mostrar/Ocultar las gráficas", True),
-                "controls": ("controls_action", "Controles", "Controles",
-                             "Ctrl+l", "Mostrar/Ocultar los controles", True),
-            }
-        }
-
         mapping_mode = {
             "mode": {
                 "sliders": ("sliders_action", "Sliders",
@@ -80,9 +66,8 @@ class MainMenuMixin:
             }
         }
 
-        # Crea una tupla para iterar las distintas acciones 
-        mapping_all = (mapping_vista, mapping_mode,
-                       mapping_camera, mapping_simulation)
+        # Crea una tupla para iterar las distintas acciones
+        mapping_all = (mapping_mode, mapping_camera, mapping_simulation)
 
         for mapping in mapping_all:
             # Obtiene la llave principal y el diccionario que contiene
@@ -103,19 +88,17 @@ class MainMenuMixin:
                         # Si no se tiene el dato guardado en el json se usa el label por defecto
                         action = QAction(label_hide, self)
                     if action is not None:
-                        # Si la accion fue creada se configura el comportamiento y el status 
+                        # Si la accion fue creada se configura el comportamiento y el status
                         # de la barra de estado
                         action.setCheckable(is_checkable)
                         action.setShortcut(QKeySequence(shortcut))
                         action.setStatusTip(status)
-                        # Se crea el objeto en esta clase usando self, el nombre del atributo y la 
+                        # Se crea el objeto en esta clase usando self, el nombre del atributo y la
                         # acción creada
                         setattr(self, attr_name, action)
 
-        self.sun_icon = QIcon(os.path.join(
-            os.path.dirname(__file__), "..", "icons", "sun.png"))
-        self.moon_icon = QIcon(os.path.join(
-            os.path.dirname(__file__), "..", "icons", "moon.png"))
+        self.sun_icon = QIcon(os.path.join("icons:sun.png"))
+        self.moon_icon = QIcon(os.path.join("icons:moon.png"))
 
         self.theme_action = QAction("", self)
         self.theme_action.setShortcut(QKeySequence("Ctrl+t"))
@@ -138,23 +121,14 @@ class MainMenuMixin:
 
         # Logo en la equina izquierda
         self.logo_label = QLabel()
-        self.laser_w = QPixmap(os.path.join(
-            os.path.dirname(__file__), "..",
-            "img", "laser_w.png")).scaledToHeight(20, Qt.TransformationMode.SmoothTransformation)
-        self.laser_b = QPixmap(os.path.join(
-            os.path.dirname(__file__), "..",
-            "img", "laser_b.png")).scaledToHeight(20, Qt.TransformationMode.SmoothTransformation)
+        self.laser_w = QPixmap("img:laser_w.png").scaledToHeight(
+            20, Qt.TransformationMode.SmoothTransformation)
+        self.laser_b = QPixmap("img:laser_b.png").scaledToHeight(
+            20, Qt.TransformationMode.SmoothTransformation)
         self.logo_label.setPixmap(self.laser_w)
         self.logo_label.setContentsMargins(8, 0, 5, 0)
 
         self.menu_bar.setCornerWidget(self.logo_label, Qt.Corner.TopLeftCorner)
-
-        # Menús normales
-        self.vista_menu = self.menu_bar.addMenu("&Vista")
-        self.vista_menu.addAction(self.camera_action)
-        self.vista_menu.addAction(self.model_action)
-        self.vista_menu.addAction(self.graphs_action)
-        self.vista_menu.addAction(self.controls_action)
 
         self.camera_menu = self.menu_bar.addMenu("&Cámara")
         self.cameras_submenu = self.camera_menu.addMenu(
@@ -313,7 +287,8 @@ class MainMenuMixin:
 
     def _get_camera_product_name(self, camera_path):
         device_name = os.path.basename(camera_path)
-        video_device_path = os.path.join('/sys/class/video4linux', device_name, 'device')
+        video_device_path = os.path.join(
+            '/sys/class/video4linux', device_name, 'device')
         if not os.path.exists(video_device_path):
             return None
 
@@ -323,8 +298,10 @@ class MainMenuMixin:
 
         current_path = os.path.realpath(video_device_path)
         while current_path and current_path.startswith('/sys'):
-            product = self._read_sysfs_value(os.path.join(current_path, 'product'))
-            manufacturer = self._read_sysfs_value(os.path.join(current_path, 'manufacturer'))
+            product = self._read_sysfs_value(
+                os.path.join(current_path, 'product'))
+            manufacturer = self._read_sysfs_value(
+                os.path.join(current_path, 'manufacturer'))
             if product and not self._is_host_controller_name(product, manufacturer):
                 if manufacturer and manufacturer not in product:
                     return f"{manufacturer} {product}"
@@ -352,7 +329,8 @@ class MainMenuMixin:
         device_name = os.path.basename(cam.path) if cam.path else None
         if not device_name:
             return None
-        video_device_path = os.path.join('/sys/class/video4linux', device_name, 'device')
+        video_device_path = os.path.join(
+            '/sys/class/video4linux', device_name, 'device')
         if not os.path.exists(video_device_path):
             return None
         return os.path.realpath(video_device_path)
@@ -393,7 +371,8 @@ class MainMenuMixin:
         camera_names = []
         used_names = set()
         for cam in unique_cameras:
-            camera_names.append(self._get_unique_camera_menu_name(cam, used_names))
+            camera_names.append(
+                self._get_unique_camera_menu_name(cam, used_names))
 
         if self.last_cameras is not None and Counter(self.last_cameras) == Counter(camera_names) and self.cameras_submenu.actions():
             return

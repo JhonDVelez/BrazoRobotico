@@ -48,7 +48,7 @@ Node {
         materials: [
             bake_material3
         ]
+        castsShadows: true
+        receivesShadows: true   
     }
-
-    // Animations:
 }

@@ -66,7 +66,7 @@ class CalibrationInterface(CameraInterface):
         painter.drawLine(0, h66, w, h66)
         painter.end()
 
-        self.set_pixmap(pixmap)
+        self.set_video_image(pixmap)
 
     def save_temporal_frame(self, frame: np.ndarray, extension=".jpg"):
         """Guarda un frame numpy BGR en un archivo temporal."""

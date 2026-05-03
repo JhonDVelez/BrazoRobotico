@@ -3,18 +3,18 @@
     como por ejemplo la inicializaron de la cámara
 """
 import os
-from PyQt6.QtWidgets import QVBoxLayout, QGridLayout, QSplitter, QGroupBox, QPushButton, QApplication
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QSizePolicy
+from PyQt6.QtWidgets import QVBoxLayout, QGridLayout, QSplitter, QGroupBox, QApplication
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QSizePolicy, QToolBar
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QSize, Qt
 from data import Modes, Units, Domains
 from data import DataFlow
 from robot import RobotWorker
-from ..camera_interface import CameraInterface
-from ..sliders_interface import SlidersWidget
-from ..simulation_interface import SimInterface
-from ..graph_interface import GraphInterface
-from ..kinematics_interface import KinematicsWidget
+from gui.camera_interface import CameraInterface
+from gui.sliders_interface import SlidersWidget
+from gui.simulation_interface import SimInterface
+from gui.graph_interface import GraphInterface
+from gui.kinematics_interface import KinematicsWidget
 
 
 class MainInitMixin:
@@ -48,9 +48,10 @@ class MainInitMixin:
         # Añadir margen superior para evitar superposición con title bar
         self.gridLayout.setContentsMargins(5, 5, 5, 5)
 
-        self.barContentLayout = QVBoxLayout()
+        self.barContentLayout = QHBoxLayout()
         self.barContentLayout.setObjectName("barContentLayout")
-        self.barContentLayout.setStretch(0, 16)
+        self.barContentLayout.setContentsMargins(0, 0, 0, 0)
+        self.barContentLayout.setSpacing(0)
 
         # ========== SPLITTER PRINCIPAL ==========
         self.contentSplitter = QSplitter(parent=self.main_widget)
@@ -73,23 +74,28 @@ class MainInitMixin:
         self.controlSplitter.setHandleWidth(8)
         self.controlSplitter.setContentsMargins(0, 0, 0, 0)
 
+        box_size_policy = QSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
         self.modelBox = QGroupBox(parent=self.visualSplitter)
         self.modelBox.setTitle("")
         self.modelBox.setObjectName("modelBox")
+        self.modelBox.setContentsMargins(0, 0, 0, 0)
+        self.modelBox.setSizePolicy(box_size_policy)
 
         self.cameraBox = QGroupBox(parent=self.visualSplitter)
         self.cameraBox.setTitle("")
         self.cameraBox.setObjectName("cameraBox")
+        self.cameraBox.setContentsMargins(0, 0, 0, 0)
+        self.cameraBox.setSizePolicy(box_size_policy)
 
         self.graphsBox = QGroupBox(parent=self.controlSplitter)
         self.graphsBox.setTitle("")
         self.graphsBox.setObjectName("graphsBox")
         self.graphsBox.setContentsMargins(0, 0, 0, 0)
-        graphsBox_sizePolicy = QSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        graphsBox_sizePolicy.setHorizontalStretch(0)
-        graphsBox_sizePolicy.setVerticalStretch(0)
-        self.graphsBox.setSizePolicy(graphsBox_sizePolicy)
+        box_size_policy.setHorizontalStretch(0)
+        box_size_policy.setVerticalStretch(0)
+        self.graphsBox.setSizePolicy(box_size_policy)
 
         self.controlsBox = QGroupBox(parent=self.controlSplitter)
         self.controlsBox.setTitle("")
@@ -99,51 +105,12 @@ class MainInitMixin:
             Qt.AlignmentFlag.AlignLeft
         )
         self.controlsBox.setObjectName("controlsBox")
+        self.controlsBox.setSizePolicy(box_size_policy)
 
         self.verticalLayout_2 = QGridLayout(self.controlsBox)
         self.verticalLayout_2.setSpacing(0)
         self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_2.setObjectName("verticalLayout_2")
-
-        self.actions_widget = QWidget(parent=self.controlsBox)
-        self.actions_widget.setObjectName("widget")
-
-        self.horizontalLayout = QHBoxLayout(self.actions_widget)
-        self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
-        self.horizontalLayout.setObjectName("horizontalLayout")
-
-        # Botones de control
-        self.start_button = QPushButton(parent=self.actions_widget)
-        sizePolicy_fixed = QSizePolicy(
-            QSizePolicy.Policy.Fixed,
-            QSizePolicy.Policy.Fixed
-        )
-        self.start_button.setSizePolicy(sizePolicy_fixed)
-        self.start_button.setMaximumSize(QSize(42, 42))
-        self.start_button.setObjectName("start_button")
-        self.horizontalLayout.addWidget(self.start_button)
-
-        self.pause_button = QPushButton(parent=self.actions_widget)
-        self.pause_button.setSizePolicy(sizePolicy_fixed)
-        self.pause_button.setMaximumSize(QSize(42, 42))
-        self.pause_button.setText("")
-        self.pause_button.setObjectName("pause_button")
-        self.horizontalLayout.addWidget(self.pause_button)
-
-        self.stop_button = QPushButton(parent=self.actions_widget)
-        self.stop_button.setSizePolicy(sizePolicy_fixed)
-        self.stop_button.setMaximumSize(QSize(42, 42))
-        self.stop_button.setText("")
-        self.stop_button.setObjectName("stop_button")
-        self.horizontalLayout.addWidget(self.stop_button)
-
-        self.reset_button = QPushButton(parent=self.actions_widget)
-        self.reset_button.setSizePolicy(sizePolicy_fixed)
-        self.reset_button.setMaximumSize(QSize(42, 42))
-        self.reset_button.setObjectName("reset_button")
-        self.horizontalLayout.addWidget(self.reset_button)
-
-        self.verticalLayout_2.addWidget(self.actions_widget)
 
         # Añadir splitter principal al layout
         self.barContentLayout.addWidget(self.contentSplitter)
@@ -167,7 +134,8 @@ class MainInitMixin:
 
     def init_controls(self):
         """ Inicializa la interfaz de controladores con sliders que indica el
-           angulo objetivo de cada motor del robot
+           angulo objetivo de cada motor del robot, e inicializa la barra de herramientas
+           con los botones de control de acción (start, pause, stop, reset)
         """
         self.kinematics_widget = KinematicsWidget()
         self.slider_widget = SlidersWidget(self, self.kinematics_widget)
@@ -180,47 +148,120 @@ class MainInitMixin:
         self.modes_widget.layout().addWidget(self.slider_widget)
         self.modes_widget.layout().addWidget(self.kinematics_widget)
 
-        self.control_app_widget = QWidget()
-        if not self.control_app_widget.layout():
-            layout = QHBoxLayout(self.control_app_widget)
-            layout.setContentsMargins(0, 0, 0, 0)
-            self.control_app_widget.setLayout(layout)
-
-        self.start_icon = QIcon(os.path.join(os.path.dirname(__file__),
-                                             "..", "icons", "play.png"))
-        self.pause_icon = QIcon(os.path.join(os.path.dirname(__file__),
-                                             "..", "icons", "pause.png"))
-        self.stop_icon = QIcon(os.path.join(os.path.dirname(__file__),
-                                            "..", "icons", "stop.png"))
-        self.reset_icon = QIcon(os.path.join(os.path.dirname(__file__),
-                                             "..", "icons", "refresh.png"))
-
-        self.start_button.setIcon(self.start_icon)
-        self.start_button.setStyleSheet(
-            "background-color: #3B963F")  # Boton color verde
-
-        self.reset_button.setIcon(self.reset_icon)
-        self.reset_button.setStyleSheet(
-            "background-color: #777777")  # Boton color gris
-
-        self.stop_button.setIcon(self.stop_icon)
-        self.stop_button.setStyleSheet(
-            "background-color: #F74220")  # Boton color rojo
-
-        self.pause_button.setIcon(self.pause_icon)
-        self.pause_button.setStyleSheet(
-            "background-color: #777777")  # Boton color gris
-
-        self.control_app_widget.layout().addWidget(self.start_button)
-        self.control_app_widget.layout().addWidget(self.pause_button)
-        self.control_app_widget.layout().addWidget(self.stop_button)
-        self.control_app_widget.layout().addWidget(self.reset_button)
-
         self.controlsBox.layout().addWidget(self.modes_widget)
-        self.controlsBox.layout().addWidget(self.control_app_widget)
 
-        self.pause_button.hide()
-        self.stop_button.hide()
+    def init_tool_bar(self):
+        # Crear la barra de herramientas vertical anclada a la izquierda
+        self.actions_toolbar = QToolBar()
+        self.actions_toolbar.setObjectName("actions_toolbar")
+        self.actions_toolbar.setOrientation(Qt.Orientation.Vertical)
+        self.actions_toolbar.setIconSize(QSize(24, 24))
+        self.actions_toolbar.setMinimumHeight(30)
+        self.actions_toolbar.setMinimumWidth(30)
+        self.actions_toolbar.setContentsMargins(0, 0, 0, 0)
+        self.actions_toolbar.setMovable(True)
+        self.actions_toolbar.setFloatable(True)
+
+        # Separador expansible
+        self.toolbar_spacer = QWidget()
+        self.toolbar_spacer.setSizePolicy(
+            QSizePolicy.Policy.Expanding,  # horizontal
+            # vertical (necesario para modo vertical)
+            QSizePolicy.Policy.Expanding
+        )
+        self.toolbar_spacer.setObjectName("toolbar_spacer")
+
+        self.sim_view_icon = QIcon(os.path.join("icons:armView.png"))
+        self.camera_view_icon = QIcon(os.path.join("icons:cameraView.png"))
+        self.graphs_view_icon = QIcon(os.path.join("icons:graphView.png"))
+        self.controls_view_icon = QIcon(os.path.join("icons:controlsView.png"))
+
+        self.model_action = self.actions_toolbar.addAction(
+            self.sim_view_icon, "Vista de simulación")
+        self.model_action.setObjectName("simulation_view_button")
+        self.model_action.setStatusTip(
+            "Mostrar/Ocultar el modelo 3D de la simulación")
+        self.model_action.setCheckable(True)
+
+        self.camera_action = self.actions_toolbar.addAction(
+            self.camera_view_icon, "Vista de cámara")
+        self.camera_action.setObjectName("camera_view_button")
+        self.camera_action.setStatusTip("Mostrar/Ocultar la cámara")
+        self.camera_action.setCheckable(True)
+
+        self.graphs_action = self.actions_toolbar.addAction(
+            self.graphs_view_icon, "Vista de gráficas")
+        self.graphs_action.setObjectName("graph_view_button")
+        self.graphs_action.setStatusTip("Mostrar/Ocultar las gráficas")
+        self.graphs_action.setCheckable(True)
+
+        self.controls_action = self.actions_toolbar.addAction(
+            self.controls_view_icon, "Vista de controles")
+        self.controls_action.setObjectName("controls_view_button")
+        self.controls_action.setStatusTip("Mostrar/Ocultar los controles")
+        self.controls_action.setCheckable(True)
+
+        self.actions_toolbar.widgetForAction(
+            self.model_action)
+        self.actions_toolbar.widgetForAction(
+            self.camera_action)
+        self.actions_toolbar.widgetForAction(
+            self.graphs_action)
+        self.actions_toolbar.widgetForAction(
+            self.controls_action)
+
+        self.actions_toolbar.addSeparator()
+        self.actions_toolbar.addWidget(self.toolbar_spacer)
+        self.actions_toolbar.addSeparator()
+
+        # Cargar iconos
+        self.start_icon = QIcon(os.path.join("icons:play.png"))
+        self.pause_icon = QIcon(os.path.join("icons:pause.png"))
+        self.stop_icon = QIcon(os.path.join("icons:stop.png"))
+        self.reset_icon = QIcon(os.path.join("icons:refresh.png"))
+
+        # Crear acciones de la barra de herramientas (el orden es importante: start, pause, stop, reset)
+        self.start_action = self.actions_toolbar.addAction(
+            self.start_icon, "Iniciar")
+        self.start_action.setObjectName("start_button")
+        self.start_action.setStatusTip("Iniciar la ejecución")
+        self.start_action.setCheckable(True)
+
+        self.pause_action = self.actions_toolbar.addAction(
+            self.pause_icon, "Pausar")
+        self.pause_action.setObjectName("pause_button")
+        self.pause_action.setStatusTip("Pausar la ejecución")
+        self.pause_action.setEnabled(False)
+        self.pause_action.setCheckable(True)
+
+        self.stop_action = self.actions_toolbar.addAction(
+            self.stop_icon, "Detener")
+        self.stop_action.setObjectName("stop_button")
+        self.stop_action.setStatusTip("Detener la ejecución")
+        self.stop_action.setEnabled(False)
+        self.stop_action.setCheckable(True)
+        self.stop_action.setChecked(True)
+
+        self.reset_action = self.actions_toolbar.addAction(
+            self.reset_icon, "Reiniciar")
+        self.reset_action.setObjectName("reset_button")
+        self.reset_action.setStatusTip("Reiniciar los valores")
+
+        # Crear referencias a los botones internos de las acciones para compatibilidad
+        self.start_button = self.actions_toolbar.widgetForAction(
+            self.start_action)
+        self.pause_button = self.actions_toolbar.widgetForAction(
+            self.pause_action)
+        self.stop_button = self.actions_toolbar.widgetForAction(
+            self.stop_action)
+        self.reset_button = self.actions_toolbar.widgetForAction(
+            self.reset_action)
+
+        # Aplicar estilos a los botones
+        # self.start_button.setStyleSheet("background-color: #3B963F")
+        # self.pause_button.setStyleSheet("background-color: #777777")
+        # self.stop_button.setStyleSheet("background-color: #F74220")
+        # self.reset_button.setStyleSheet("background-color: #777777")
 
     def init_simulation(self):
         """ Inicializa la interfaz de la simulación creando el layout y realizando ajustes para una

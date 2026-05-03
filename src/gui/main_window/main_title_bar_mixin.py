@@ -1,7 +1,7 @@
 """ Este modulo Se encarga de la estructura y comportamiento de la barra de titulo donde se 
     integra el menu, el titulo del programa y los botones de control de ventana.
 """
-from PyQt6.QtWidgets import QHBoxLayout, QWidget, QToolButton, QLabel, QSizePolicy
+from PyQt6.QtWidgets import QHBoxLayout, QWidget, QToolButton, QLabel, QSizePolicy, QToolBar
 from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtGui import QFont
 from qframelesswindow import TitleBarBase
@@ -52,16 +52,25 @@ class MainTitleBarMixin(TitleBarBase):
             QSizePolicy.Policy.Fixed
         )
         self.title_label.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Minimum,
             QSizePolicy.Policy.Expanding
         )
 
-        self.title_layout.addWidget(self.left_container)
-        self.title_layout.addWidget(self.title_label, 1)
-        self.title_layout.addWidget(self.buttons_frame)
+        self.title_layout.addWidget(self.left_container, 0)
+        self.title_layout.addStretch(1)
+        self.title_layout.addWidget(self.title_label, 0)
+        self.title_layout.addStretch(1)
+        self.title_layout.addWidget(self.buttons_frame, 0)
 
         # Equilibrar contenedores después de la inicialización
         QTimer.singleShot(0, self.balance_containers)
+
+        self.title_label.setObjectName("title_label")
+        self.left_container.setObjectName("left_container")
+        self.buttons_frame.setObjectName("buttons_frame")
+        self.minBtn.setObjectName("title_bar_min_btn")
+        self.maxBtn.setObjectName("title_bar_max_btn")
+        self.closeBtn.setObjectName("title_bar_close_btn")
 
     def _create_window_buttons(self):
         self.buttons_frame = QWidget()
@@ -98,9 +107,12 @@ class MainTitleBarMixin(TitleBarBase):
         """ Equilibra los anchos de los contenedores laterales
         """
         left_width = self.left_container.sizeHint().width()
+        buttons_width = self.buttons_frame.width()
 
-        # Establecer ancho mínimo igual para ambos
-        self.left_container.setMinimumWidth(left_width)
+        # Hacer que ambos contenedores tengan el mismo ancho
+        max_width = max(left_width, buttons_width)
+        self.left_container.setMinimumWidth(max_width)
+        self.buttons_frame.setMinimumWidth(max_width)
 
     def resizeEvent(self, event):
         """ Re-equilibrar en cada resize

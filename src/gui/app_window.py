@@ -1,9 +1,9 @@
 from qframelesswindow import FramelessMainWindow
-from PyQt6.QtWidgets import QMessageBox, QVBoxLayout, QWidget, QLabel, QApplication
+from PyQt6.QtWidgets import QMessageBox, QVBoxLayout, QWidget, QLabel, QApplication, QMainWindow
 from PyQt6.QtCore import QCoreApplication, Qt
-from .main_window import (MainInitMixin, MainActionsMixin, ThemeManager,
-                          MainMenuMixin, MainThemeMixin, MainTitleBarMixin)
-from .device_monitor import get_device_monitor
+from gui.main_window import (MainInitMixin, MainActionsMixin, ThemeManager,
+                             MainMenuMixin, MainThemeMixin, MainTitleBarMixin)
+from gui.device_monitor import get_device_monitor
 from data import SearchSignalManager
 from data import config_manager as cfg
 
@@ -36,41 +36,53 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
 
         # Crear contenedor principal
         container = QWidget()
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.setSpacing(0)
 
         # Barra de título
         self.create_main_menu()
         self.title_bar = MainTitleBarMixin(self)
+        self.title_bar.setObjectName("title_bar")
         # necesario para acciones de ventana como arrastrar/min/max
         self.setTitleBar(self.title_bar)
-        layout.addWidget(self.title_bar)
+        container_layout.addWidget(self.title_bar)
 
-        self.central_widget = QWidget()
-        self.setup_ui(self.central_widget)
-        layout.addWidget(self.central_widget)
+        self.inner_window = QMainWindow()
+        self.inner_window.setWindowFlags(Qt.WindowType.Widget)
+        self.inner_window.setObjectName("inner_window")
+        container_layout.addWidget(self.inner_window)
+        self.content = QWidget()
+        self.setup_ui(self.content)
+        self.inner_window.setCentralWidget(self.content)
 
         self.create_status_bar()
         self.init_camera()
         self.init_controls()
+        self.init_tool_bar()
         self.init_simulation()
         self.init_graphics()
         self.setup_connections()
+        # Se añade la QToolbar creada en init_controls()
+        self.inner_window.addToolBar(
+            Qt.ToolBarArea.LeftToolBarArea,   # posición inicial
+            self.actions_toolbar
+        )
 
         settings = cfg.get("settings.json")
         content = settings.get("content")
         mapping_content = {
-            "camera": self.cameraBox,
-            "model": self.modelBox,
-            "graphs": self.graphsBox,
-            "controls": self.controlsBox
+            "camera": (self.cameraBox, self.camera_action),
+            "model": (self.modelBox, self.model_action),
+            "graphs": (self.graphsBox, self.graphs_action),
+            "controls": (self.controlsBox, self.controls_action),
         }
 
-        for key, widget in mapping_content.items():
+        for key, (widget, action) in mapping_content.items():
             if key in content:
                 # Usamos setVisible para evitar el if/else interno
                 widget.setVisible(bool(content[key]))
+                action.setChecked(bool(content[key]))
 
         camera = settings.get("camera")
         search_manager = SearchSignalManager().get_instance()
@@ -117,17 +129,17 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         # Visibilidad de ventanas
         if hasattr(self, 'cameraBox'):
             if hasattr(self, 'camera_action'):
-                self.camera_action.toggled.connect(
+                self.camera_action.triggered.connect(
                     self.toggle_visibility_camera_event)
         if hasattr(self, 'modelBox'):
             if hasattr(self, 'model_action'):
-                self.model_action.toggled.connect(
+                self.model_action.triggered.connect(
                     self.toggle_visibility_model_event)
         if hasattr(self, 'graphs_action'):
-            self.graphs_action.toggled.connect(
+            self.graphs_action.triggered.connect(
                 self.toggle_visibility_graphs_event)
         if hasattr(self, 'controls_action'):
-            self.controls_action.toggled.connect(
+            self.controls_action.triggered.connect(
                 self.toggle_visibility_controls_event)
 
         # Configuración de cámara
@@ -148,15 +160,15 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
             self.kinematics_action.toggled.connect(
                 self.toggle_kinematics_controls)
 
-        # Botones de control de estado
-        if hasattr(self, 'start_button'):
-            self.start_button.clicked.connect(self.start)
-        if hasattr(self, 'pause_button'):
-            self.pause_button.clicked.connect(self.pause)
-        if hasattr(self, 'stop_button'):
-            self.stop_button.clicked.connect(self.stop)
-        if hasattr(self, 'reset_button'):
-            self.reset_button.clicked.connect(self.reset)
+        # Botones de control de estado (usando las acciones del toolbar)
+        if hasattr(self, 'start_action'):
+            self.start_action.triggered.connect(self.start)
+        if hasattr(self, 'pause_action'):
+            self.pause_action.triggered.connect(self.pause)
+        if hasattr(self, 'stop_action'):
+            self.stop_action.triggered.connect(self.stop)
+        if hasattr(self, 'reset_action'):
+            self.reset_action.triggered.connect(self.reset)
 
         # Activación o desactivación de la simulación
         if hasattr(self, 'simulation_action'):

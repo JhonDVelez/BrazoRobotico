@@ -6,15 +6,15 @@ import sys
 import ctypes
 import time
 import cv2
-import traceback
+import darkdetect
 import pybullet as p
 import pybullet_data
-import PyQt6
-from PyQt6.QtCore import QUrl, Qt
+from PyQt6.QtCore import QUrl, Qt, QDir
 from PyQt6.QtGui import QGuiApplication, QPixmap, QFont, QIcon, QSurfaceFormat
 from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtQuick import QQuickView
 from qdarktheme.qtpy.QtWidgets import QSplashScreen
+from qdarktheme.util import get_project_root_path
 from gui import MainWindow
 from data import config_manager as cfg
 
@@ -195,11 +195,11 @@ class CompletePreloader:
 
 if __name__ == '__main__':
     cfg.init_config()
-    
+
     if sys.platform == "win32":
         myappid = 'laser.openbotv.control.lab'  # string único
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
-    
+
     os.environ["QSG_RHI_BACKEND"] = "opengl"
 
     surf_format = QSurfaceFormat()
@@ -212,14 +212,22 @@ if __name__ == '__main__':
 
     app = QApplication(sys.argv)
     app.setStyle('fusion')
-    app.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__),
-                                         "gui", "img", 'laser_w.png')))
+    src_path = os.path.dirname(__file__)
+
+    QDir.addSearchPath(
+        "icons", f"{src_path}/gui/icons")
+    QDir.addSearchPath(
+        "img", f"{src_path}/gui/img")
+
+    laser_icon_w = QIcon("img:laser_w.png")
+    laser_icon_b = QIcon("img:laser_b.png")
+    app.setWindowIcon(laser_icon_w if darkdetect.theme()
+                      == "Dark" else laser_icon_b)
     app.setApplicationName("OpenBotv Control Lab")
     app.setDesktopFileName("OpenBotv Control Lab")
 
     # Splash screen
-    img_path = os.path.join(os.path.dirname(__file__),
-                            "gui", "img", "openbotv_v1.png")
+    img_path = os.path.join("img:openbotv_v1.png")
     splash_pix = QPixmap(img_path).scaled(800, 450)
     splash = QSplashScreen(splash_pix)
     font = QFont("Arial", 12, QFont.Weight.Medium)

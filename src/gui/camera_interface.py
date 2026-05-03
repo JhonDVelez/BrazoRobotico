@@ -78,10 +78,8 @@ class CameraInterface(ImageUtilsMixin):
         self.video_button.setFixedSize(30, 30)
         self.video_button.setStyleSheet("background-color: white;")
 
-        self.camera_on_icon = QIcon(os.path.join(
-            os.path.dirname(__file__), 'icons', 'cameraOn.png'))
-        self.camera_off_icon = QIcon(os.path.join(
-            os.path.dirname(__file__), 'icons', 'cameraOff.png'))
+        self.camera_on_icon = QIcon('icons:cameraOn.png')
+        self.camera_off_icon = QIcon('icons:cameraOff.png')
         self.video_button.setIcon(self.camera_on_icon)
 
         # Botón grid
@@ -90,10 +88,8 @@ class CameraInterface(ImageUtilsMixin):
         self.grid_button.setFixedSize(30, 30)
         self.grid_button.setStyleSheet("background-color: white;")
         # Iconos para el botón de encendido o apagado de la referencia visual de la malla
-        self.show_grid_icon = QIcon(os.path.join(
-            os.path.dirname(__file__), 'icons', 'gridOn.png'))
-        self.hide_grid_icon = QIcon(os.path.join(
-            os.path.dirname(__file__), 'icons', 'gridOff.png'))
+        self.show_grid_icon = QIcon('icons:gridOn.png')
+        self.hide_grid_icon = QIcon('icons:gridOff.png')
 
         # Botón grid
         self.geometry_button = QPushButton()
@@ -101,10 +97,8 @@ class CameraInterface(ImageUtilsMixin):
         self.geometry_button.setFixedSize(30, 30)
         self.geometry_button.setStyleSheet("background-color: white;")
         # Iconos para el botón de encendido o apagado de la referencia visual de las esferas
-        self.show_ellipse_icon = QIcon(os.path.join(
-            os.path.dirname(__file__), 'icons', 'geometryOn.png'))
-        self.hide_geometry_icon = QIcon(os.path.join(
-            os.path.dirname(__file__), 'icons', 'geometryOff.png'))
+        self.show_ellipse_icon = QIcon('icons:geometryOn.png')
+        self.hide_geometry_icon = QIcon('icons:geometryOff.png')
 
         self.grid_button.setIcon(
             self.hide_grid_icon if self.grid_enabled else self.show_grid_icon)
@@ -119,11 +113,10 @@ class CameraInterface(ImageUtilsMixin):
         self.buttons_widget.move(0, 0)
         self.buttons_widget.raise_()
 
-        self.image_path_r = os.path.join(os.path.dirname(
-            __file__), "img", 'camera_r.png')
-        self.image_path_b = os.path.join(os.path.dirname(
-            __file__), "img", 'camera_b.png')
-        self.pixmap = QPixmap(self.image_path_r)
+        self.image_path_d = os.path.join("img:camera_d.svg")
+        self.image_path_l = os.path.join(os.path.dirname(
+            __file__), "img", 'camera_l.svg')
+        self.pixmap = QPixmap(self.image_path_d)
 
         self.toast = ToastLabel(self)
         self.toast.setAttribute(
@@ -185,7 +178,7 @@ class CameraInterface(ImageUtilsMixin):
             elif isinstance(frame, cv2.UMat):
                 pixmap = self.umat_to_pixmap(frame)
             if not pixmap.isNull():
-                self.set_pixmap(pixmap)
+                self.set_video_image(pixmap)
 
     def on_video_error(self, error_message):
         """ Maneja errores del worker thread de video.
@@ -269,7 +262,7 @@ class CameraInterface(ImageUtilsMixin):
                 print(f"Error en la ejecucion al detener el video: {e}")
 
         self._reset_camera_connection_status()
-        self.load_image()
+        self.set_static_image()
 
     def pause_video(self):
         """ Pausa la actualización de frames de la cámara

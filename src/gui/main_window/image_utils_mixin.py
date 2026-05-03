@@ -4,28 +4,41 @@
     son gestionadas aquí asi como su comportamiento frente al cambio de tamaño de ventana y el tema.
 """
 from .main_theme_mixin import ThemeManager
-from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation
+from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QSize
 from PyQt6.QtWidgets import QWidget, QLabel, QGraphicsOpacityEffect
-from PyQt6.QtGui import QPixmap, QResizeEvent, QImage
+from PyQt6.QtGui import QPixmap, QResizeEvent, QImage, QPainter
+from PyQt6.QtSvg import QSvgRenderer
 import numpy as np
 import cv2
 
 
 class ImageUtilsMixin(QWidget):
-    def load_image(self):
+    def set_static_image(self):
         """ Carga una imagen desde la raíz del proyecto y la establece como pixmap en el label.
-
-        Args:
-            image_path (str): Ruta de la imagen a cargar
         """
 
         if not self.pixmap.isNull():
-            self.set_pixmap(self.pixmap)
+            self.image_label.setContentsMargins(10, 10, 10, 10)
+            self.set_pixmap(
+                self.pixmap, Qt.TransformationMode.SmoothTransformation)
         else:
-            print(
-                f"Error: No se pudo cargar la imagen desde {self.image_path_r}")
+            raise Exception(
+                f"Error: No se pudo cargar la imagen desde {self.image_path_d}")
 
-    def set_pixmap(self, pixmap: QPixmap):
+    def set_video_image(self, pixmap: QPixmap):
+        """ Envía los frames procesados de la cámara al QLabel
+
+        Args:
+            pixmap (QPixmap): frame obtenido de la cámara
+        """
+        if pixmap:
+            self.image_label.setContentsMargins(0, 0, 0, 0)
+            self.set_pixmap(
+                self.pixmap, Qt.TransformationMode.FastTransformation)
+        else:
+            raise Exception("El frame obtenido no es valido")
+
+    def set_pixmap(self, pixmap: QPixmap, transform_type: Qt.TransformationMode):
         """ Método para establecer el pixmap del video en el label reescalado si es necesario.
 
         Args:
@@ -33,11 +46,20 @@ class ImageUtilsMixin(QWidget):
         """
         if pixmap and not pixmap.isNull():
             label_size = self.image_label.size()
-            if pixmap.size() != label_size:
+
+            # Obtener los márgenes del label
+            margins = self.image_label.contentsMargins()
+            available_width = label_size.width() - margins.left() - margins.right()
+            available_height = label_size.height() - margins.top() - margins.bottom()
+
+            # Crear el tamaño disponible considerando los márgenes
+            available_size = QSize(available_width, available_height)
+
+            if pixmap.size() != available_size:
                 scaled_pixmap = pixmap.scaled(
-                    label_size,
+                    available_size,
                     Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.FastTransformation
+                    transform_type
                 )
                 self.image_label.setPixmap(scaled_pixmap)
             else:
@@ -49,12 +71,12 @@ class ImageUtilsMixin(QWidget):
         """ Alterna el estado de la captura de video.
         """
         if dark_t:
-            self.pixmap = QPixmap(self.image_path_r)
+            self.pixmap = QPixmap(self.image_path_d)
         else:
-            self.pixmap = QPixmap(self.image_path_b)
+            self.pixmap = QPixmap(self.image_path_l)
 
         if not self.process_running:
-            self.load_image()
+            self.set_static_image()
 
     def resizeEvent(self, event: QResizeEvent):
         """ Maneja el evento de redimensionamiento del widget.
@@ -65,12 +87,12 @@ class ImageUtilsMixin(QWidget):
         super().resizeEvent(event)
 
         if not self.process_running:
-            self.load_image()
+            self.set_static_image()
 
     def showEvent(self, event):
         """Se ejecuta cuando el widget se vuelve visible"""
         super().showEvent(event)
-        self.load_image()
+        self.set_static_image()
 
     @classmethod
     def numpy_to_qpixmap(cls, frame: np.ndarray) -> QPixmap:

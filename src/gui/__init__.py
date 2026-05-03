@@ -14,6 +14,8 @@ from .kinematics_interface import KinematicsWidget
 from .kinematics_worker import KinematicsWorker
 from .calibration_window import CameraCalibrationWindow
 
+__name__ = "gui"
+
 __all__ = [
     "MainWindow",
     "CameraInterface",

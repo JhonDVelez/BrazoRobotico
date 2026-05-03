@@ -23,7 +23,7 @@ class KinematicsWidget(QWidget):
 
         # Widget con labels y spinboxes
         self.widget = QWidget(self)
-        self.widget.setObjectName("widget")
+        self.widget.setObjectName("kinematics_holder")
         self.container = QGridLayout(self.widget)
         self.container.setObjectName("gridLayout")
 

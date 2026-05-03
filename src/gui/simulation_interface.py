@@ -49,20 +49,20 @@ class SimInterface(ImageUtilsMixin):
 
     def __setup_static_image(self):
         """Configura la imagen estática que se muestra cuando no hay simulación"""
-        self.image_path_r = os.path.join(os.path.dirname(
-            __file__), "img", 'robotArm_r.png')
-        self.image_path_b = os.path.join(os.path.dirname(
-            __file__), "img", 'robotArm_b.png')
-        self.pixmap = QPixmap(self.image_path_r)
+        self.image_path_l = os.path.join(os.path.dirname(
+            __file__), "img", 'robotArm_l.svg')
+        self.image_path_d = os.path.join(os.path.dirname(
+            __file__), "img", 'robotArm_d.svg')
+        self.pixmap = QPixmap(self.image_path_l)
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.image_label.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.image_label.setMinimumSize(160, 120)
         self.layout().addWidget(self.image_label)
-        self.load_image()
+        self.set_static_image()
         self.theme_manager = ThemeManager.get_instance()
-        self.theme_manager.theme_changed.connect(self.toggle_theme)
+        self.theme_manager.theme_changed.connect(self.change_theme)
 
     def __integrate_preloaded_container(self):
         """Integra el contenedor completamente precargado en la interfaz"""
@@ -70,7 +70,7 @@ class SimInterface(ImageUtilsMixin):
             if not self.quick_view:
                 print("Error: No hay vista precargada")
                 return
-            
+
             self.window_container = QWidget.createWindowContainer(
                 self.quick_view,
                 self,
@@ -103,9 +103,9 @@ class SimInterface(ImageUtilsMixin):
                 print("Error de configuracion de vista")
 
             # Inicializar worker de física
-            root_object = self.quick_view.rootObject()
-            if root_object:
-                self.sim_worker = SimWorker(root_object, self.robot_id)
+            self.root_object = self.quick_view.rootObject()
+            if self.root_object:
+                self.sim_worker = SimWorker(self.root_object, self.robot_id)
                 self.sim_worker.start()
             else:
                 print("Error de inicializacion del worker")
@@ -163,7 +163,16 @@ class SimInterface(ImageUtilsMixin):
             self.quick_view.hide()
 
         self.image_label.show()
-        self.load_image()
+        self.set_static_image()
+
+    def change_theme(self, dark_t):
+        self.toggle_theme(dark_t)
+        if dark_t:
+            self.root_object.setProperty("bgColor", "black")
+            self.root_object.setProperty("floorColor", "grey")
+        else:
+            self.root_object.setProperty("bgColor", "white")
+            self.root_object.setProperty("floorColor", "black")
 
     def closeEvent(self, event):
         """ Limpieza al cerrar

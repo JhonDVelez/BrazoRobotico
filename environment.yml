@@ -15,6 +15,7 @@ dependencies:
   - pyqt6-charts=6.11.0
   - pyqt6-sip=13.10.0
   - qt6-quick3d=6.11.0
+  - darkdetect=0.8.0
   - pip
   - pip:
     - opencv-contrib-python==4.13.0.92

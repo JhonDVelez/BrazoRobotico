@@ -54,28 +54,19 @@ class MainThemeMixin:
         qdarktheme.dist.dark.stylesheet.STYLE_SHEET = dark_style
         stylesheet = qdarktheme.load_stylesheet("dark")
         svg_path = (Path(__file__).resolve().parent.parent.parent.parent /
-                    "src/gui/main_window/theme_stylesheet/svg/radio_button_checked_r.svg").as_posix()
+                    "src/gui/main_window/theme_stylesheet/svg/radio_button_checked_b.svg").as_posix()
         stylesheet += f"""
         QRadioButton::indicator:checked {{
             image: url("{svg_path}");
         }}"""
         self.setStyleSheet(stylesheet)
-        self.title_bar.title_label.setStyleSheet(
-            """background-color: rgba(42.000, 43.000, 46.000, 1.000); color: #ffffff;""")
-        self.title_bar.left_container.setStyleSheet(
-            """background-color: rgba(42.000, 43.000, 46.000, 1.000); border-radius: 0px""")
-        self.title_bar.buttons_frame.setStyleSheet("""
-            QWidget {background-color: rgba(42.000, 43.000, 46.000, 1.000); border-radius: 0px;}
-            QToolButton {border: none; background: transparent;}
-            QToolButton:hover {background-color: rgba(68.000, 70.000, 74.000, 1.000);}
-            QToolButton:pressed {background-color: rgba(79.000, 80.000, 84.000, 1.000);}
-            """)
+        self.title_bar.minBtn.setNormalColor("#A8A8A8")
+        self.title_bar.minBtn.setHoverBackgroundColor("#44464A")
+        self.title_bar.maxBtn.setNormalColor("#A8A8A8")
+        self.title_bar.maxBtn.setHoverBackgroundColor("#44464A")
+        self.title_bar.closeBtn.setNormalColor("#A8A8A8")
         self.logo_label.setPixmap(self.laser_w)
         self.theme_action.setIcon(self.sun_icon)
-        # self.graph_interface.angular_graph_object.graph_widget.setBackground(
-        #     pg.mkColor((32, 33, 36)))
-        # self.graph_interface.cartesian_graph_object.graph_widget.setBackground(
-        #     pg.mkColor((32, 33, 36)))
 
     def load_light_theme(self):
         """ Modificaciones para el tema claro de qdarktheme.
@@ -89,24 +80,17 @@ class MainThemeMixin:
             image: url("{svg_path}");
         }}"""
         self.setStyleSheet(stylesheet)
-        self.title_bar.title_label.setStyleSheet(
-            """QLabel {color: #000000;}""")
-        self.title_bar.title_label.setStyleSheet(
-            """background-color: rgba(223.000, 225.000, 229.000, 1.000); color: #000000;""")
-        self.title_bar.left_container.setStyleSheet(
-            """background-color: rgba(223.000, 225.000, 229.000, 1.000); border-radius: 0px""")
-        self.title_bar.buttons_frame.setStyleSheet("""
-            QWidget {background-color: rgba(223.000, 225.000, 229.000, 1.000); border-radius: 0px;}
-            QToolButton {border: none; background: transparent;}
-            QToolButton:hover {background-color: rgba(215.000, 215.000, 215.000, 1.000);}
-            QToolButton:pressed {background-color: rgba(196.000, 196.000, 196.000, 1.000);}
-            """)
+        self.title_bar.minBtn.setNormalColor("#323238")
+        self.title_bar.minBtn.setHoverBackgroundColor("#A5AAB4")
+        self.title_bar.maxBtn.setNormalColor("#323238")
+        self.title_bar.maxBtn.setHoverBackgroundColor("#A5AAB4")
+        self.title_bar.closeBtn.setNormalColor("#323238")
         self.logo_label.setPixmap(self.laser_b)
         self.theme_action.setIcon(self.moon_icon)
 
 
 class ThemeManager(QObject):
-    """ Gestor de tema encargado de producir la señal necesaria para cambiar de colores y de 
+    """ Gestor de tema encargado de producir la señal necesaria para cambiar de colores y de
         imágenes según se necesite.
     """
     _instance = None

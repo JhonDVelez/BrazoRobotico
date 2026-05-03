@@ -17,7 +17,7 @@ class MainActionsMixin:
 
     def start(self):
         """ Inicia o detiene la simulation en caso de ser la primera vez instancia la clase
-            SimInterface, también cambia los colores e iconos del botón.
+            SimInterface, también deshabilita los botones de control.
         """
         if self.hab_simulation:
             self.simulation_interface.start_simulation()
@@ -37,9 +37,13 @@ class MainActionsMixin:
 
         self.graph_interface.start()
 
-        self.stop_button.show()
-        self.pause_button.show()
-        self.start_button.hide()
+        # Deshabilitar el botón de inicio y habilitar pausa y stop
+        self.start_action.setEnabled(False)
+        self.start_action.setChecked(True)
+        self.pause_action.setEnabled(True)
+        self.pause_action.setChecked(False)
+        self.stop_action.setEnabled(True)
+        self.stop_action.setChecked(False)
 
         self.stopped = False
 
@@ -57,8 +61,11 @@ class MainActionsMixin:
         if self.connected_to_robot:
             self.openbotv.stop()
 
-        self.pause_button.hide()
-        self.start_button.show()
+        # Habilitar inicio y deshabilitar pausa
+        self.pause_action.setEnabled(False)
+        self.pause_action.setChecked(True)
+        self.start_action.setEnabled(True)
+        self.start_action.setChecked(False)
 
     def stop(self):
         """ "Detiene" la simulation y apaga la cámara
@@ -73,9 +80,13 @@ class MainActionsMixin:
 
         self.graph_interface.stop()
 
-        self.stop_button.hide()
-        self.pause_button.hide()
-        self.start_button.show()
+        # Habilitar inicio y deshabilitar pausa y stop
+        self.start_action.setEnabled(True)
+        self.start_action.setChecked(False)
+        self.pause_action.setEnabled(False)
+        self.pause_action.setChecked(False)
+        self.stop_action.setEnabled(False)
+        self.stop_action.setChecked(True)
 
         self.stopped = True
 

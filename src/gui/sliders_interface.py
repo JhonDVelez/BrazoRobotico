@@ -40,7 +40,7 @@ class SlidersWidget(QWidget):
 
         # Widget con sliders y spinboxes (hijo del holder)
         self.widget = QWidget(self.controls_holder)
-        self.widget.setObjectName("widget")
+        self.widget.setObjectName("controls_holder")
         self.container = QGridLayout(self.widget)
         self.container.setObjectName("gridLayout_3")
 

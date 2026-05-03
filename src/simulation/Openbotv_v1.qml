@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick3D
 
-Node {
+Model {
     id: node
 
     // Resources
@@ -230,7 +230,7 @@ Node {
                                 // Punto visible en la punta
                                 Model {
                                     source: "#Sphere"
-                                    scale: Qt.vector3d(0.07, 0.07, 0.07)  // compensando el 0.001 de base_link
+                                    scale: Qt.vector3d(0.07, 0.07, 0.07)
                                     materials: [
                                         PrincipledMaterial {
                                             baseColor: "#44ff44"

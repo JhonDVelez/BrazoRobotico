@@ -48,11 +48,9 @@ class GraphInterface(ImageUtilsMixin):
 
         self.stacked_widget = QStackedWidget()
 
-        self.image_path_r = os.path.join(
-            os.path.dirname(__file__), "img", "graph_r.png")
-        self.image_path_b = os.path.join(
-            os.path.dirname(__file__), "img", "graph_b.png")
-        self.pixmap = QPixmap(self.image_path_r)
+        self.image_path_d = os.path.join("img:graph_d.svg")
+        self.image_path_l = os.path.join("img:graph_l.svg")
+        self.pixmap = QPixmap(self.image_path_d)
 
         radio_style = "QRadioButton::indicator {margin-left: 0px;}"
         self.sim_radio_button = QRadioButton("Angular")
@@ -112,7 +110,7 @@ class GraphInterface(ImageUtilsMixin):
         self.sim_radio_button.hide()
         self.phy_radio_button.hide()
         self.image_label.show()
-        self.load_image()
+        self.set_static_image()
 
     def update_visible_graph(self):
         angular_active = self.sim_radio_button.isChecked()

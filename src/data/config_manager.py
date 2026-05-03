@@ -40,6 +40,8 @@ DEFAULTS: dict[str, dict] = {
             "charuco": False,
             "ellipse": False,
             "view": {"charuco": False, "ellipse": False, "interval": 4},
+            "calibrate": False,
+            "color_calibrate": False,
         },
         "mode": {
             "sliders": True,
@@ -60,6 +62,13 @@ DEFAULTS: dict[str, dict] = {
              0.0, 0.0, 0.0, 0.0, 0.0],
         ],
         "chessboard": {"x": 5, "y": 12, },
+        "hsv_colors": {
+            "amarillo": [20, 100, 100, 30, 255, 255],
+            "verde": [40, 70, 70, 80, 255, 255],
+            "azul": [100, 150, 50, 130, 255, 255],
+            "naranja": [5, 150, 150, 15, 255, 255],
+            "morado": [130, 50, 50, 160, 255, 255],
+        },
     },
     "graphics.json": {
         "grid": {

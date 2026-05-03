@@ -168,10 +168,10 @@ QGroupBox::title {
     spacing: 6px;
     margin: 0 2px 0 2px;
 }
- #modelBox, #cameraBox, #graphsBox, #controlsBox{
+#modelBox, #cameraBox, #graphsBox, #controlsBox{
     margin: 0px;
     padding: 0px;
-    background-color: transparent;
+    background-color: #191B20;
 }
 #modelBox QLabel, #cameraBox QLabel, #graphsBox QLabel {
     background-color: #191B20;

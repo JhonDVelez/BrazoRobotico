@@ -14,7 +14,6 @@ from PyQt6.QtGui import QGuiApplication, QPixmap, QFont, QIcon, QSurfaceFormat
 from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtQuick import QQuickView
 from qdarktheme.qtpy.QtWidgets import QSplashScreen
-from qdarktheme.util import get_project_root_path
 from gui import MainWindow
 from data import config_manager as cfg
 

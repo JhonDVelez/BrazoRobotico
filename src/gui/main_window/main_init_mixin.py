@@ -107,7 +107,7 @@ class MainInitMixin:
         self.controlsBox.setObjectName("controlsBox")
         self.controlsBox.setSizePolicy(box_size_policy)
 
-        self.verticalLayout_2 = QGridLayout(self.controlsBox)
+        self.verticalLayout_2 = QVBoxLayout(self.controlsBox)
         self.verticalLayout_2.setSpacing(0)
         self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_2.setObjectName("verticalLayout_2")
@@ -147,7 +147,9 @@ class MainInitMixin:
 
         self.modes_widget.layout().addWidget(self.slider_widget)
         self.modes_widget.layout().addWidget(self.kinematics_widget)
+        self.modes_widget.setMaximumSize(QSize(1050, 300))
 
+        self.controlsBox.layout().addStretch(1)
         self.controlsBox.layout().addWidget(self.modes_widget)
 
     def init_tool_bar(self):

@@ -55,6 +55,8 @@ class MainMenuMixin:
                            "Ctrl+w", "Activa/Desactiva la deteccion de las esferas de colores", True),
                 "calibrate": ("camera_calibration_action", "Calibrar Cámara", "Calibrar Cámara",
                               "", "Abrir ventana de calibracion de cámara", False),
+                "color_calibrate": ("color_calibration_action", "Calibrar Color", "Calibrar Color",
+                                    "", "Abrir ventana de calibracion de colores", False),
             }
         }
 
@@ -138,6 +140,7 @@ class MainMenuMixin:
         self.camera_menu.addAction(self.charuco_action)
         self.camera_menu.addAction(self.sphere_action)
         self.camera_menu.addAction(self.camera_calibration_action)
+        self.camera_menu.addAction(self.color_calibration_action)
 
         self.camera_interval_submenu = self.camera_menu.addMenu(
             "&Intervalo")

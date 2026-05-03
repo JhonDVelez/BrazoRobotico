@@ -60,13 +60,22 @@ class MainThemeMixin:
             image: url("{svg_path}");
         }}"""
         self.setStyleSheet(stylesheet)
-        self.title_bar.minBtn.setNormalColor("#A8A8A8")
-        self.title_bar.minBtn.setHoverBackgroundColor("#44464A")
-        self.title_bar.maxBtn.setNormalColor("#A8A8A8")
-        self.title_bar.maxBtn.setHoverBackgroundColor("#44464A")
-        self.title_bar.closeBtn.setNormalColor("#A8A8A8")
-        self.logo_label.setPixmap(self.laser_w)
-        self.theme_action.setIcon(self.sun_icon)
+        
+        # Actualizar title_bar si existe
+        if hasattr(self, 'title_bar') and self.title_bar is not None:
+            self.title_bar.minBtn.setNormalColor("#A8A8A8")
+            self.title_bar.minBtn.setHoverBackgroundColor("#44464A")
+            self.title_bar.maxBtn.setNormalColor("#A8A8A8")
+            self.title_bar.maxBtn.setHoverBackgroundColor("#44464A")
+            self.title_bar.closeBtn.setNormalColor("#A8A8A8")
+        
+        # Actualizar logo_label si existe
+        if hasattr(self, 'logo_label') and hasattr(self, 'laser_w'):
+            self.logo_label.setPixmap(self.laser_w)
+        
+        # Actualizar theme_action si existe
+        if hasattr(self, 'theme_action') and hasattr(self, 'sun_icon'):
+            self.theme_action.setIcon(self.sun_icon)
 
     def load_light_theme(self):
         """ Modificaciones para el tema claro de qdarktheme.
@@ -80,13 +89,22 @@ class MainThemeMixin:
             image: url("{svg_path}");
         }}"""
         self.setStyleSheet(stylesheet)
-        self.title_bar.minBtn.setNormalColor("#323238")
-        self.title_bar.minBtn.setHoverBackgroundColor("#A5AAB4")
-        self.title_bar.maxBtn.setNormalColor("#323238")
-        self.title_bar.maxBtn.setHoverBackgroundColor("#A5AAB4")
-        self.title_bar.closeBtn.setNormalColor("#323238")
-        self.logo_label.setPixmap(self.laser_b)
-        self.theme_action.setIcon(self.moon_icon)
+        
+        # Actualizar title_bar si existe
+        if hasattr(self, 'title_bar') and self.title_bar is not None:
+            self.title_bar.minBtn.setNormalColor("#323238")
+            self.title_bar.minBtn.setHoverBackgroundColor("#A5AAB4")
+            self.title_bar.maxBtn.setNormalColor("#323238")
+            self.title_bar.maxBtn.setHoverBackgroundColor("#A5AAB4")
+            self.title_bar.closeBtn.setNormalColor("#323238")
+        
+        # Actualizar logo_label si existe
+        if hasattr(self, 'logo_label') and hasattr(self, 'laser_b'):
+            self.logo_label.setPixmap(self.laser_b)
+        
+        # Actualizar theme_action si existe
+        if hasattr(self, 'theme_action') and hasattr(self, 'moon_icon'):
+            self.theme_action.setIcon(self.moon_icon)
 
 
 class ThemeManager(QObject):

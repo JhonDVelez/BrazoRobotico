@@ -167,6 +167,19 @@ class MainActionsMixin:
         self.calibration_window = CameraCalibrationWindow()
         self.calibration_window.show()
 
+    def initiate_color_calibration(self):
+        """ Inicializa la ventana de calibración de colores y detiene la cámara de la interfaz 
+            principal si esta corriendo
+            Importa la clase de forma local para evitar importaciones circulares
+        """
+        from ..color_window import ColorWindow
+
+        self.clear_camera_selection()
+        self.camera_interface.stop_video()
+
+        self.color_window = ColorWindow()
+        self.color_window.show()
+
     @pyqtSlot(bool)
     def toggle_activation_simulation_event(self, checked: bool):
         """ Habilita o deshabilita la visualización del modelo 3D de QtQuick mediante la acción en 

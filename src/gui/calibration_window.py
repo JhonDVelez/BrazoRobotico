@@ -1,16 +1,21 @@
 from PyQt6.QtWidgets import (
     QVBoxLayout, QGridLayout, QPushButton, QApplication, QWidget, QHBoxLayout, QSizePolicy)
-from PyQt6.QtCore import QSize, QCoreApplication
+from PyQt6.QtCore import QSize, QCoreApplication, Qt
 from qframelesswindow import FramelessMainWindow
-from .main_window import MainTitleBarMixin, CalibrationMenuMixin
+from .main_window import MainTitleBarMixin, CalibrationMenuMixin, MainThemeMixin, ThemeManager
 from .calibration_interface import CalibrationInterface
 from .device_monitor import get_device_monitor
+from data import config_manager as cfg
 
 
-class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
+class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin, MainThemeMixin):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Calibración De Cámara")
+
+        # Inicializar tema manager
+        self.theme_manager = ThemeManager.get_instance()
+        self.actual_theme = None
 
         container = QWidget()
         layout = QVBoxLayout(container)
@@ -42,6 +47,9 @@ class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
 
         self.setup_connections()
         self.clear_camera_selection()
+
+        # Cargar el tema actual
+        self._load_current_theme()
 
         # Instalar monitor de dispositivos multiplataforma (solo para cámaras)
         self._device_monitor = get_device_monitor(
@@ -86,6 +94,25 @@ class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
             self.capture_button.clicked.connect(self.capture_pixmap)
         if hasattr(self, 'calibrate_button'):
             self.calibrate_button.clicked.connect(self.calibrate)
+        # Conectar cambios de tema
+        self.theme_manager.theme_changed.connect(self._on_theme_changed)
+
+    def _load_current_theme(self):
+        """Carga el tema actual desde la configuración."""
+        theme = cfg.get("settings.json", "theme", default="dark").lower()
+        is_dark = theme == "dark"
+        if is_dark:
+            self.load_dark_theme()
+        else:
+            self.load_light_theme()
+        self.actual_theme = Qt.ColorScheme.Dark if is_dark else Qt.ColorScheme.Light
+
+    def _on_theme_changed(self, is_dark: bool):
+        """Maneja el cambio de tema."""
+        if is_dark:
+            self.load_dark_theme()
+        else:
+            self.load_light_theme()
 
     def capture_pixmap(self):
         self.calibration_interface.save_pixmap = True

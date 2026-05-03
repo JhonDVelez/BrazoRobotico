@@ -152,6 +152,9 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         if hasattr(self, 'camera_calibration_action'):
             self.camera_calibration_action.triggered.connect(
                 self.initiate_camera_calibration)
+        if hasattr(self, 'color_calibration_action'):
+            self.color_calibration_action.triggered.connect(
+                self.initiate_color_calibration)
 
         # Visibilidad y uso de controles
         if hasattr(self, "sliders_action"):

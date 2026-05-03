@@ -13,6 +13,7 @@ from .sliders_interface import SlidersWidget
 from .kinematics_interface import KinematicsWidget
 from .kinematics_worker import KinematicsWorker
 from .calibration_window import CameraCalibrationWindow
+from .color_window import ColorWindow
 
 __name__ = "gui"
 
@@ -27,5 +28,6 @@ __all__ = [
     "SlidersWidget",
     "KinematicsWidget",
     "KinematicsWorker",
-    "CameraCalibrationWindow"
+    "CameraCalibrationWindow",
+    "ColorWindow"
 ]

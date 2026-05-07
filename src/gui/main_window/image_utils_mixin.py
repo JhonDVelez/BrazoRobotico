@@ -34,7 +34,7 @@ class ImageUtilsMixin(QWidget):
         if pixmap:
             self.image_label.setContentsMargins(0, 0, 0, 0)
             self.set_pixmap(
-                self.pixmap, Qt.TransformationMode.FastTransformation)
+                pixmap, Qt.TransformationMode.FastTransformation)
         else:
             raise Exception("El frame obtenido no es valido")
 

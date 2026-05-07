@@ -5,7 +5,7 @@ import os
 import numpy as np
 import cv2
 from PyQt6.QtWidgets import QSizePolicy, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QWidget
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QSize, pyqtSignal
 from PyQt6.QtGui import QPixmap, QIcon
 from gui.camera_worker import CameraWorker
 from gui.main_window.main_theme_mixin import ThemeManager
@@ -16,6 +16,8 @@ from data import DrawViewSignalManager
 class CameraInterface(ImageUtilsMixin):
     """ Manejo del widget de video que muestra las imágenes de la cámara en un label de la interfaz
     """
+
+    frame_ready = pyqtSignal(object)
 
     def __init__(self, parent, is_calibration: bool = False):
         super().__init__(parent=None)
@@ -76,7 +78,8 @@ class CameraInterface(ImageUtilsMixin):
 
         self.video_button.setIconSize(QSize(25, 25))
         self.video_button.setFixedSize(30, 30)
-        self.video_button.setStyleSheet("background-color: white;")
+        self.video_button.setStyleSheet(
+            "background-color: white; border: none;")
 
         self.camera_on_icon = QIcon('icons:cameraOn.png')
         self.camera_off_icon = QIcon('icons:cameraOff.png')
@@ -86,7 +89,8 @@ class CameraInterface(ImageUtilsMixin):
         self.grid_button = QPushButton()
         self.grid_button.setIconSize(QSize(25, 25))
         self.grid_button.setFixedSize(30, 30)
-        self.grid_button.setStyleSheet("background-color: white;")
+        self.grid_button.setStyleSheet(
+            "background-color: white; border: none;")
         # Iconos para el botón de encendido o apagado de la referencia visual de la malla
         self.show_grid_icon = QIcon('icons:gridOn.png')
         self.hide_grid_icon = QIcon('icons:gridOff.png')
@@ -95,7 +99,8 @@ class CameraInterface(ImageUtilsMixin):
         self.geometry_button = QPushButton()
         self.geometry_button.setIconSize(QSize(25, 25))
         self.geometry_button.setFixedSize(30, 30)
-        self.geometry_button.setStyleSheet("background-color: white;")
+        self.geometry_button.setStyleSheet(
+            "background-color: white; border: none;")
         # Iconos para el botón de encendido o apagado de la referencia visual de las esferas
         self.show_ellipse_icon = QIcon('icons:geometryOn.png')
         self.hide_geometry_icon = QIcon('icons:geometryOff.png')
@@ -171,6 +176,7 @@ class CameraInterface(ImageUtilsMixin):
             frame (np.ndarray): Frame BGR listo para mostrar
         """
         if self.process_running and frame is not None:
+            self.frame_ready.emit(frame)
             pixmap = None
             # Convertir el frame numpy a pixmap solo para dibujar overlays
             if isinstance(frame, np.ndarray):
@@ -207,7 +213,8 @@ class CameraInterface(ImageUtilsMixin):
                                              is_calibration=self.is_calibration)
             self.camera = self.video_worker.camera
 
-            self.parent.camera_interval_submenu.setEnabled(True)
+            if hasattr(self.parent, "camera_interval_submenu"):
+                self.parent.camera_interval_submenu.setEnabled(True)
 
             # Conectar señales
             self.video_worker.frame_ready.connect(self.on_frame_ready)
@@ -249,7 +256,8 @@ class CameraInterface(ImageUtilsMixin):
                 except Exception:
                     pass
 
-                self.parent.camera_interval_submenu.setEnabled(False)
+                if hasattr(self.parent, "camera_interval_submenu"):
+                    self.parent.camera_interval_submenu.setEnabled(False)
 
                 self.video_worker.stop()
                 if self.video_worker.isRunning():

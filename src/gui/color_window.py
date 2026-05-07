@@ -1,12 +1,14 @@
 """Ventana de calibración de colores HSV para detección de elipses."""
 from PyQt6.QtWidgets import (
     QVBoxLayout, QGridLayout, QPushButton, QApplication, QWidget,
-    QHBoxLayout, QSizePolicy, QLabel, QSlider, QSpinBox
+    QHBoxLayout, QSizePolicy, QLabel, QSlider, QSpinBox, QComboBox
 )
 from PyQt6.QtCore import QSize, QCoreApplication, Qt
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QIcon
+import os
 from qframelesswindow import FramelessMainWindow
 from gui.main_window import MainTitleBarMixin, CalibrationMenuMixin, MainThemeMixin, ThemeManager
+from gui.camera_interface import CameraInterface
 from gui.color_interface import ColorInterface
 from gui.device_monitor import get_device_monitor
 from data import config_manager as cfg
@@ -23,6 +25,10 @@ class ColorWindow(FramelessMainWindow, CalibrationMenuMixin, MainThemeMixin):
         self.theme_manager = ThemeManager.get_instance()
         self.actual_theme = None
 
+        # Crear atributos para iconos de tema (necesarios para MainThemeMixin)
+        self.sun_icon = QIcon(os.path.join("icons:sun.png"))
+        self.moon_icon = QIcon(os.path.join("icons:moon.png"))
+
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -37,6 +43,7 @@ class ColorWindow(FramelessMainWindow, CalibrationMenuMixin, MainThemeMixin):
 
         self.central_widget = QWidget()
         self.setup_ui(self.central_widget)
+        self.color_interface = ColorInterface(self)
 
         layout.addWidget(self.central_widget)
         self.setCentralWidget(container)
@@ -77,40 +84,69 @@ class ColorWindow(FramelessMainWindow, CalibrationMenuMixin, MainThemeMixin):
         main_grid = QGridLayout(self.main_widget)
         main_grid.setContentsMargins(5, 5, 5, 5)
         main_grid.setSpacing(5)
+        main_grid.setRowStretch(0, 1)
+        main_grid.setRowStretch(1, 1)
+        main_grid.setColumnStretch(0, 1)
+        main_grid.setColumnStretch(1, 1)
 
-        # ColorInterface (ocupa la izquierda, 2 filas)
-        self.color_interface = ColorInterface(self)
-        main_grid.addWidget(self.color_interface, 0, 0, 2, 1)
+        # Imagen original de la cámara.
+        self.camera_interface = CameraInterface(self, is_calibration=True)
+        main_grid.addWidget(self.camera_interface, 0, 0)
 
-        # Panel de controles superior derecho (QLabel)
-        self.info_label = QLabel("Controles de Color")
-        self.info_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        self.info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_grid.addWidget(self.info_label, 0, 1)
+        # Máscara HSV calculada con los sliders.
+        self.mask_label = self._create_image_label("Máscara HSV")
+        main_grid.addWidget(self.mask_label, 1, 0)
 
-        # Panel de barras HSV (inferior derecho, QWidget)
+        # Panel superior derecho con botón de cámara, título y sliders HSV.
         self.controls_widget = QWidget()
         controls_layout = QVBoxLayout(self.controls_widget)
         controls_layout.setContentsMargins(5, 5, 5, 5)
-        controls_layout.setSpacing(5)
+        controls_layout.setSpacing(8)
 
-        # Cargar valores desde config
-        hsv_config = cfg.get("camera.json", "hsv_colors", default={})
-        default_color = list(hsv_config.values())[0] if hsv_config else [
-            0, 0, 0, 180, 255, 255]
+        self.top_controls_widget = QWidget()
+        top_controls_layout = QHBoxLayout(self.top_controls_widget)
+        top_controls_layout.setContentsMargins(0, 0, 0, 0)
+        top_controls_layout.setSpacing(10)
+
+        self.camera_toggle_button = QPushButton("Camara")
+        self.camera_toggle_button.setFixedSize(90, 30)
+        self.camera_toggle_button.setCheckable(True)
+        self.camera_toggle_button.setStyleSheet("border: none; padding: 4px;")
+        top_controls_layout.addWidget(self.camera_toggle_button)
+
+        self.info_label = QLabel("Controles de Color")
+        self.info_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        self.info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.info_label.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        top_controls_layout.addWidget(self.info_label)
+
+        controls_layout.addWidget(self.top_controls_widget)
+
+        color_selector_layout = QHBoxLayout()
+        color_selector_label = QLabel("Color")
+        color_selector_label.setFixedWidth(60)
+        color_selector_layout.addWidget(color_selector_label)
+
+        self.color_selector = QComboBox()
+        self.color_selector.addItems(ColorInterface.COLORS)
+        color_selector_layout.addWidget(self.color_selector)
+        controls_layout.addLayout(color_selector_layout)
+
+        default_values = ColorInterface.load_default_values()
 
         # Crear barras deslizantes para cada parámetro HSV
         self.hsv_sliders = {}
-        labels_text = [
-            ("H Min", 0, 180),
-            ("S Min", 0, 255),
-            ("V Min", 0, 255),
-            ("H Max", 0, 180),
-            ("S Max", 0, 255),
-            ("V Max", 0, 255),
+        slider_specs = [
+            ("H Min", "h_min", 0, 180),
+            ("H Max", "h_max", 0, 180),
+            ("S Min", "s_min", 0, 255),
+            ("S Max", "s_max", 0, 255),
+            ("V Min", "v_min", 0, 255),
+            ("V Max", "v_max", 0, 255),
         ]
 
-        for idx, (label_text, min_val, max_val) in enumerate(labels_text):
+        for label_text, key, min_val, max_val in slider_specs:
             row_layout = QHBoxLayout()
 
             label = QLabel(label_text)
@@ -120,29 +156,22 @@ class ColorWindow(FramelessMainWindow, CalibrationMenuMixin, MainThemeMixin):
             slider = QSlider(Qt.Orientation.Horizontal)
             slider.setMinimum(min_val)
             slider.setMaximum(max_val)
-            slider.setValue(default_color[idx])
+            slider.setValue(default_values[key])
             slider.setFixedHeight(25)
             row_layout.addWidget(slider)
 
             spinbox = QSpinBox()
             spinbox.setMinimum(min_val)
             spinbox.setMaximum(max_val)
-            spinbox.setValue(default_color[idx])
+            spinbox.setValue(default_values[key])
             spinbox.setFixedWidth(60)
             row_layout.addWidget(spinbox)
 
-            key = ["h_min", "s_min", "v_min", "h_max", "s_max", "v_max"][idx]
             self.hsv_sliders[key] = {
                 "slider": slider,
                 "spinbox": spinbox,
                 "label": label_text
             }
-
-            # Conectar slider y spinbox
-            slider.valueChanged.connect(
-                lambda val, key=key: self._on_slider_changed(key, val))
-            spinbox.valueChanged.connect(
-                lambda val, key=key: self._on_spinbox_changed(key, val))
 
             controls_layout.addLayout(row_layout)
 
@@ -153,39 +182,30 @@ class ColorWindow(FramelessMainWindow, CalibrationMenuMixin, MainThemeMixin):
 
         controls_layout.addStretch()
 
-        main_grid.addWidget(self.controls_widget, 1, 1)
+        main_grid.addWidget(self.controls_widget, 0, 1)
 
-    def _on_slider_changed(self, key: str, value: int):
-        """Actualiza el spinbox cuando se mueve el slider."""
-        self.hsv_sliders[key]["spinbox"].blockSignals(True)
-        self.hsv_sliders[key]["spinbox"].setValue(value)
-        self.hsv_sliders[key]["spinbox"].blockSignals(False)
-        self._update_color_interface()
+        # Resultado de aplicar la máscara al frame original.
+        self.result_label = self._create_image_label("Resultado HSV")
+        main_grid.addWidget(self.result_label, 1, 1)
 
-    def _on_spinbox_changed(self, key: str, value: int):
-        """Actualiza el slider cuando se cambia el spinbox."""
-        self.hsv_sliders[key]["slider"].blockSignals(True)
-        self.hsv_sliders[key]["slider"].setValue(value)
-        self.hsv_sliders[key]["slider"].blockSignals(False)
-        self._update_color_interface()
-
-    def _update_color_interface(self):
-        """Actualiza la interfaz de color con los valores actuales."""
-        values = {key: data["spinbox"].value()
-                  for key, data in self.hsv_sliders.items()}
-        self.color_interface.update_hsv_values(
-            values["h_min"],
-            values["s_min"],
-            values["v_min"],
-            values["h_max"],
-            values["s_max"],
-            values["v_max"]
+    def _create_image_label(self, text: str):
+        """Crea un QLabel preparado para mostrar imágenes escaladas."""
+        label = QLabel(text)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        label.setMinimumSize(QSize(240, 180))
+        label.setScaledContents(False)
+        label.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding
         )
+        return label
 
     def setup_connections(self):
         """Configura las conexiones de eventos."""
-        if hasattr(self, 'save_button'):
-            self.save_button.clicked.connect(self.save_color_config)
+        self.color_interface.setup_connections()
+        # Conectar acción de tema al toggle
+        if hasattr(self, 'theme_action'):
+            self.theme_action.triggered.connect(self.toggle_theme_event)
         # Conectar cambios de tema
         self.theme_manager.theme_changed.connect(self._on_theme_changed)
 
@@ -200,31 +220,13 @@ class ColorWindow(FramelessMainWindow, CalibrationMenuMixin, MainThemeMixin):
         self.actual_theme = Qt.ColorScheme.Dark if is_dark else Qt.ColorScheme.Light
 
     def _on_theme_changed(self, is_dark: bool):
-        """Maneja el cambio de tema."""
-        if is_dark:
-            self.load_dark_theme()
-        else:
-            self.load_light_theme()
-
-    def save_color_config(self):
-        """Guarda la configuración de colores en el JSON."""
-        values = [
-            self.hsv_sliders["h_min"]["spinbox"].value(),
-            self.hsv_sliders["s_min"]["spinbox"].value(),
-            self.hsv_sliders["v_min"]["spinbox"].value(),
-            self.hsv_sliders["h_max"]["spinbox"].value(),
-            self.hsv_sliders["s_max"]["spinbox"].value(),
-            self.hsv_sliders["v_max"]["spinbox"].value(),
-        ]
-
-        # Obtenemos el color seleccionado (por ahora lo guardamos como "custom")
-        cfg.set_value("camera.json", "hsv_colors", "custom", value=values)
-        print(f"Configuración de color guardada: {values}")
+        """Maneja el cambio de tema desde el ThemeManager."""
+        self._apply_theme_from_signal(is_dark)
 
     def closeEvent(self, event):
         """Maneja el cierre de la ventana."""
         if hasattr(self, "color_interface"):
-            self.color_interface.stop_video()
+            self.color_interface.close()
         self.clear_camera_selection()
         if hasattr(self, "_device_monitor"):
             self._device_monitor.uninstall_filter()

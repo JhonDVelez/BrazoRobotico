@@ -1,3 +1,5 @@
+from re import S
+
 from qframelesswindow import FramelessMainWindow
 from PyQt6.QtWidgets import QMessageBox, QVBoxLayout, QWidget, QLabel, QApplication, QMainWindow
 from PyQt6.QtCore import QCoreApplication, Qt
@@ -26,6 +28,8 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         self.camera_paused = False
         self.hab_simulation = True
         self.theme_manager = ThemeManager.get_instance()
+        self.theme_manager.theme_changed.connect(
+            self._on_external_theme_changed)
         self.com = None
         self.com_connected_label = QLabel("Micro no conectado")
         self.camera_connected_label = QLabel("Cámara no conectada")
@@ -118,6 +122,10 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         self.resize(1280, 720)
         self.center_window()
 
+    def _on_external_theme_changed(self, is_dark: bool):
+        """Actualiza la ventana principal cuando otra ventana cambia el tema."""
+        self._apply_theme_from_signal(is_dark)
+
         # Instalar monitor de dispositivos multiplataforma
         self._device_monitor = get_device_monitor(
             self.get_com_ports, self.get_cameras)
@@ -182,6 +190,10 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         if hasattr(self, 'theme_action'):
             self.theme_action.triggered.connect(self.toggle_theme_event)
 
+        # Conectar cambios de tema desde otras ventanas
+        self.theme_manager.theme_changed.connect(
+            self._on_external_theme_changed)
+
         # Botón para conectar el robot
         if hasattr(self, 'connect_action'):
             self.connect_action.triggered.connect(self.connect_robot)
@@ -212,6 +224,10 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
                 if hasattr(self.calibration_window, "calibration_interface"):
                     self.calibration_window.calibration_interface.stop_video()
                 self.calibration_window.close()
+            if hasattr(self, "color_window"):
+                if hasattr(self.color_window, "color_interface"):
+                    self.color_window.color_interface.close()
+                self.color_window.close()
             if hasattr(self, "camera_interface"):
                 self.camera_interface.stop_video()
             event.accept()

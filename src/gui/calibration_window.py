@@ -1,6 +1,8 @@
 from PyQt6.QtWidgets import (
     QVBoxLayout, QGridLayout, QPushButton, QApplication, QWidget, QHBoxLayout, QSizePolicy)
 from PyQt6.QtCore import QSize, QCoreApplication, Qt
+from PyQt6.QtGui import QIcon
+import os
 from qframelesswindow import FramelessMainWindow
 from .main_window import MainTitleBarMixin, CalibrationMenuMixin, MainThemeMixin, ThemeManager
 from .calibration_interface import CalibrationInterface
@@ -16,6 +18,10 @@ class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin, MainThe
         # Inicializar tema manager
         self.theme_manager = ThemeManager.get_instance()
         self.actual_theme = None
+
+        # Crear atributos para iconos de tema (necesarios para MainThemeMixin)
+        self.sun_icon = QIcon(os.path.join("icons:sun.png"))
+        self.moon_icon = QIcon(os.path.join("icons:moon.png"))
 
         container = QWidget()
         layout = QVBoxLayout(container)
@@ -94,6 +100,9 @@ class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin, MainThe
             self.capture_button.clicked.connect(self.capture_pixmap)
         if hasattr(self, 'calibrate_button'):
             self.calibrate_button.clicked.connect(self.calibrate)
+        # Conectar acción de tema al toggle
+        if hasattr(self, 'theme_action'):
+            self.theme_action.triggered.connect(self.toggle_theme_event)
         # Conectar cambios de tema
         self.theme_manager.theme_changed.connect(self._on_theme_changed)
 
@@ -108,17 +117,15 @@ class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin, MainThe
         self.actual_theme = Qt.ColorScheme.Dark if is_dark else Qt.ColorScheme.Light
 
     def _on_theme_changed(self, is_dark: bool):
-        """Maneja el cambio de tema."""
-        if is_dark:
-            self.load_dark_theme()
-        else:
-            self.load_light_theme()
+        """Maneja el cambio de tema desde el ThemeManager."""
+        self._apply_theme_from_signal(is_dark)
 
     def capture_pixmap(self):
-        self.calibration_interface.save_pixmap = True
+        """Captura el frame actual si hay detección de corners."""
+        self.calibration_interface.capture_frame()
 
     def calibrate(self):
-        self.calibration_interface.read_temporal_pixmap()
+        self.calibration_interface.calibrate_camera_from_data()
 
     def closeEvent(self, event):
         if hasattr(self, "calibration_interface"):

@@ -29,6 +29,17 @@ class MainThemeMixin:
         else:
             print("Error: Tema desconocido")
 
+    def _apply_theme_from_signal(self, is_dark: bool):
+        """ Aplica el tema cuando se recibe una señal de otra ventana (sin emitir de nuevo).
+        """
+        if is_dark:
+            self.load_dark_theme()
+            cfg.set_value("settings.json", "theme", value="dark")
+        else:
+            self.load_light_theme()
+            cfg.set_value("settings.json", "theme", value="light")
+        self.actual_theme = Qt.ColorScheme.Dark if is_dark else Qt.ColorScheme.Light
+
     def toggle_theme_event(self):
         if self.actual_theme is None:
             theme = cfg.get("settings.json", "theme").lower()
@@ -60,7 +71,7 @@ class MainThemeMixin:
             image: url("{svg_path}");
         }}"""
         self.setStyleSheet(stylesheet)
-        
+
         # Actualizar title_bar si existe
         if hasattr(self, 'title_bar') and self.title_bar is not None:
             self.title_bar.minBtn.setNormalColor("#A8A8A8")
@@ -68,11 +79,11 @@ class MainThemeMixin:
             self.title_bar.maxBtn.setNormalColor("#A8A8A8")
             self.title_bar.maxBtn.setHoverBackgroundColor("#44464A")
             self.title_bar.closeBtn.setNormalColor("#A8A8A8")
-        
+
         # Actualizar logo_label si existe
         if hasattr(self, 'logo_label') and hasattr(self, 'laser_w'):
             self.logo_label.setPixmap(self.laser_w)
-        
+
         # Actualizar theme_action si existe
         if hasattr(self, 'theme_action') and hasattr(self, 'sun_icon'):
             self.theme_action.setIcon(self.sun_icon)
@@ -89,7 +100,7 @@ class MainThemeMixin:
             image: url("{svg_path}");
         }}"""
         self.setStyleSheet(stylesheet)
-        
+
         # Actualizar title_bar si existe
         if hasattr(self, 'title_bar') and self.title_bar is not None:
             self.title_bar.minBtn.setNormalColor("#323238")
@@ -97,11 +108,11 @@ class MainThemeMixin:
             self.title_bar.maxBtn.setNormalColor("#323238")
             self.title_bar.maxBtn.setHoverBackgroundColor("#A5AAB4")
             self.title_bar.closeBtn.setNormalColor("#323238")
-        
+
         # Actualizar logo_label si existe
         if hasattr(self, 'logo_label') and hasattr(self, 'laser_b'):
             self.logo_label.setPixmap(self.laser_b)
-        
+
         # Actualizar theme_action si existe
         if hasattr(self, 'theme_action') and hasattr(self, 'moon_icon'):
             self.theme_action.setIcon(self.moon_icon)

@@ -4,7 +4,10 @@
 import os
 import numpy as np
 import cv2
-from PyQt6.QtWidgets import QSizePolicy, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QWidget
+from PyQt6.QtWidgets import (
+    QSizePolicy, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QWidget,
+    QComboBox
+)
 from PyQt6.QtCore import Qt, QSize, pyqtSignal
 from PyQt6.QtGui import QPixmap, QIcon
 from gui.camera_worker import CameraWorker
@@ -66,12 +69,19 @@ class CameraInterface(ImageUtilsMixin):
         self.buttons_widget = QWidget(self)
         self.buttons_widget.setAttribute(
             Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.buttons_widget.setSizePolicy(size_policy)
-        self.buttons_widget.setMinimumSize(QSize(110, 40))
+        self.buttons_widget.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.buttons_widget.setFixedHeight(50)
 
         buttons_layout = QHBoxLayout(self.buttons_widget)
-        buttons_layout.setContentsMargins(10, 10, 0, 0)
-        buttons_layout.setSpacing(5)
+        buttons_layout.setContentsMargins(10, 10, 10, 0)
+        buttons_layout.setSpacing(0)
+
+        self.camera_buttons_panel = QWidget(self.buttons_widget)
+        self.camera_buttons_panel.setObjectName("camera_buttons_panel")
+        camera_buttons_layout = QHBoxLayout(self.camera_buttons_panel)
+        camera_buttons_layout.setContentsMargins(0, 0, 0, 0)
+        camera_buttons_layout.setSpacing(5)
 
         # Botón cámara
         self.video_button = QPushButton()
@@ -110,11 +120,48 @@ class CameraInterface(ImageUtilsMixin):
         self.geometry_button.setIcon(
             self.hide_geometry_icon if self.ellipse_enabled else self.show_ellipse_icon)
 
-        buttons_layout.addWidget(self.video_button)
-        buttons_layout.addWidget(self.grid_button)
-        buttons_layout.addWidget(self.geometry_button)
+        camera_buttons_layout.addWidget(self.video_button)
+        camera_buttons_layout.addWidget(self.grid_button)
+        camera_buttons_layout.addWidget(self.geometry_button)
+
+        controls_width = 30 * 3 + 5 * 2
+        self.camera_buttons_panel.setFixedSize(controls_width, 30)
+
+        self.camera_selector = QComboBox(self.buttons_widget)
+        self.camera_selector.setObjectName("camera_selector")
+        self.camera_selector.setPlaceholderText("Seleccionar cámara")
+        self.camera_selector.setFixedHeight(30)
+        self.camera_selector.setMinimumWidth(220)
+        self.camera_selector.setMaximumWidth(360)
+        self.camera_selector.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.camera_selector.setVisible(False)
+
+        self.camera_selector_panel = QWidget(self.buttons_widget)
+        self.camera_selector_panel.setFixedHeight(30)
+        self.camera_selector_panel.setObjectName("camera_selector_panel")
+        camera_selector_layout = QHBoxLayout(self.camera_selector_panel)
+        camera_selector_layout.setContentsMargins(0, 0, 0, 0)
+        camera_selector_layout.setSpacing(0)
+        camera_selector_layout.addStretch(1)
+        camera_selector_layout.addWidget(
+            self.camera_selector, 0, Qt.AlignmentFlag.AlignTop)
+        camera_selector_layout.addStretch(1)
+
+        self.camera_buttons_spacer = QWidget(self.buttons_widget)
+        self.camera_buttons_spacer.setFixedSize(controls_width, 30)
+        self.camera_buttons_spacer.setObjectName("camera_buttons_spacer")
+
+        buttons_layout.addWidget(
+            self.camera_buttons_panel, 0, Qt.AlignmentFlag.AlignTop)
+        buttons_layout.addWidget(
+            self.camera_selector_panel, 1, Qt.AlignmentFlag.AlignTop)
+        buttons_layout.addWidget(
+            self.camera_buttons_spacer, 0, Qt.AlignmentFlag.AlignTop)
+        buttons_layout.addStretch(0)
 
         # Posición del overlay
+        self.buttons_widget.setGeometry(0, 0, self.width(), 50)
         self.buttons_widget.move(0, 0)
         self.buttons_widget.raise_()
 
@@ -133,7 +180,65 @@ class CameraInterface(ImageUtilsMixin):
         self.video_button.clicked.connect(self.toggle_video)
         self.grid_button.clicked.connect(self.toggle_grid)
         self.geometry_button.clicked.connect(self.toggle_geometry)
+        self.camera_selector.currentIndexChanged.connect(
+            self._camera_selector_changed)
         self.theme_manager.theme_changed.connect(self.toggle_theme)
+
+    def resizeEvent(self, event):
+        if hasattr(self, "image_label") and hasattr(self, "pixmap"):
+            super().resizeEvent(event)
+        else:
+            QWidget.resizeEvent(self, event)
+
+        if hasattr(self, "buttons_widget"):
+            self.buttons_widget.setGeometry(0, 0, self.width(), 50)
+            self.buttons_widget.raise_()
+        if hasattr(self, "toast"):
+            self.toast.raise_()
+
+    def set_available_cameras(self, cameras, selected_name=None):
+        self.camera_selector.blockSignals(True)
+        self.camera_selector.clear()
+
+        for camera_index, display_name in cameras:
+            self.camera_selector.addItem(
+                display_name, [camera_index, display_name])
+
+        has_cameras = bool(cameras)
+        self.camera_selector.setVisible(has_cameras)
+
+        selected_index = -1
+        if selected_name:
+            selected_index = self.camera_selector.findText(selected_name)
+
+        self.camera_selector.setCurrentIndex(selected_index)
+        self.camera_selector.blockSignals(False)
+
+        if selected_index >= 0:
+            self.set_camera_index(cameras[selected_index][0])
+        else:
+            self.set_camera_index(None)
+
+    def get_camera_selector_entries(self):
+        return [
+            tuple(self.camera_selector.itemData(index))
+            for index in range(self.camera_selector.count())
+        ]
+
+    def clear_camera_selection(self):
+        self.camera_selector.blockSignals(True)
+        self.camera_selector.setCurrentIndex(-1)
+        self.camera_selector.blockSignals(False)
+        self.set_camera_index(None)
+
+    def _camera_selector_changed(self, index):
+        camera_data = self.camera_selector.itemData(index)
+        if hasattr(self.parent, "camera_selection_change"):
+            self.parent.camera_selection_change(camera_data)
+            return
+
+        if camera_data:
+            self.set_camera_index(camera_data[0])
 
     def set_camera_index(self, index: int | None):
         self.camera_index = index
@@ -230,6 +335,8 @@ class CameraInterface(ImageUtilsMixin):
             camera_name = self._get_selected_camera_name()
             if camera_name:
                 self._set_camera_connection_status(camera_name)
+                self.camera_selector_panel.hide()
+                self.camera_buttons_spacer.hide()
             else:
                 self._set_camera_connection_status("Cámara conectada")
         except (RuntimeError, OSError) as e:
@@ -266,6 +373,9 @@ class CameraInterface(ImageUtilsMixin):
                 self.video_button.setIcon(self.camera_on_icon)
                 self.video_worker.deleteLater()
                 self.video_worker = None
+
+                self.camera_selector_panel.show()
+                self.camera_buttons_spacer.show()
             except Exception as e:
                 print(f"Error en la ejecucion al detener el video: {e}")
 

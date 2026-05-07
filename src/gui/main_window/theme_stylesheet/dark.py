@@ -188,6 +188,9 @@ QGroupBox::title {
 #controls_holder QLabel, #kinematics_holder > QLabel {
     background-color: #191B20;
 }
+#camera_selector_panel, #camera_buttons_spacer, #camera_buttons_panel{
+    background-color: transparent;
+}
 QMenuBar {
     background-color: transparent;
     padding: 5px 5px 5px 5px;

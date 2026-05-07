@@ -71,7 +71,7 @@ class ChArUcoDetection(QRunnable):
                 self.frame, markerCorners=marker_corners, markerIds=marker_ids
             )
 
-            if charuco_corners is None or len(charuco_corners) < 4:
+            if charuco_corners is None or len(charuco_corners) < 6:
                 self.detection_callback(self.frame_id, None)
                 return
 
@@ -99,6 +99,10 @@ class ChArUcoDetection(QRunnable):
                 self.dist_coeff,
                 flags=cv2.SOLVEPNP_ITERATIVE
             )
+
+            if unified_results is None:
+                self.detection_callback(self.frame_id, None)
+                return
 
             unified_results.update({"rvec": rvec, "tvec": tvec})
 

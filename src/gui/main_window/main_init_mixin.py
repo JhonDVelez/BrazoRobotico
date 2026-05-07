@@ -140,6 +140,7 @@ class MainInitMixin:
         self.kinematics_widget = KinematicsWidget()
         self.slider_widget = SlidersWidget(self, self.kinematics_widget)
         self.modes_widget = QWidget()
+        
         if not self.modes_widget.layout():
             layout = QHBoxLayout(self.modes_widget)
             layout.setContentsMargins(0, 0, 0, 0)

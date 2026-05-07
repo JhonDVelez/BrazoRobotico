@@ -32,7 +32,7 @@ class CameraWorker(QThread):
         self._process_frame = False
         self.lock = Lock()
         self.is_calibration = is_calibration
-        self.results = {}  # {fid: {"charuco":..., "ellipses":...}}
+        self.results = {}  # {fid: {"charuco":..., "ellipses":..., "poses":...}}
         self.max_buffer = 3
         self.last_roi = None  # Region de interes
         self.sphere_radius = 0.02  # radio de la esfera en m
@@ -61,9 +61,9 @@ class CameraWorker(QThread):
                 return
             while self._running:
                 frame = self.camera.take_frame()
-                frame_umat = cv2.UMat(frame)
                 if frame is None:
                     raise IOError("No se pudo obtener frame de la cámara")
+                frame_umat = cv2.UMat(frame.copy())
 
                 if self.thread_pool.activeThreadCount() >= self.thread_pool.maxThreadCount():
                     continue
@@ -138,7 +138,7 @@ class CameraWorker(QThread):
     def on_charuco_done(self, fid: int, data: dict):
         with self.lock:
             entry = self.results.setdefault(
-                fid, {"charuco": None, "ellipses": None})
+                fid, {"charuco": None, "ellipses": None, "poses": None})
             entry["charuco"] = data
 
             # actualizar ROI para el siguiente frame (fuera del join)
@@ -154,11 +154,22 @@ class CameraWorker(QThread):
     def on_ellipses_done(self, fid: int, data: dict):
         with self.lock:
             entry = self.results.setdefault(
-                fid, {"charuco": None, "ellipses": None})
+                fid, {"charuco": None, "ellipses": None, "poses": None})
             entry["ellipses"] = data
 
             self._try_pose_estimation(fid)
             self._trim_buffer()
+
+    def on_pose_done(self, fid: int, poses: dict):
+        with self.lock:
+            entry = self.results.get(fid)
+            if not entry:
+                return
+            entry["poses"] = poses
+            ellipses = entry.get("ellipses") or {}
+            for color, position in poses.items():
+                if color in ellipses:
+                    ellipses[color]["position"] = position
 
     def _try_pose_estimation(self, fid: int):
         entry = self.results.get(fid)
@@ -169,7 +180,9 @@ class CameraWorker(QThread):
                 entry, self.camera_matrix,
                 self.dist_coeff, self.sphere_radius,
                 self.custom_origin,
-                self._emit_error))
+                self._emit_error,
+                frame_id=fid,
+                pose_callback=self.on_pose_done))
 
     def _trim_buffer(self):
         # Evitar backlog en tiempo real

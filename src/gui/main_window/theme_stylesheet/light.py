@@ -171,7 +171,7 @@ QGroupBox::title {
 #modelBox, #cameraBox, #graphsBox, #controlsBox{
     margin: 0px;
     padding: 0px;
-    background-color: transparent;
+    background-color: #E6E8ED;
 }
 #modelBox QLabel, #cameraBox QLabel, #graphsBox QLabel {
     background-color: #E6E8ED;
@@ -187,6 +187,9 @@ QGroupBox::title {
 }
 #controls_holder QLabel, #kinematics_holder > QLabel {
     background-color: #E6E8ED;
+}
+#camera_selector_panel, #camera_buttons_spacer, #camera_buttons_panel{
+    background-color: transparent;
 }
 QMenuBar {
     background-color: transparent;

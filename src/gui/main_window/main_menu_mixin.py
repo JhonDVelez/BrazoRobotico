@@ -133,10 +133,6 @@ class MainMenuMixin:
         self.menu_bar.setCornerWidget(self.logo_label, Qt.Corner.TopLeftCorner)
 
         self.camera_menu = self.menu_bar.addMenu("&Cámara")
-        self.cameras_submenu = self.camera_menu.addMenu(
-            "&Entradas de video")
-        self.cameras_group = QActionGroup(self)
-        self.cameras_group.setExclusive(True)
         self.camera_menu.addAction(self.charuco_action)
         self.camera_menu.addAction(self.sphere_action)
         self.camera_menu.addAction(self.camera_calibration_action)
@@ -170,7 +166,6 @@ class MainMenuMixin:
         self.com_group = QActionGroup(self)
         self.com_group.setExclusive(True)
         self.get_com_ports()
-        self.get_cameras()
         self.robot_menu.addAction(self.connect_action)
 
         self.menu_bar.setSizePolicy(
@@ -353,6 +348,10 @@ class MainMenuMixin:
         existing_names.add(display_name)
         return display_name
 
+    def _get_camera_interface(self):
+        return getattr(self, 'camera_interface', None) or getattr(
+            self, 'calibration_interface', None)
+
     def get_cameras(self):
         if sys.platform == "win32":
             available_cameras = enumerate_cameras(cv2.CAP_DSHOW)
@@ -377,59 +376,53 @@ class MainMenuMixin:
             camera_names.append(
                 self._get_unique_camera_menu_name(cam, used_names))
 
-        if self.last_cameras is not None and Counter(self.last_cameras) == Counter(camera_names) and self.cameras_submenu.actions():
+        camera_entries = [
+            (cam.index, display_name)
+            for cam, display_name in zip(unique_cameras, camera_names)
+        ]
+
+        interface = self._get_camera_interface()
+        selector_entries = []
+        if interface and hasattr(interface, "get_camera_selector_entries"):
+            selector_entries = interface.get_camera_selector_entries()
+
+        last_cameras = getattr(self, "last_cameras", None)
+        if (last_cameras is not None and
+                Counter(last_cameras) == Counter(camera_entries) and
+                Counter(selector_entries) == Counter(camera_entries)):
             return
 
-        self.last_cameras = camera_names
+        self.last_cameras = camera_entries
+        if getattr(self, "last_camera_name", None) not in camera_names:
+            self.last_camera_name = None
 
-        self.cameras_submenu.clear()
-        for action in list(self.cameras_submenu.actions()):
-            self.cameras_submenu.removeAction(action)
+        if interface and hasattr(interface, "set_available_cameras"):
+            interface.set_available_cameras(
+                camera_entries, self.last_camera_name)
 
-        if unique_cameras:
-            self.cameras_submenu.setEnabled(True)
-            for cam, display_name in zip(unique_cameras, camera_names):
-                cam_action = self.cameras_submenu.addAction(display_name)
-                cam_action.setCheckable(True)
-                cam_action.setData([cam.index, display_name])
-                cam_action.setStatusTip(f"Conectar a camara {display_name}")
-                self.cameras_group.addAction(cam_action)
-                cam_action.triggered.connect(self.camera_checkable_change)
+        if not unique_cameras and interface:
+            interface.stop_video()
 
-                if self.last_camera_name == display_name:
-                    cam_action.setChecked(True)
-        else:
-            self.cameras_submenu.setEnabled(False)
-            interface = getattr(self, 'camera_interface', None) or getattr(
-                self, 'calibration_interface', None)
+    def camera_selection_change(self, camera_data):
+        interface = self._get_camera_interface()
+        if camera_data:
             if interface:
-                interface.stop_video()
-
-        if not self.cameras_group.checkedAction():
-            interface = getattr(self, 'camera_interface', None) or getattr(
-                self, 'calibration_interface', None)
+                interface.set_camera_index(camera_data[0])
+            self.last_camera_name = camera_data[1]
+        else:
             if interface:
                 interface.set_camera_index(None)
-
-    def camera_checkable_change(self, checked):
-        action = self.sender()
-        if action and checked:
-            interface = getattr(self, 'camera_interface', None) or getattr(
-                self, 'calibration_interface', None)
-            if interface:
-                interface.set_camera_index(action.data()[0])
-            self.last_camera_name = action.data()[1]
+            self.last_camera_name = None
 
     def clear_camera_selection(self):
         self.last_camera_name = None
-        for action in self.cameras_group.actions():
-            action.setChecked(False)
-
-        interface = getattr(self, 'camera_interface', None) or getattr(
-            self, 'calibration_interface', None)
+        interface = self._get_camera_interface()
         if interface:
             interface.stop_video()
-            interface.set_camera_index(None)
+            if hasattr(interface, "clear_camera_selection"):
+                interface.clear_camera_selection()
+            else:
+                interface.set_camera_index(None)
 
     def interval_selection_change(self, interval):
         FrameCounter().get_instance().set_interval(interval)

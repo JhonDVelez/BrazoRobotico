@@ -39,7 +39,8 @@ class DetectionDrawer(QRunnable):
             return
 
         grid_results = self.results.get("charuco", None)
-        ellipses_results = self.results.get("ellipses", None)
+        sphere_results = self.results.get("ellipses", None)
+        pose_results = self.results.get("poses", None) or {}
 
         frame_out = self.frame.copy()
 
@@ -54,13 +55,14 @@ class DetectionDrawer(QRunnable):
                 self.error_callback(
                     f"Error al dibujar ChArUco: {traceback.format_exc()} (DetectionDrawer)")
 
-        # Dibujar elipses
-        if ellipses_results is not None and self.ellipse_view:
+        # Dibujar esferas
+        if sphere_results is not None and self.ellipse_view:
             try:
-                frame_out = self._draw_ellipse(frame_out, ellipses_results)
+                frame_out = self._draw_spheres(
+                    frame_out, sphere_results, pose_results)
             except Exception:
                 self.error_callback(
-                    f"Error al dibujar elipses: {traceback.format_exc()} (DetectionDrawer)")
+                    f"Error al dibujar esferas: {traceback.format_exc()} (DetectionDrawer)")
 
         # Siempre se entrega el frame, con lo que haya podido dibujarse
         self.frame_callback(frame_out)
@@ -118,45 +120,56 @@ class DetectionDrawer(QRunnable):
 
         return frame
 
-    def _draw_ellipse(self, frame, ellipse_results: dict[str, dict]):
-        for color, datos in ellipse_results.items():
-            ellipse = datos.get("ellipse")
+    def _draw_spheres(self, frame, sphere_results: dict[str, dict], pose_results: dict):
+        for color, datos in sphere_results.items():
             c = datos.get("center")
-            a = datos.get("major")
+            radius = datos.get("radius") or datos.get("area_radius")
+            contour = datos.get("contour")
 
-            # Validaciones robustas
-            if ellipse is None:
+            if c is None or radius is None:
                 continue
 
-            if c is None or a is None:
-                continue
+            center = (int(round(c[0])), int(round(c[1])))
+            radius = int(round(radius))
 
             try:
-                # Asegurar tipos correctos
-                center, axes, angle = ellipse
+                if contour is not None:
+                    contour = np.asarray(contour, dtype=np.int32)
+                    cv2.drawContours(frame, [contour], -1, (0, 220, 255), 1)
 
-                center = (int(center[0]), int(center[1]))
-                axes = (int(axes[0]), int(axes[1]))
-                angle = float(angle)
+                cv2.circle(frame, center, radius, (0, 255, 0), 2)
+                cv2.circle(frame, center, 3, (0, 0, 255), -1)
 
-                cv2.ellipse(frame, (center, axes, angle), (0, 255, 0), 2)
+                position = datos.get("position") or pose_results.get(color)
+                label_lines = [str(color)]
+                if position is not None and len(position) >= 3:
+                    label_lines.extend([
+                        f"X={position[0]:.3f} Y={position[1]:.3f}",
+                        f"Z={position[2]:.3f} m",
+                    ])
 
-                cv2.putText(
-                    frame,
-                    str(color),
-                    (int(c[0] - 20), int(c[1] - a - 10)),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    (255, 255, 255),
-                    2,
-                    cv2.LINE_AA
-                )
+                label_x = center[0] + radius + 8
+                label_y = center[1] - max(0, radius // 2)
+                if label_x > frame.shape[1] - 190:
+                    label_x = max(5, center[0] - radius - 185)
+                label_y = max(18, label_y)
+                self._draw_text_lines(frame, label_lines, (label_x, label_y))
 
             except Exception as e:
-                print(f"[WARN] Error dibujando elipse: {e}")
+                print(f"[WARN] Error dibujando esfera: {e}")
                 continue
 
         return frame
+
+    def _draw_text_lines(self, frame, lines: list[str], origin: tuple[int, int]):
+        x, y = origin
+        line_height = 17
+        for index, line in enumerate(lines):
+            text_origin = (x, y + index * line_height)
+            cv2.putText(frame, line, text_origin, cv2.FONT_HERSHEY_SIMPLEX,
+                        0.45, (0, 0, 0), 3, cv2.LINE_AA)
+            cv2.putText(frame, line, text_origin, cv2.FONT_HERSHEY_SIMPLEX,
+                        0.45, (255, 255, 255), 1, cv2.LINE_AA)
 
     def _get_dynamic_font_scale(self, corners: np.ndarray) -> float:
         """Calcula la escala de fuente basada en ancho de celda medida en pixeles.

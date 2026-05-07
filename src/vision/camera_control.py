@@ -89,18 +89,7 @@ class CameraControl:
         # Captura frame de la cámara
         ret, frame = self.cap.read()
         if ret:
-            if self.is_calibration:
-                return frame
-            # Obtiene la nueva matriz de calibración
-            h,  w = frame.shape[:2]
-            new_cam_matrix, roi = cv2.getOptimalNewCameraMatrix(
-                self.camera_matrix, self.dist_coeff, (w, h), 1, (w, h))
-            dst = cv2.undistort(frame, self.camera_matrix,
-                                self.dist_coeff, None, new_cam_matrix)
-
-            x, y, w, h = roi
-            dst = dst[y:y+h, x:x+w]
-            return dst
+            return frame
         return None
 
     def __release_camera(self):

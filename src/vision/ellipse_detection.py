@@ -10,7 +10,7 @@ class EllipseDetection(QRunnable):
         "verde":    (40, 70, 70, 80, 255, 255),
         "azul":     (100, 150, 50, 130, 255, 255),
         "naranja":  (5, 150, 150, 15, 255, 255),
-        "morado":   (130, 50, 50, 160, 255, 255),
+        "morado":   (130, 94, 117, 180, 255, 255),
     }
 
     def __init__(self, frame_umat: cv2.UMat, frame_id: int, roi: np.ndarray, detection_callback, error_callback) -> None:

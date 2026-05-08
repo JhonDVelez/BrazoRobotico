@@ -411,6 +411,7 @@ QToolButton[popupMode="1"] {
     padding-right: 14px;
 }
 QComboBox {
+    combobox-popup: 0;
     border: 3px groove #C0C0D1;
     border-radius: 4px;
     min-height: 1.5em;

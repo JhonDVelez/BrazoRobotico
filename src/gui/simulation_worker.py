@@ -18,24 +18,35 @@ class SimWorker(QThread):
             "arm3_link_1",
             "arm4_link_1",
             "clamp_arm_link_1",
-            "clamp2_link_1"]
+            "clamp2_link_1"
+        ]
         self.direction_rotation = [
             "y",
             "z",
             "z",
             "y",
             "z",
-            "x"]
+            "x"
+        ]
+        self.colors = {
+            "amarillo":  "sphereYellowPos",
+            "verde": "sphereGreenPos",
+            "azul": "sphereBluePos",
+            "naranja": "sphereOrangePos",
+            "morado": "spherePurplePos"
+        }
 
         self.signal_manager = SimulationSignalManager.get_instance()
         self.signal_manager.update_robot_signal.connect(self.update_simulation)
+        self.signal_manager.sphere_pos.connect(
+            self.update_sphere_pose_simulation)
 
     @pyqtSlot(list)
     def update_simulation(self, joint_positions=None):
         """ Actualiza el modelo 3D de qtquick
 
         Args:
-            joint_positions (list, optional): Posición actual de los motores en la simulación. 
+            joint_positions (list, optional): Posición actual de los motores en la simulación.
                                               Defaults to None.
         """
         if joint_positions is None:
@@ -52,3 +63,15 @@ class SimWorker(QThread):
                 motor.setProperty("eulerRotation", QVector3D(0, angle, 0))
             elif direction == "x":
                 motor.setProperty("eulerRotation", QVector3D(angle, 0, 0))
+
+    @pyqtSlot(dict)
+    def update_sphere_pose_simulation(self, poses: dict):
+        for color, property_name in self.colors.items():
+            if color in poses:
+                pose = poses.get(color)
+                if pose is not None:
+                    self.root_object.setProperty(
+                        property_name, QVector3D(-pose[1]-100, 100, pose[0]))
+            else:
+                self.root_object.setProperty(
+                    property_name, QVector3D(0, 0, 0))

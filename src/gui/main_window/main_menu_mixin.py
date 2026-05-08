@@ -49,10 +49,6 @@ class MainMenuMixin:
 
         mapping_camera = {
             "camera": {
-                "charuco": ("charuco_action", "Tablero ChArUco", "Tablero ChArUco",
-                            "Ctrl+q", "Activa/Desactiva la deteccion del tablero", True),
-                "sphere": ("sphere_action", "Activar Objetos", "Activar Objetos",
-                           "Ctrl+w", "Activa/Desactiva la deteccion de las esferas de colores", True),
                 "calibrate": ("camera_calibration_action", "Calibrar Cámara", "Calibrar Cámara",
                               "", "Abrir ventana de calibracion de cámara", False),
                 "color_calibrate": ("color_calibration_action", "Calibrar Color", "Calibrar Color",
@@ -133,8 +129,6 @@ class MainMenuMixin:
         self.menu_bar.setCornerWidget(self.logo_label, Qt.Corner.TopLeftCorner)
 
         self.camera_menu = self.menu_bar.addMenu("&Cámara")
-        self.camera_menu.addAction(self.charuco_action)
-        self.camera_menu.addAction(self.sphere_action)
         self.camera_menu.addAction(self.camera_calibration_action)
         self.camera_menu.addAction(self.color_calibration_action)
 

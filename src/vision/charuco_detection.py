@@ -34,8 +34,8 @@ class ChArUcoDetection(QRunnable):
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(dictionary_id)
         self.charuco_board = cv2.aruco.CharucoBoard(
             size=(12, 5),
-            squareLength=0.03,
-            markerLength=0.022,
+            squareLength=30,
+            markerLength=22,
             dictionary=self.aruco_dict
         )
         self.charuco_detector = cv2.aruco.CharucoDetector(self.charuco_board)

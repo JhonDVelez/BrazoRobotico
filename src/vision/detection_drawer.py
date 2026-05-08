@@ -6,11 +6,12 @@ from data import config_manager as cfg
 
 
 class DetectionDrawer(QRunnable):
-    def __init__(self, frame: np.ndarray, results: dict, view: tuple, frame_callback, error_callback) -> None:
+    def __init__(self, frame: np.ndarray, results: dict, view: tuple, custom_origin: tuple, frame_callback, error_callback) -> None:
         super().__init__()
         self.frame = frame
         self.results = results
         self.charuco_view, self.ellipse_view = view
+        self.custom_origin = custom_origin
         self.frame_callback = frame_callback
         self.error_callback = error_callback
 
@@ -95,9 +96,11 @@ class DetectionDrawer(QRunnable):
         for corner, phy_corner in zip(corners.reshape(-1, 1, 2), physical_corners.reshape(-1, 1, 2)):
             corner = corner[0]
             phy_corner = phy_corner[0]
+            adjusted_x = phy_corner[1] - self.custom_origin[1]
+            adjusted_y = phy_corner[0] - self.custom_origin[0]
             cv2.putText(
                 frame,
-                f"[{phy_corner[1]},{phy_corner[0]}]",
+                f"[{adjusted_y:.1f},{adjusted_x:.1f}]",
                 tuple(corner.astype(int) + [-25, 15]),
                 cv2.FONT_HERSHEY_COMPLEX_SMALL,
                 self.font_scale,
@@ -145,7 +148,7 @@ class DetectionDrawer(QRunnable):
                 if position is not None and len(position) >= 3:
                     label_lines.extend([
                         f"X={position[0]:.3f} Y={position[1]:.3f}",
-                        f"Z={position[2]:.3f} m",
+                        f"Z={-position[2]:.3f} mm",
                     ])
 
                 label_x = center[0] + radius + 8

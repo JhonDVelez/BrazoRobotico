@@ -23,10 +23,15 @@ View3D {
     property alias bgColor: env.clearColor
     property alias bgMode: env.backgroundMode
     property alias floorColor: floorMaterial.baseColor
+    property alias sphereOrangePos: sphereOrange.modelPosition
+    property alias sphereGreenPos: sphereGreen.modelPosition
+    property alias sphereBluePos: sphereBlue.modelPosition
+    property alias spherePurplePos: spherePurple.modelPosition
+    property alias sphereYellowPos: sphereYellow.modelPosition
 
     environment: SceneEnvironment {
         id: env
-        clearColor: "#311010"
+        clearColor: "#191B20"
         backgroundMode: SceneEnvironment.Color
         antialiasingMode: SceneEnvironment.MSAA
         antialiasingQuality: SceneEnvironment.High
@@ -82,11 +87,16 @@ View3D {
     Model {
         id: floor
         source: "meshes/floor.mesh"
-        scale: Qt.vector3d(3000, 1, 3000)
+        scale: Qt.vector3d(4000, 1, 4000)
+
         materials: [
             PrincipledMaterial {
                 id: floorMaterial
-                baseColor: "black"
+                baseColor: "black"        // ← alias floorColor controla el color
+                alphaMode: PrincipledMaterial.Blend
+                opacityMap: Texture {
+                    source: view3D.floorTexture   // solo actúa como máscara alpha
+                }
                 roughness: 0.5
                 indexOfRefraction: 1.45
             }
@@ -122,6 +132,36 @@ View3D {
             }
         ]
         receivesShadows: true   
+    }
+
+    Sphere {
+        id: sphereOrange
+        modelColor: "#d3612d"
+        modelPosition: Qt.vector3d(0, 0, 0)
+    }
+
+    Sphere {
+        id: sphereGreen
+        modelColor: "#44ff44"
+        modelPosition: Qt.vector3d(0, 0, 0)
+    }
+
+    Sphere {
+        id: sphereBlue
+        modelColor: "#4488ff"
+        modelPosition: Qt.vector3d(0, 0, 0)
+    }
+
+    Sphere {
+        id: sphereYellow
+        modelColor: "#c3f314"
+        modelPosition: Qt.vector3d(0, 0, 0)
+    }
+
+    Sphere {
+        id: spherePurple
+        modelColor: "#a11e90"
+        modelPosition: Qt.vector3d(0, 0, 0)
     }
 
     // "Ghost" node that follows the object you want to track

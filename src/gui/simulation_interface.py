@@ -168,11 +168,11 @@ class SimInterface(ImageUtilsMixin):
     def change_theme(self, dark_t):
         self.toggle_theme(dark_t)
         if dark_t:
-            self.root_object.setProperty("bgColor", "black")
-            self.root_object.setProperty("floorColor", "grey")
+            self.root_object.setProperty("bgColor", "#191B20")
+            self.root_object.setProperty("floorColor", "#E6E8ED")
         else:
-            self.root_object.setProperty("bgColor", "white")
-            self.root_object.setProperty("floorColor", "black")
+            self.root_object.setProperty("bgColor", "#E6E8ED")
+            self.root_object.setProperty("floorColor", "#191B20")
 
     def closeEvent(self, event):
         """ Limpieza al cerrar

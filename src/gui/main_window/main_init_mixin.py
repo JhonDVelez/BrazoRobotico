@@ -9,6 +9,7 @@ from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QSize, Qt
 from data import Modes, Units, Domains
 from data import DataFlow
+from data import config_manager as cfg
 from robot import RobotWorker
 from gui.camera_interface import CameraInterface
 from gui.sliders_interface import SlidersWidget
@@ -140,7 +141,7 @@ class MainInitMixin:
         self.kinematics_widget = KinematicsWidget()
         self.slider_widget = SlidersWidget(self, self.kinematics_widget)
         self.modes_widget = QWidget()
-        
+
         if not self.modes_widget.layout():
             layout = QHBoxLayout(self.modes_widget)
             layout.setContentsMargins(0, 0, 0, 0)
@@ -215,6 +216,32 @@ class MainInitMixin:
 
         self.actions_toolbar.addSeparator()
         self.actions_toolbar.addWidget(self.toolbar_spacer)
+        self.actions_toolbar.addSeparator()
+
+        self.charuco_icon = QIcon(os.path.join("icons:gridSearch.png"))
+        self.sphere_icon = QIcon(os.path.join("icons:geometrySearch.png"))
+
+        self.charuco_action = self.actions_toolbar.addAction(
+            self.charuco_icon, "Tablero ChArUco")
+        self.charuco_action.setObjectName("charuco_action")
+        self.charuco_action.setStatusTip(
+            "Activa/Desactiva la deteccion del tablero")
+        self.charuco_action.setCheckable(True)
+
+        self.sphere_action = self.actions_toolbar.addAction(
+            self.sphere_icon, "Activar Objetos")
+        self.sphere_action.setObjectName("sphere_action")
+        self.sphere_action.setStatusTip(
+            "Activa/Desactiva la deteccion de las esferas de colores")
+        self.sphere_action.setCheckable(True)
+
+        settings = cfg.get("settings.json")
+        camera_config = settings.get("camera", {})
+        if "charuco" in camera_config:
+            self.charuco_action.setChecked(camera_config.get("charuco"))
+        if "sphere" in camera_config:
+            self.sphere_action.setChecked(camera_config.get("sphere"))
+
         self.actions_toolbar.addSeparator()
 
         # Cargar iconos

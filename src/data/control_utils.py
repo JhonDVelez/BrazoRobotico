@@ -57,6 +57,7 @@ class SimulationSignalManager(_SignalManager):
     """ SignalManager específico para simulación
     """
     _instance = None
+    sphere_pos = pyqtSignal(dict)
 
     @classmethod
     def get_instance(cls):
@@ -306,7 +307,8 @@ class FrameCounter(QObject):
         with self._lock:
             self._interval = int(interval)
             self._counter = 0
-            cfg.set_value("settings.json", "camera", "view", "interval",value=self._interval)
+            cfg.set_value("settings.json", "camera", "view",
+                          "interval", value=self._interval)
 
 
 def deg_to_rad(pos):

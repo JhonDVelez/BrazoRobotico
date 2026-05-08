@@ -31,7 +31,8 @@ class PoseEstimation(QRunnable):
         """
         try:
             if self.rvec is None or self.tvec is None:
-                self.error_callback("Could not estimate ChArUco board pose.")
+                self.error_callback(
+                    "No fue posible estimar la pose del tablero ChArUco.")
                 return
 
             if not self.ellipse_results:
@@ -56,7 +57,7 @@ class PoseEstimation(QRunnable):
             if self.pose_callback is not None:
                 self.pose_callback(self.frame_id, final_poses)
 
-            print(final_poses)
+            # print(final_poses)
 
         except Exception as e:
             self.error_callback(str(e))
@@ -68,7 +69,7 @@ class PoseEstimation(QRunnable):
         """
         center = sphere_data.get("center")
         if center is None:
-            raise ValueError("Sphere center is missing.")
+            raise ValueError("Centro de la esfera perdido.")
 
         ray_cam = self._pixel_to_camera_ray(center)
         tvec = np.asarray(self.tvec, dtype=np.float64).reshape(3, 1)

@@ -10,7 +10,7 @@ from vision.ellipse_detection import EllipseDetection
 from vision.camera_control import CameraControl
 from vision.pose_estimation import PoseEstimation
 from vision.detection_drawer import DetectionDrawer
-from data import SearchSignalManager, DrawViewSignalManager
+from data import SearchSignalManager, DrawViewSignalManager, SimulationSignalManager
 from data import config_manager as cfg
 from data.control_utils import FrameCounter
 
@@ -35,8 +35,9 @@ class CameraWorker(QThread):
         self.results = {}  # {fid: {"charuco":..., "ellipses":..., "poses":...}}
         self.max_buffer = 3
         self.last_roi = None  # Region de interes
-        self.sphere_radius = 0.02  # radio de la esfera en m
-        self.custom_origin = (0.0, 0.0, 0.0)
+        self.sphere_radius = 20.0  # radio de la esfera en mm
+        # posición deseada del 0,0 respecto a la esquina original del tablero ChArUco
+        self.custom_origin = (180.0, 0.0, 0.0)
 
         # Carga de datos de configuración
         camera_config = cfg.load("camera.json")
@@ -52,6 +53,7 @@ class CameraWorker(QThread):
         self.frame_counter = FrameCounter.get_instance()
         self.frame_counter.process_frame_signal.connect(
             self._on_process_frame)
+        self.sim_signal_manager = SimulationSignalManager.get_instance()
 
     def run(self):
         try:
@@ -79,13 +81,14 @@ class CameraWorker(QThread):
                             frame_umat, self.frame_id, self.on_charuco_done, self._emit_error))
                     if ellipse_state:
                         self.thread_pool.start(EllipseDetection(
-                            frame_umat, self.frame_id, self.last_roi, self.on_ellipses_done, self._emit_error))
+                            frame_umat, self.frame_id, self.last_roi,
+                            self.on_ellipses_done, self._emit_error))
 
                     self._process_frame = False
 
                 view = self.draw_view_manager.get_state()
                 self.thread_pool.start(DetectionDrawer(frame, self.results.get(
-                    self.frame_id-1), view, self._emit_frame_ready, self._emit_error))
+                    self.frame_id-1), view, self.custom_origin, self._emit_frame_ready, self._emit_error))
                 self.frame_counter.tick()
 
         except (OSError, RuntimeError) as e:
@@ -162,6 +165,7 @@ class CameraWorker(QThread):
 
     def on_pose_done(self, fid: int, poses: dict):
         with self.lock:
+            self.sim_signal_manager.sphere_pos.emit(poses)
             entry = self.results.get(fid)
             if not entry:
                 return
@@ -173,6 +177,13 @@ class CameraWorker(QThread):
 
     def _try_pose_estimation(self, fid: int):
         entry = self.results.get(fid)
+        last_entry = self.results.get(fid - 1)
+        if last_entry and last_entry.get("poses") is None:
+            has_charuco_or_ellipses = (last_entry.get("charuco") is not None or
+                                       last_entry.get("ellipses") is not None)
+            if has_charuco_or_ellipses:
+                self.sim_signal_manager.sphere_pos.emit({})
+
         if not entry:
             return
         if entry["charuco"] is not None and entry["ellipses"] is not None:

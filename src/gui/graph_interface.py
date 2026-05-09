@@ -34,6 +34,7 @@ class GraphInterface(ImageUtilsMixin):
         self.timer.start()
 
     def __setup_ui(self):
+        self.setObjectName("radio_button_container")
         graph_layout = QVBoxLayout(self)
         graph_layout.setContentsMargins(0, 0, 0, 0)
         graph_layout.setSpacing(0)
@@ -52,7 +53,7 @@ class GraphInterface(ImageUtilsMixin):
         self.image_path_l = os.path.join("img:graph_l.svg")
         self.pixmap = QPixmap(self.image_path_d)
 
-        radio_style = "QRadioButton::indicator {margin-left: 0px;}"
+        radio_style = "QRadioButton::indicator {margin-left: 0px; background-color: transparent}"
         self.sim_radio_button = QRadioButton("Angular")
         self.sim_radio_button.setStyleSheet(radio_style)
         self.sim_radio_button.setChecked(True)

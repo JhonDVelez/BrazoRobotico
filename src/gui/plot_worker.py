@@ -77,6 +77,7 @@ class upgradableGraph:
 
         self.plot_widget = pg.PlotWidget(plotItem=plot_item)
         self.plot_widget.setViewportMargins(5, 0, 5, 0)
+        self.plot_widget.setStyleSheet("background-color: transparent")
         self.plot_item = self.plot_widget.getPlotItem()
         self.view_box = self.plot_item.getViewBox()
         layout.addWidget(self.plot_widget, pos[0], pos[1])
@@ -239,20 +240,20 @@ class upgradableGraph:
 
     def theme_changed(self, dark_t: bool):
         if dark_t:
-            self.cursor_label.setColor(pg.mkColor(160, 30, 30))
+            self.cursor_label.setColor(pg.mkColor("#1A70E6"))
             self.cursor_line.setPen(
                 pg.mkPen(pg.mkColor(150, 150, 150), width=2))
             self.cursor_line.setHoverPen(
-                pg.mkPen(pg.mkColor(160, 30, 30), width=2))
-            self.plot_widget.setBackground(pg.mkColor((32, 33, 36)))
+                pg.mkPen(pg.mkColor("#6A9BD9"), width=2))
+            self.plot_widget.setBackground(pg.mkColor("#191B20"))
             self.cursor_label.fill.swap(pg.mkBrush(10, 10, 10, 100))
         else:
-            self.cursor_label.setColor(pg.mkColor(0, 100, 180))
+            self.cursor_label.setColor(pg.mkColor("#2378D5"))
             self.cursor_line.setPen(
                 pg.mkPen(pg.mkColor(150, 150, 150), width=2))
             self.cursor_line.setHoverPen(
-                pg.mkPen(pg.mkColor(0, 100, 180), width=2))
-            self.plot_widget.setBackground(pg.mkColor((248, 249, 250)))
+                pg.mkPen(pg.mkColor("#5394E6"), width=2))
+            self.plot_widget.setBackground(pg.mkColor("#E6E8ED"))
             self.cursor_label.fill.setColor(QColor(180, 180, 180, 100))
 
     # --- Menú de contexto personalizado ----------------------------------------------------------

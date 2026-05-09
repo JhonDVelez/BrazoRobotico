@@ -141,6 +141,7 @@ class GraphWorker:
         self.graph_widget.setLayout(graph_layout)
         self.graph_widget.setStyleSheet(
             "border: none; padding: 0px 0px 0px -5px;")
+        self.graph_widget.setObjectName("graph_widget")
 
         pg.setConfigOptions(antialias=False)
         config = cfg.get("graphics.json", "grid")

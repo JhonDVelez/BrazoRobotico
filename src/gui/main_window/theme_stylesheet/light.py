@@ -127,6 +127,7 @@ QRadioButton {
     border-width: 2px 0;
     border-style: solid;
     border-color: transparent;
+    background-color: #E6E8ED;
 }
 QCheckBox:hover,
 QRadioButton:hover {
@@ -168,7 +169,7 @@ QGroupBox::title {
     spacing: 6px;
     margin: 0 2px 0 2px;
 }
-#modelBox, #cameraBox, #graphsBox, #controlsBox{
+#modelBox, #cameraBox, #graphsBox, #controlsBox, #radio_button_container{
     margin: 0px;
     padding: 0px;
     background-color: #E6E8ED;
@@ -190,6 +191,11 @@ QGroupBox::title {
 }
 #camera_selector_panel, #camera_buttons_spacer, #camera_buttons_panel{
     background-color: transparent;
+}
+#graph_widget {
+    border: none; 
+    padding: 0px 0px 0px -5px;
+    background-color: #E6E8ED;
 }
 QMenuBar {
     background-color: transparent;

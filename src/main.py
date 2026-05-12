@@ -14,8 +14,8 @@ from PyQt6.QtGui import QGuiApplication, QPixmap, QFont, QIcon, QSurfaceFormat
 from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtQuick import QQuickView
 from qdarktheme.qtpy.QtWidgets import QSplashScreen
-from gui import MainWindow
-from data import config_manager as cfg
+from src.main_window import MainWindow
+from src.services.data import config_manager as cfg
 
 
 class PreloadedContainer:
@@ -214,9 +214,9 @@ if __name__ == '__main__':
     src_path = os.path.dirname(__file__)
 
     QDir.addSearchPath(
-        "icons", f"{src_path}/gui/icons")
+        "icons", f"{src_path}/resources/icons")
     QDir.addSearchPath(
-        "img", f"{src_path}/gui/img")
+        "img", f"{src_path}/resources/img")
 
     laser_icon_w = QIcon("img:laser_w.png")
     laser_icon_b = QIcon("img:laser_b.png")
@@ -242,9 +242,9 @@ if __name__ == '__main__':
 
     # Rutas
     qml_path = os.path.join(os.path.dirname(__file__),
-                            "simulation", "simulation.qml")
+                            "features", "simulation", "qml", "simulation.qml")
     urdf_path = os.path.join(os.path.dirname(__file__),
-                             "simulation", "urdf", 'openbot_v1.urdf')
+                             "services", "simulation", "urdf", 'openbot_v1.urdf')
 
     if cv2.ocl.haveOpenCL():
         cv2.ocl.setUseOpenCL(True)

@@ -1,11 +1,34 @@
+"""
+Modulo de deteccion de esferas de color mediante segmentacion HSV.
+
+Proporciona CircleDetection, un QRunnable que procesa un frame y
+detecta las esferas mas grandes de cada color configurado, devolviendo
+su centro, radio, area y circularidad.
+
+Conexiones:
+    - Ejecutado por un QThreadPool.
+    - Reporta resultados a traves de `detection_callback`.
+    - Reporta errores a traves de `error_callback`.
+"""
+
 from PyQt6.QtCore import QRunnable
 import numpy as np
 import cv2
 
 
-class EllipseDetection(QRunnable):
+class CircleDetection(QRunnable):
+    """Tarea ejecutable para detectar esferas de color por segmentacion HSV.
+
+    Detecta la esfera mas grande de cada color en el frame usando
+    rangos HSV predefinidos o personalizados. Aplica operaciones
+    morfologicas para limpiar la mascara y calcula centro, radio,
+    area y circularidad de cada objeto detectado.
+
+    Attributes:
+        COLORES (dict): Rangos HSV por defecto para cada color.
+    """
+
     COLORES = {
-        # Formato: (H_min, S_min, V_min, H_max, S_max, V_max)
         "amarillo": (20, 100, 100, 30, 255, 255),
         "verde":    (40, 70, 70, 80, 255, 255),
         "azul":     (100, 150, 50, 130, 255, 255),
@@ -13,17 +36,31 @@ class EllipseDetection(QRunnable):
         "morado":   (130, 94, 117, 180, 255, 255),
     }
 
-    def __init__(self, frame_umat: cv2.UMat, frame_id: int, roi: np.ndarray, detection_callback, error_callback) -> None:
+    def __init__(self, frame_umat: cv2.UMat, frame_id: int, roi: np.ndarray, hsv_colors: dict, detection_callback, error_callback) -> None:
+        """
+        Args:
+            frame_umat (cv2.UMat): Frame como UMat para procesamiento OpenCL.
+            frame_id (int): Identificador unico del frame.
+            roi (np.ndarray): Poligono de region de interes (mascara).
+            hsv_colors (dict): Rangos HSV personalizados o None para usar predeterminados.
+            detection_callback (callable): Funcion para reportar resultados.
+            error_callback (callable): Funcion para reportar errores.
+        """
         super().__init__()
         self.show_geometry = False
         self.frame_umat = frame_umat
         self.frame_id = frame_id
         self.roi = roi
+        self.hsv_colors = hsv_colors or self.COLORES
         self.detection_callback = detection_callback
         self.error_callback = error_callback
 
     def run(self):
-        """Detecta la esfera más grande de cada color en el frame.
+        """Detecta la esfera mas grande de cada color en el frame.
+
+        Aplica mascara de ROI si esta definida, convierte a HSV,
+        segmenta por rango de color, aplica morfologia, encuentra
+        contornos y calcula propiedades geometricas.
 
         Callback:
             dict con forma:
@@ -34,24 +71,24 @@ class EllipseDetection(QRunnable):
             Solo incluye colores encontrados.
         """
         try:
-            frame = self.frame_umat.get()
-
             if self.roi is not None:
-                mask = np.zeros(frame.shape[:2], dtype="uint8")
-                cv2.fillPoly(mask, [self.roi], color=255)
-                masked_frame = cv2.bitwise_and(frame, frame, mask=mask)
+                mask = cv2.cvtColor(cv2.multiply(
+                    self.frame_umat, 0), cv2.COLOR_BGR2GRAY)
+                roi_umat = cv2.UMat(self.roi.astype('int32'))
+                cv2.drawContours(mask, [roi_umat], 0,
+                                 (255, 255, 255, 1), thickness=-1)
+                masked_frame = cv2.bitwise_and(
+                    self.frame_umat, self.frame_umat, mask=mask)
             else:
-                masked_frame = frame
-
+                masked_frame = self.frame_umat
             hsv = cv2.cvtColor(masked_frame, cv2.COLOR_BGR2HSV)
 
             resultados = {}
 
-            for nombre_color, (hmin, smin, vmin, hmax, smax, vmax) in self.COLORES.items():
-                lower = np.array([hmin, smin, vmin], dtype="uint8")
-                upper = np.array([hmax, smax, vmax], dtype="uint8")
-
-                mask = cv2.inRange(hsv, lower, upper)
+            for nombre_color, (hmin, smin, vmin, hmax, smax, vmax) in self.hsv_colors.items():
+                lower = cv2.UMat(np.array([hmin, smin, vmin], dtype="uint8"))
+                upper = cv2.UMat(np.array([hmax, smax, vmax], dtype="uint8"))
+                mask = cv2.inRange(hsv, lower, upper, None)
 
                 kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
                 mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
@@ -83,13 +120,13 @@ class EllipseDetection(QRunnable):
                             circularity = float(
                                 4.0 * np.pi * area / (perimeter * perimeter))
 
-                        ellipse = None
-                        if len(largest_contour) >= 5:
-                            ellipse = cv2.fitEllipse(largest_contour)
+                        circle = None
+                        if len(largest_contour.get()) >= 5:
+                            circle = cv2.fitEllipse(largest_contour)
 
                         resultados[nombre_color] = {
                             "model": "circle",
-                            "ellipse": ellipse,
+                            "circle": circle,
                             "center": center,
                             "circle_center": enclosing_center,
                             "radius": float(enclosing_radius),
@@ -102,4 +139,4 @@ class EllipseDetection(QRunnable):
                 self.frame_id, resultados if resultados else None)
         except Exception as e:
             self.error_callback(
-                f"Error al detectar esfera: {e} (EllipseDetection)")
+                f"Error al detectar esfera: {e} (CircleDetection)")

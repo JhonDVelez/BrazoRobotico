@@ -1,3 +1,11 @@
+"""
+Paquete de gestores de senales del sistema.
+
+Cada modulo define un SignalManager especializado (simulacion, fisico,
+busqueda visual, vista de dibujo, camara, tema) que extiende la clase
+base _SignalManager.
+"""
+
 from .base import _SignalManager
 from .simulation import SimulationSignalManager
 from .physical import PhysicalSignalManager

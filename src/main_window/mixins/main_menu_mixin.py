@@ -1,5 +1,11 @@
-""" En este modulo se define el menu que se integrara a la barra de titulo y como se comporta.
 """
+Modulo que define el menu superior integrado en la barra de titulo.
+
+Contiene el mixin MainMenuMixin, responsable de crear las acciones del menu,
+la barra de menu con sus submenus (Camara, Modo, Simulacion, Robot) y la
+barra de estado con indicadores de conexion.
+"""
+
 import os
 from collections import Counter
 from PyQt6.QtGui import QAction, QKeySequence, QIcon, QPixmap, QActionGroup
@@ -14,7 +20,11 @@ from src.services.data.signals import ThemeSignalManager
 
 
 class MainMenuMixin:
-    """ Mixin encargado de definir el menu, las acciones que hará y su comportamiento con estas
+    """
+    Mixin encargado de definir el menu superior de la aplicacion.
+
+    Gestiona la creacion de acciones, submenus de camara, modo de control,
+    simulacion y puertos COM, asi como la barra de estado inferior.
     """
 
     def __init__(self):
@@ -25,14 +35,14 @@ class MainMenuMixin:
         self.last_camera_name = None
 
     def create_main_actions(self):
-        """ Define las acciones que tendrá el menu asi como sus atajos, texto de la barra de estado
-            e iconos utilizados como botones.
         """
-        # Carga del archivo de configuraciones
+        Define las acciones del menu con atajos, textos de estado e iconos.
+
+        Lee la configuracion guardada en settings.json para inicializar
+        el estado de las acciones checkables.
+        """
         settings = cfg.get("settings.json")
 
-        # Se define un formato de diccionario para crear las acciones del menu
-        # primary_key, secondary_key, (attr_name, label_show, label_hide, shortcut, status, is_checkable)
         mapping_mode = {
             "mode": {
                 "sliders": ("sliders_action", "Sliders",
@@ -61,35 +71,25 @@ class MainMenuMixin:
             }
         }
 
-        # Crea una tupla para iterar las distintas acciones
         mapping_all = (mapping_mode, mapping_camera, mapping_simulation)
 
         for mapping in mapping_all:
-            # Obtiene la llave principal y el diccionario que contiene
             for main_key, creation_data in mapping.items():
-                # Carga los datos guardados con la llave principal
                 saved_config = settings.get(main_key)
-                # Obtiene los datos de creación
                 for key, (attr_name, label_show, label_hide, shortcut, status, is_checkable) in creation_data.items():
                     action = None
                     if key in saved_config:
-                        # Define el label basado en la configuración guardada
                         if saved_config.get(key):
                             action = QAction(label_hide, self)
                         else:
                             action = QAction(label_show, self)
                         action.setChecked(saved_config.get(key))
                     else:
-                        # Si no se tiene el dato guardado en el json se usa el label por defecto
                         action = QAction(label_hide, self)
                     if action is not None:
-                        # Si la accion fue creada se configura el comportamiento y el status
-                        # de la barra de estado
                         action.setCheckable(is_checkable)
                         action.setShortcut(QKeySequence(shortcut))
                         action.setStatusTip(status)
-                        # Se crea el objeto en esta clase usando self, el nombre del atributo y la
-                        # acción creada
                         setattr(self, attr_name, action)
 
         self.sun_icon = QIcon(os.path.join("icons:sun.png"))
@@ -106,7 +106,11 @@ class MainMenuMixin:
         self.theme_signal_manager.theme_changed.connect(self.change_theme)
 
     def create_main_menu(self):
-        """ Define la estructura del menu y submenus basado en las acciones definidas.
+        """
+        Define la estructura del menu y los submenus de la aplicacion.
+
+        Crea la barra de menu con las secciones de Camara, Modo,
+        Simulacion y Robot, integrando el logo de la aplicacion.
         """
         self.create_main_actions()
         self.menu_bar = QMenuBar()
@@ -114,7 +118,6 @@ class MainMenuMixin:
         self.menu_bar.setContentsMargins(0, 0, 0, 0)
         self.menu_bar.adjustSize()
 
-        # Logo en la equina izquierda
         self.logo_label = QLabel()
         self.laser_w = QPixmap("img:laser_w.png").scaledToHeight(
             20, Qt.TransformationMode.SmoothTransformation)
@@ -134,7 +137,8 @@ class MainMenuMixin:
         self.camera_interval_group = QActionGroup(self)
         self.camera_interval_group.setExclusive(True)
         presets_interval = [1, 2, 4, 10]
-        pre_interval = cfg.get("settings.json", "camera", "view", "interval")
+        pre_interval = cfg.get(
+            "settings.json", "camera", "view", "interval")
         for preset in presets_interval:
             action = self.camera_interval_submenu.addAction(f"{preset}")
             action.setCheckable(True)
@@ -165,8 +169,11 @@ class MainMenuMixin:
         )
 
     def get_com_ports(self):
-        """ Escanea el sistema en busca de puertos de comunicación serial y los expone como un
-            submenu para que el usuario seleccione el puerto del microcontrolador del robot
+        """
+        Escanea los puertos serie disponibles y actualiza el submenu.
+
+        Expone los puertos COM encontrados como acciones seleccionables
+        en el submenu de Robot.
         """
         available_ports = list_ports.comports()
         available_com = [(port.device, port.description)
@@ -177,7 +184,6 @@ class MainMenuMixin:
 
         self.last_com = available_com
 
-        # limpiar menú y grupo
         self.com_submenu.clear()
         for action in list(self.com_group.actions()):
             self.com_group.removeAction(action)
@@ -187,11 +193,9 @@ class MainMenuMixin:
                 self.com_submenu.setEnabled(False)
             else:
                 self.com_submenu.setEnabled(True)
-            # Agrega los puertos seriales disponibles al submenu
             for port in available_ports:
                 com_action = self.com_submenu.addAction(port.description)
                 com_action.setCheckable(True)
-                # Define el dato que se envía con la señal de qt
                 com_action.setData(port.device)
                 com_action.setStatusTip(f"Conectar al puerto {port.device}")
                 self.com_group.addAction(com_action)
@@ -207,19 +211,19 @@ class MainMenuMixin:
             self.com_connected_label.setText("Micro no conectado")
 
     def com_checkable_change(self, checked):
-        """ Detecta cuando se selecciona un puerto de comunicación serial COM y en caso de que este
-            seleccionado uno previamente detiene la conexión
-            Si el controlador y el hilo de proceso del robot no están inicializados se activa la
-            opción de realizar la conexión con ese puerto.
+        """
+        Maneja la seleccion de un puerto COM en el submenu.
+
+        Si se selecciona un nuevo puerto, detiene la conexion anterior
+        y habilita el boton de conectar.
 
         Args:
-            checked (bool): permite saber si al menos un puerto mostrado en la interfaz esta
-                            seleccionado
+            checked (bool): Indica si la accion esta seleccionada.
         """
         action = self.sender()
         if not self.com:
             self._stop_threads()
-        if action and checked:  # Solo cuando queda seleccionado
+        if action and checked:
             self.com = action.data()
             if (not getattr(self, "robot_service", None) and
                 not getattr(self, "robot_controller", None) and
@@ -227,16 +231,20 @@ class MainMenuMixin:
                 self.connect_action.setEnabled(True)
 
     def interval_selection_change(self, interval):
+        """
+        Aplica el intervalo de captura de camara seleccionado.
+
+        Args:
+            interval (int): Nuevo intervalo en ticks de frame.
+        """
         FrameCounter().get_instance().set_interval(interval)
 
     def _stop_threads(self):
-        """ Detiene y elimina los hilos activos de forma segura
+        """
+        Detiene y libera los hilos del robot de forma segura.
         """
         if getattr(self, "robot_controller", None):
             try:
-                # El controlador de datos no tiene exit()/wait() porque corre en QThread
-                # quien realmente debe ser detenido es el worker y el thread
-                # Mantenemos lógica de cierre si existe
                 if hasattr(self.robot_controller, 'stop'):
                     self.robot_controller.stop()
                 self.robot_controller.deleteLater()
@@ -255,8 +263,8 @@ class MainMenuMixin:
                 self.robot_service = None
 
     def create_status_bar(self):
-        """ Crea la barra de estado y conecta la visualization del estado de conexión del puerto
-            serial
+        """
+        Crea la barra de estado con indicadores de conexion de camara y COM.
         """
         status_bar = QStatusBar(self)
         separator = QFrame()
@@ -267,6 +275,12 @@ class MainMenuMixin:
         self.setStatusBar(status_bar)
 
     def change_theme(self, dark_t: bool):
+        """
+        Actualiza el icono del boton de tema segun el modo actual.
+
+        Args:
+            dark_t (bool): True si el tema es oscuro.
+        """
         if dark_t:
             self.theme_action.setIcon(self.sun_icon)
         else:

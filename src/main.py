@@ -1,6 +1,11 @@
-""" Clase principal main donde se realiza la carga de datos necesarios en la splash screen ademas
-    de la creación de la ventana principal de la interfaz y la muestra en pantalla.
 """
+Modulo de entrada principal de la aplicacion OpenBotv Control Lab.
+
+Gestiona la secuencia de arranque: configuracion inicial, splash screen,
+precarga del motor 3D (Quick3D/QML) y del motor de fisicas (PyBullet),
+y finalmente la creacion y lanzamiento de la ventana principal.
+"""
+
 import os
 import sys
 import ctypes
@@ -19,7 +24,13 @@ from src.services.data import config_manager as cfg
 
 
 class PreloadedContainer:
-    """ Contenedor que encapsula la vista precargada y su window container
+    """
+    Contenedor que encapsula la vista Quick3D precargada y su contenedor de ventana.
+
+    Attributes:
+        quick_view (QQuickView): Vista Quick3D ya inicializada.
+        window_container (QWidget or None): Contenedor de ventana asociado.
+        is_ready (bool): Indica si la precarga se completo exitosamente.
     """
 
     def __init__(self, quick_view, window_container):
@@ -29,16 +40,34 @@ class PreloadedContainer:
 
 
 class CompletePreloader:
+    """
+    Gestor de precarga de recursos pesados antes de mostrar la interfaz.
+
+    Realiza en orden: creacion de widget padre temporal, inicializacion
+    de la vista Quick3D con renderizado de cache, y carga del entorno
+    de simulacion PyBullet con el modelo URDF del robot.
+    """
+
     def __init__(self, qml: str, urdf: str):
+        """
+        Args:
+            qml (str): Ruta al archivo QML de la simulacion 3D.
+            urdf (str): Ruta al archivo URDF del robot.
+        """
         self.urdf_path = urdf
         self.qml_path = qml
-        self.dummy_parent = None
-        self.preloaded_view = None
-        self.preloaded_container = None
+        self.dummy_parent: QWidget | None = None
+        self.preloaded_view: QQuickView | None = None
+        self.preloaded_container: PreloadedContainer | None = None
         self.window_container = None
 
-    def create_parent_widget(self):
-        """Crea un widget padre temporal para el proceso de precarga"""
+    def create_parent_widget(self) -> bool:
+        """
+        Crea un widget padre temporal para el proceso de precarga.
+
+        Returns:
+            bool: True si el widget se creo correctamente, False en caso de error.
+        """
         splash.showMessage(
             "Creando contenedor temporal",
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
@@ -46,7 +75,6 @@ class CompletePreloader:
         )
 
         try:
-            # Widget padre temporal para la precarga
             self.dummy_parent = QWidget()
             self.dummy_parent.resize(800, 600)
             self.dummy_parent.setWindowFlags(
@@ -62,8 +90,13 @@ class CompletePreloader:
             print(f"Error creando widget padre: {e}")
             return False
 
-    def preload_complete_quick3d_setup(self):
-        """ Precarga QQuickView + WindowContainer + Renderizado
+    def preload_complete_quick3d_setup(self) -> PreloadedContainer | None:
+        """
+        Precarga la vista Quick3D con su escena QML y cachea recursos graficos.
+
+        Returns:
+            PreloadedContainer or None: Contenedor con la vista precargada,
+            o None si fallo la precarga.
         """
         if not self.create_parent_widget():
             return None
@@ -117,9 +150,10 @@ class CompletePreloader:
             return None
 
     def safe_initial_render(self):
-        """Renderizado inicial seguro para cachear recursos"""
+        """
+        Ejecuta ciclos de renderizado inicial para forzar el cacheo de recursos graficos.
+        """
         try:
-            # Renderizado para cachear recursos
             for i in range(5):
                 splash.showMessage(
                     f"Cacheando recursos 3D ({i+1}/5)",
@@ -132,8 +166,12 @@ class CompletePreloader:
         except Exception as e:
             print(f"Error en renderizado inicial: {e}")
 
-    def preload_pybullet(self):
-        """ Carga PyBullet
+    def preload_pybullet(self) -> int | None:
+        """
+        Inicializa el motor de fisicas PyBullet y carga el modelo URDF del robot.
+
+        Returns:
+            int or None: ID del robot cargado en la simulacion, o None si fallo.
         """
         splash.showMessage(
             "Inicializando motor de físicas",
@@ -154,7 +192,6 @@ class CompletePreloader:
                 Qt.GlobalColor.white
             )
 
-            # Crear entorno
             plane_id = p.createCollisionShape(p.GEOM_PLANE)
             ground_id = p.createMultiBody(0, plane_id)
 
@@ -164,7 +201,6 @@ class CompletePreloader:
                 Qt.GlobalColor.white
             )
 
-            # Cargar robot
             robot_id = p.loadURDF(
                 self.urdf_path,
                 basePosition=[0, 0, 0],
@@ -181,10 +217,10 @@ class CompletePreloader:
             return None
 
     def cleanup_preload_resources(self):
-        """ Limpia solo los recursos temporales de precarga
+        """
+        Libera los recursos temporales creados durante la precarga.
         """
         try:
-            # Solo eliminar el widget padre temporal
             if self.dummy_parent:
                 self.dummy_parent.deleteLater()
                 self.dummy_parent = None

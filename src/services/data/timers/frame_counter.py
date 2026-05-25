@@ -1,15 +1,26 @@
+"""
+Modulo que define el contador de fotogramas para control de cadencia.
+
+Proporciona un singleton que cuenta los frames entrantes y emite una
+senal de procesamiento cada N frames, permitiendo reducir la carga
+computacional del pipeline de vision.
+"""
+
 import threading
 from PyQt6.QtCore import pyqtSignal, QObject
 from .. import config_manager as cfg
 
 
 class FrameCounter(QObject):
-    """Cuenta fotogramas y emite `process_frame_signal` cada N frames.
+    """
+    Contador de fotogramas con emision periodica.
 
-    Uso:
-    - Obtener instancia con `FrameCounter.get_instance(interval)`
-    - Llamar `tick(frame)` por cada fotograma entrante
-    - Conectar a `process_frame_signal` para ejecutar procesamiento cada N frames
+    Cuenta los frames entrantes y emite ``process_frame_signal`` cada
+    ``_interval`` ticks, permitiendo espaciar el procesamiento pesado
+    de vision artificial.
+
+    Signals:
+        process_frame_signal: Se emite cuando se alcanza el intervalo.
     """
     process_frame_signal = pyqtSignal()
 
@@ -18,6 +29,12 @@ class FrameCounter(QObject):
 
     @classmethod
     def get_instance(cls):
+        """
+        Obtiene la instancia unica del contador (Singleton).
+
+        Returns:
+            FrameCounter: Instancia unica.
+        """
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
@@ -26,13 +43,16 @@ class FrameCounter(QObject):
         if FrameCounter._initialized:
             return
         super().__init__()
-        self._interval = cfg.get("settings.json", "camera", "view", "interval")
+        self._interval = cfg.get(
+            "settings.json", "camera", "view", "interval")
         self._counter = 0
         self._lock = threading.Lock()
         FrameCounter._initialized = True
 
     def tick(self):
-        """Incrementa contador; emite `process_frame_signal` cada `_interval` frames."""
+        """
+        Incrementa el contador y emite la senal al alcanzar el intervalo.
+        """
         with self._lock:
             self._counter += 1
             if self._counter >= self._interval:
@@ -42,10 +62,19 @@ class FrameCounter(QObject):
                     self._counter = 0
 
     def reset(self):
+        """
+        Reinicia el contador a cero.
+        """
         with self._lock:
             self._counter = 0
 
     def set_interval(self, interval: int):
+        """
+        Establece un nuevo intervalo de emision y persiste el cambio.
+
+        Args:
+            interval (int): Nuevo intervalo en frames.
+        """
         with self._lock:
             self._interval = int(interval)
             self._counter = 0

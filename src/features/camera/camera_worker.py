@@ -1,22 +1,50 @@
-""" Modulo donde se implementa el hilo de procesamiento para la captura y el procesamiento de las
-    imágenes provenientes de la cámara
 """
+Modulo donde se implementa el hilo de procesamiento para la captura de video.
+
+Este modulo contiene la clase CameraWorker, la cual gestiona la captura de frames,
+la delegacion de tareas de vision artificial (deteccion de ChArUco, esferas y poses)
+mediante un QThreadPool, y la emision de resultados procesados para su visualizacion.
+
+Conexiones:
+    - Escucha a `FrameCounter` para determinar cuando procesar un frame semantico.
+    - Utiliza `SearchSignalManager` para conocer que detecciones realizar.
+    - Emite posiciones 3D a traves de `SimulationSignalManager`.
+    - Reporta frames procesados mediante `frame_ready` para la UI.
+"""
+
 from threading import Lock
 import numpy as np
 import cv2
 from PyQt6.QtCore import QThread, pyqtSignal, QThreadPool, pyqtSlot
-from src.services.vision import ChArUcoDetection, EllipseDetection, CameraControl, PoseEstimation, DetectionDrawer
+from src.services.vision import ChArUcoDetection, CircleDetection, CameraControl, PoseEstimation, DetectionDrawer
 from src.services.data.signals import SearchSignalManager, DrawViewSignalManager, SimulationSignalManager
 from src.services.data.timers import FrameCounter
 
 
 class CameraWorker(QThread):
-    """ Worker thread para manejar la captura y procesamiento de video.
+    """
+    Worker thread para manejar la captura y procesamiento concurrente de video.
+
+    Orquesta la captura de imagenes y despacha tareas de vision a hilos secundarios
+    del sistema, manteniendo un buffer de resultados sincronizados para evitar latencia
+    en la visualizacion.
+
+    Attributes:
+        frame_ready (pyqtSignal): Emite el frame (np.ndarray) listo para mostrar.
+        error_occurred (pyqtSignal): Emite mensajes de error (str) durante el proceso.
     """
     frame_ready = pyqtSignal(object)  # numpy BGR frame or UMat
     error_occurred = pyqtSignal(str)
 
     def __init__(self, camera_index: int = 0, camera_config: dict = None, is_calibration: bool = False):
+        """
+        Inicializa el worker de camara con la configuracion proporcionada.
+
+        Args:
+            camera_index (int): Indice de la camara en el sistema (0, 1, etc.).
+            camera_config (dict, optional): Configuracion de matriz, distorsion y colores.
+            is_calibration (bool): Indica si se opera en modo calibracion (sin vision pesada).
+        """
         super().__init__()
         self.frame_id = 0
         self._running = True
@@ -34,6 +62,9 @@ class CameraWorker(QThread):
         self.camera_matrix = np.array(self.camera_config.get("matrix", []))
         self.dist_coeff = np.array(
             self.camera_config.get("distortion coefficients", []))
+        self.hsv_colors = self.camera_config.get("hsv_colors")
+        self.frame_size = list(self.camera_config.get(
+            "resolution", {"width": 1280, "height": 720}).values())[:2]
 
         self.thread_pool = QThreadPool().globalInstance()
         self.camera = CameraControl(
@@ -46,6 +77,12 @@ class CameraWorker(QThread):
         self.sim_signal_manager = SimulationSignalManager.get_instance()
 
     def run(self):
+        """
+        Bucle de ejecucion principal del hilo.
+
+        Captura frames continuamente y decide que tareas de vision despachar
+        basandose en el estado del sistema y la cadencia de `FrameCounter`.
+        """
         try:
             if not self.camera.camera_on():
                 self.error_occurred.emit(
@@ -65,15 +102,15 @@ class CameraWorker(QThread):
                     self._emit_frame_ready(frame)
                     continue
                 elif self._process_frame:
-                    charuco_state, ellipse_state = self.search_manager.get_state()
+                    charuco_state, circle_state = self.search_manager.get_state()
                     self.frame_id += 1
                     if charuco_state:
                         self.thread_pool.start(ChArUcoDetection(
                             frame_umat, self.frame_id, self.on_charuco_done, self._emit_error))
-                    if ellipse_state:
-                        self.thread_pool.start(EllipseDetection(
-                            frame_umat, self.frame_id, self.last_roi,
-                            self.on_ellipses_done, self._emit_error))
+                    if circle_state:
+                        self.thread_pool.start(CircleDetection(
+                            frame_umat, self.frame_id, self.last_roi, self.hsv_colors,
+                            self.on_circles_done, self._emit_error))
 
                     self._process_frame = False
 
@@ -89,13 +126,28 @@ class CameraWorker(QThread):
             self.camera.camera_off()
 
     def _emit_frame_ready(self, frame: np.ndarray):
+        """
+        Emite la señal de frame listo para la UI de forma segura.
+
+        Args:
+            frame (np.ndarray): Imagen en formato BGR.
+        """
         if frame is not None:
             self.frame_ready.emit(frame)
 
     def _emit_error(self, msg: str):
+        """
+        Encapsula la emision de errores desde hilos secundarios.
+
+        Args:
+            msg (str): Mensaje de error.
+        """
         self.error_occurred.emit(msg)
 
     def stop(self):
+        """
+        Detiene la ejecucion del worker de forma segura, esperando a las tareas pendientes.
+        """
         self._running = False
         # Esperar a que se procesen tareas pendientes en el pool
         self.thread_pool.waitForDone(2000)
@@ -108,23 +160,35 @@ class CameraWorker(QThread):
             pass
 
     def pause(self):
+        """
+        Pausa el bucle de captura estableciendo el flag de ejecucion a False.
+        """
         self._running = False
 
     def resume(self):
+        """
+        Reanuda el bucle de captura estableciendo el flag de ejecucion a True.
+        """
         self._running = True
 
     def _on_process_frame(self):
-        """Slot conectado a FrameCounter.process_frame_signal.
-
-        Ejecuta la detección usando el frame recibido y actualiza el caché interno.
+        """
+        Slot que habilita el procesamiento de vision pesada para el siguiente frame.
         """
         self._process_frame = True
 
     @pyqtSlot(int, object)
     def on_charuco_done(self, fid: int, data: dict):
+        """
+        Callback ejecutado cuando finaliza la deteccion de ChArUco.
+
+        Args:
+            fid (int): ID del frame procesado.
+            data (dict): Resultados de la deteccion (corners, ids, roi).
+        """
         with self.lock:
             entry = self.results.setdefault(
-                fid, {"charuco": None, "ellipses": None, "poses": None})
+                fid, {"charuco": None, "circles": None, "poses": None})
             entry["charuco"] = data
             if data and data.get("roi") is not None:
                 self.last_roi = data["roi"]
@@ -134,46 +198,71 @@ class CameraWorker(QThread):
             self._trim_buffer()
 
     @pyqtSlot(int, object)
-    def on_ellipses_done(self, fid: int, data: dict):
+    def on_circles_done(self, fid: int, data: dict):
+        """
+        Callback ejecutado cuando finaliza la deteccion de esferas de color.
+
+        Args:
+            fid (int): ID del frame procesado.
+            data (dict): Resultados de las esferas por color.
+        """
         with self.lock:
             entry = self.results.setdefault(
-                fid, {"charuco": None, "ellipses": None, "poses": None})
-            entry["ellipses"] = data
+                fid, {"charuco": None, "circles": None, "poses": None})
+            entry["circles"] = data
             self._try_pose_estimation(fid)
             self._trim_buffer()
 
     def on_pose_done(self, fid: int, poses: dict):
+        """
+        Callback ejecutado cuando finaliza la estimacion de pose 3D.
+
+        Args:
+            fid (int): ID del frame procesado.
+            poses (dict): Coordenadas 3D (x, y, z) de las esferas.
+        """
         with self.lock:
             self.sim_signal_manager.sphere_pos.emit(poses)
             entry = self.results.get(fid)
             if not entry:
                 return
             entry["poses"] = poses
-            ellipses = entry.get("ellipses") or {}
+            circles = entry.get("circles") or {}
             for color, position in poses.items():
-                if color in ellipses:
-                    ellipses[color]["position"] = position
+                if color in circles:
+                    circles[color]["position"] = position
 
     def _try_pose_estimation(self, fid: int):
+        """
+        Intenta iniciar la tarea de PoseEstimation si tiene datos de ChArUco y elipses.
+
+        Args:
+            fid (int): ID del frame a verificar.
+        """
         entry = self.results.get(fid)
         last_entry = self.results.get(fid - 1)
         if last_entry and last_entry.get("poses") is None:
-            has_charuco_or_ellipses = (last_entry.get("charuco") is not None or
-                                       last_entry.get("ellipses") is not None)
-            if has_charuco_or_ellipses:
+            has_charuco_or_circles = (last_entry.get("charuco") is not None or
+                                       last_entry.get("circles") is not None)
+            if has_charuco_or_circles:
                 self.sim_signal_manager.sphere_pos.emit({})
         if not entry:
             return
-        if entry["charuco"] is not None and entry["ellipses"] is not None:
+        if entry["charuco"] is not None and entry["circles"] is not None:
             self.thread_pool.start(PoseEstimation(
                 entry, self.camera_matrix,
-                self.dist_coeff, self.sphere_radius,
+                self.dist_coeff,
+                self.frame_size,
+                self.sphere_radius,
                 self.custom_origin,
                 self._emit_error,
                 frame_id=fid,
                 pose_callback=self.on_pose_done))
 
     def _trim_buffer(self):
+        """
+        Limpia el buffer de resultados antiguo para limitar el uso de memoria.
+        """
         if len(self.results) <= self.max_buffer:
             return
         oldest = min(self.results.keys())

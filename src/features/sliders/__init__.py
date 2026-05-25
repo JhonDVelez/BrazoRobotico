@@ -1,5 +1,8 @@
-""" Paquete encargado de los controles deslizantes para el movimiento manual del robot.
-    Implementa la arquitectura Worker-Widget-Controller.
+"""
+Paquete de la feature de control manual por sliders.
+
+Proporciona la interfaz de usuario para el control individual de cada
+servomotor del brazo robotico mediante deslizadores numericos.
 """
 
 from .sliders_controller import SlidersController

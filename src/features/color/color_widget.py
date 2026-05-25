@@ -1,6 +1,19 @@
+"""
+Modulo que gestiona la interfaz visual para la calibracion de colores.
+
+Este modulo define la clase ColorWidget, la cual integra los controles deslizantes
+para el ajuste de rangos HSV y las visualizaciones de camara, mascara y resultado
+en una disposicion organizada.
+
+Conexiones:
+    - Emite `hsv_changed` cuando se ajusta cualquier control deslizante.
+    - Emite `camera_toggled` para encender o apagar la captura de video.
+    - Utiliza `ImageHandler` para cada una de sus tres sub-vistas de imagen.
+"""
+
 from PyQt6.QtWidgets import (
     QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QSlider, QSpinBox, QComboBox, QSizePolicy, QGroupBox
+    QLabel, QSlider, QSpinBox, QComboBox, QGroupBox
 )
 from PyQt6.QtCore import Qt, QSize, pyqtSignal
 from PyQt6.QtGui import QFont
@@ -9,8 +22,15 @@ from src.services.ui import ImageHandler
 
 class ColorWidget(QWidget):
     """
-    Widget encargado de la interfaz visual para la calibración de color.
-    Mantiene la paridad visual original y gestiona la sincronización de controles.
+    Widget de interfaz para la calibracion de color HSV.
+
+    Mantiene una paridad visual entre los controles de entrada (sliders/spinboxes)
+    y la retroalimentacion visual de procesamiento en tiempo real.
+
+    Attributes:
+        save_clicked (pyqtSignal): Emite al presionar el boton de guardar.
+        camera_toggled (pyqtSignal): Emite el estado deseado de la camara (bool).
+        hsv_changed (pyqtSignal): Emite un diccionario con los valores HSV actuales.
     """
     save_clicked = pyqtSignal()
     camera_toggled = pyqtSignal(bool)
@@ -19,12 +39,22 @@ class ColorWidget(QWidget):
     COLORS = ["amarillo", "verde", "azul", "naranja", "morado"]
 
     def __init__(self, parent=None):
+        """
+        Inicializa el widget de color y sus controles.
+
+        Args:
+            parent (QWidget, optional): Widget padre.
+        """
         super().__init__(parent)
         self._hsv_controls = {}
         self.__setup_ui()
 
     def __setup_ui(self):
+        """
+        Configura la disposicion de los paneles de control y visualizacion.
+        """
         self.setObjectName("ColorWidget")
+
         self.setMinimumSize(QSize(600, 600))
 
         main_grid = QGridLayout(self)
@@ -118,6 +148,15 @@ class ColorWidget(QWidget):
         main_grid.addWidget(self.result_view, 1, 1)
 
     def _create_image_view(self, title: str):
+        """
+        Crea una vista de imagen agrupada con su propio ImageHandler.
+
+        Args:
+            title (str): Titulo del grupo visual.
+
+        Returns:
+            QGroupBox: Grupo contenedor con un atributo ``handler`` adjunto.
+        """
         group = QGroupBox(title)
         layout = QVBoxLayout(group)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -133,45 +172,98 @@ class ColorWidget(QWidget):
         return group
 
     def _sync_control(self, widget, value):
+        """
+        Sincroniza dos widgets sin realimentacion de senales.
+
+        Args:
+            widget (QWidget): Widget cuyo valor se actualiza.
+            value (int): Nuevo valor a establecer.
+        """
         widget.blockSignals(True)
         widget.setValue(value)
         widget.blockSignals(False)
 
     def _emit_hsv_changed(self):
+        """
+        Emite la senal de cambio de valores HSV con el estado actual.
+        """
         self.hsv_changed.emit(self.get_hsv_values())
 
     def _on_camera_toggled(self, checked):
+        """
+        Maneja el toggle del boton de camara.
+
+        Args:
+            checked (bool): Estado del boton (ON/OFF).
+        """
         self.camera_button.setText("Cámara ON" if checked else "Cámara OFF")
         self.camera_toggled.emit(checked)
 
-    # Getters/Setters explícitos
-    def get_hsv_values(self):
+    def get_hsv_values(self) -> dict:
+        """
+        Retorna los valores actuales de todos los controles HSV.
+
+        Returns:
+            dict: Diccionario {nombre_control: valor}.
+        """
         return {key: ctrl["spinbox"].value() for key, ctrl in self._hsv_controls.items()}
 
     def set_hsv_values(self, values: dict):
+        """
+        Establece los valores de los controles HSV desde un diccionario.
+
+        Args:
+            values (dict): Diccionario {nombre_control: valor}.
+        """
         for key, val in values.items():
             if key in self._hsv_controls:
                 self._hsv_controls[key]["spinbox"].setValue(val)
 
-    def get_selected_color(self):
+    def get_selected_color(self) -> str:
+        """
+        Retorna el nombre del color seleccionado en el combo.
+
+        Returns:
+            str: Nombre del color (e.g. 'azul').
+        """
         return self.color_selector.currentText()
 
-    def get_camera_layout(self):
+    def get_camera_layout(self) -> QVBoxLayout:
+        """
+        Retorna el layout destinado al widget de feed de camara.
+
+        Returns:
+            QVBoxLayout: Layout del contenedor de camara.
+        """
         return self.camera_layout
 
     def update_views(self, mask_frame, result_frame):
-        """ Actualiza las imágenes de máscara y resultado """
+        """
+        Actualiza las imagenes de mascara y resultado del procesamiento.
+
+        Args:
+            mask_frame (np.ndarray): Imagen de la mascara binaria HSV.
+            result_frame (np.ndarray): Imagen filtrada final.
+        """
         self.mask_view.handler.set_video_image(
             ImageHandler.numpy_to_qpixmap(mask_frame))
         self.result_view.handler.set_video_image(
             ImageHandler.numpy_to_qpixmap(result_frame))
 
     def set_process_running(self, running: bool):
-        """ Actualiza el estado de procesamiento de todos los handlers internos """
+        """
+        Actualiza el estado de procesamiento de los ImageHandler internos.
+
+        Args:
+            running (bool): True si el procesamiento esta activo.
+        """
         self.mask_view.handler.set_process_running(running)
         self.result_view.handler.set_process_running(running)
 
     def clear_views(self):
+        """
+        Detiene el procesamiento y restaura las imagenes placeholder.
+        """
         self.set_process_running(False)
         self.mask_view.handler.set_static_image()
         self.result_view.handler.set_static_image()

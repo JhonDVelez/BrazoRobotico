@@ -1,7 +1,9 @@
-""" Paquete encargado de la calibración de colores HSV.
-    Permite ajustar los rangos de color para la detección de objetos.
 """
+Paquete de la feature de configuracion de color.
 
+Proporciona la interfaz para calibrar los rangos HSV de los marcadores
+de color utilizados en la deteccion de elipses y esferas del robot.
+"""
 from .color_window import ColorWindow
 from .color_controller import ColorController
 

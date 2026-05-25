@@ -58,10 +58,11 @@ class ThemeManager:
         self.update_theme(self.theme_signal_manager.get_current_theme())
 
     def toggle_theme_event(self):
-        """_summary_
+        """Cambia manualmente entre tema claro y oscuro.
 
-        Args:
-            _checked (_type_, optional): _description_. Defaults to None.
+        Si no hay un tema actual, lo determina desde la configuracion
+        guardada. Emite la señal de cambio de tema y aplica el nuevo
+        tema a la interfaz.
         """
         if self.actual_theme is None:
             theme = cfg.get("settings.json", "theme").lower()

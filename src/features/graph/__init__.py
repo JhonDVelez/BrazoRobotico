@@ -1,5 +1,8 @@
-""" Paquete encargado de la visualización de datos en tiempo real mediante gráficas tipo osciloscopio.
-    Implementa la arquitectura Worker-Widget-Controller con renderizado optimizado.
+"""
+Paquete de la feature de graficos en tiempo real.
+
+Proporciona los componentes para la visualizacion de posiciones articulares
+y datos cinematicos en graficos de linea actualizados en tiempo real.
 """
 
 from .graph_controller import GraphController

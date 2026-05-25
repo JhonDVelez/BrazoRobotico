@@ -1,3 +1,16 @@
+"""
+Modulo de dibujo de resultados de deteccion sobre el frame.
+
+Proporciona DetectionDrawer, un QRunnable que recibe los resultados
+de deteccion de ChArUco y esferas y los dibuja sobre el frame antes
+de mostrarlo en la interfaz.
+
+Conexiones:
+    - Ejecutado por un QThreadPool.
+    - Recibe resultados de ChArUcoDetection y CircleDetection.
+    - Entrega el frame final a traves de `frame_callback`.
+"""
+
 import traceback
 import numpy as np
 import cv2
@@ -6,21 +19,34 @@ from src.services.data import config_manager as cfg
 
 
 class DetectionDrawer(QRunnable):
+    """Tarea ejecutable para dibujar resultados de deteccion sobre el frame.
+
+    Dibuja la malla del tablero ChArUco (puntos interiores, ocultos y
+    exteriores con coordenadas fisicas) y las esferas detectadas
+    (contorno, centro, radio y posicion 3D).
+
+    Args:
+        frame (np.ndarray): Frame original sobre el que dibujar.
+        results (dict): Resultados combinados de charuco y circles.
+        view (tuple): (charuco_view, circle_view) flags de visibilidad.
+        custom_origin (tuple): Offset del origen personalizado en mm.
+        frame_callback (callable): Funcion para devolver el frame final.
+        error_callback (callable): Funcion para reportar errores.
+    """
+
     def __init__(self, frame: np.ndarray, results: dict, view: tuple, custom_origin: tuple, frame_callback, error_callback) -> None:
         super().__init__()
         self.frame = frame
         self.results = results
-        self.charuco_view, self.ellipse_view = view
+        self.charuco_view, self.circle_view = view
         self.custom_origin = custom_origin
         self.frame_callback = frame_callback
         self.error_callback = error_callback
 
-        # Configuraciones guardadas de la cámara
         camera = cfg.load("camera.json")
         camera_resolution = camera.get("resolution", {})
         camera_width = camera_resolution.get("width", 1280)
 
-        # Inicializa la configuración de escala automática de texto e indicadores del tablero.
         font_scale_base = 0.3
         thickness_base = 0.4
         self.base_font_scale = (camera_width / 1280) * font_scale_base
@@ -35,20 +61,21 @@ class DetectionDrawer(QRunnable):
         self.dynamic_dot_size = None
 
     def run(self):
+        """Ejecuta el dibujo de todos los resultados sobre el frame.
+
+        Dibuja la malla ChArUco y las esferas segun las flags de
+        visibilidad, y entrega el frame final a traves del callback.
+        """
         if self.results is None:
             self.frame_callback(self.frame)
             return
 
         grid_results = self.results.get("charuco", None)
-        sphere_results = self.results.get("ellipses", None)
+        sphere_results = self.results.get("circles", None)
         pose_results = self.results.get("poses", None) or {}
 
         frame_out = self.frame.copy()
 
-        # print(
-        #     f"charuco: {grid_results is not None}\tellipses: {ellipses_results is not None}")
-
-        # Dibujar ChArUco
         if grid_results is not None and self.charuco_view:
             try:
                 frame_out = self._draw_grid(frame_out, grid_results)
@@ -56,8 +83,7 @@ class DetectionDrawer(QRunnable):
                 self.error_callback(
                     f"Error al dibujar ChArUco: {traceback.format_exc()} (DetectionDrawer)")
 
-        # Dibujar esferas
-        if sphere_results is not None and self.ellipse_view:
+        if sphere_results is not None and self.circle_view:
             try:
                 frame_out = self._draw_spheres(
                     frame_out, sphere_results, pose_results)
@@ -65,29 +91,35 @@ class DetectionDrawer(QRunnable):
                 self.error_callback(
                     f"Error al dibujar esferas: {traceback.format_exc()} (DetectionDrawer)")
 
-        # Siempre se entrega el frame, con lo que haya podido dibujarse
         self.frame_callback(frame_out)
 
     def _draw_grid(self, frame, results):
-        """ Dibuja la red final obtenida luego de la extrapolación sobre la imagen de referencia
-            del tablero de ajedrez.
+        """Dibuja la malla extrapolada del tablero ChArUco sobre la imagen.
+
+        Muestra los puntos interiores visibles (verde), interiores
+        ocultos (naranja) y exteriores estimados (azul), junto con
+        las coordenadas fisicas en milimetros de cada punto.
+
+        Args:
+            frame: Frame sobre el que dibujar.
+            results: Resultados de deteccion de ChArUco.
+
+        Returns:
+            np.ndarray: Frame con la malla dibujada.
         """
         cols, rows = results["grid_shape"]
         corners = results["unified_corners"].reshape(rows, cols, 2)
         self._get_dynamic_font_scale(corners)
 
-        # Corners interiores visibles → verde
         for corner in results["visible_corners"]:
             pt = tuple(corner[0].astype(int))
             cv2.circle(frame, pt, self.dynamic_dot_size, (0, 230, 0), -1)
 
-        # Corners interiores ocultos → naranja
         for corner in results["estimated_interior"]:
             pt = tuple(corner[0].astype(int))
             cv2.circle(frame, pt, self.dynamic_dot_size,
                        (0, 140, 255), -1)
 
-        # Corners exteriores estimados → azul
         for corner in results["exterior_corners"]:
             pt = tuple(corner[0].astype(int))
             cv2.circle(frame, pt, self.dynamic_dot_size, (220, 60, 0), -1)
@@ -109,21 +141,22 @@ class DetectionDrawer(QRunnable):
                 cv2.LINE_AA
             )
 
-            # Leyenda
-            # legends = [
-            #     ((0, 230, 0),   "Interior visible"),
-            #     ((0, 140, 255), "Interior oculto"),
-            #     ((220, 60, 0),  "Exterior estimado"),
-            # ]
-            # for i, (color, label) in enumerate(legends):
-            #     y = 25 + i * 22
-            #     cv2.circle(vis, (15, y), 6, color, -1)
-            #     cv2.putText(vis, label, (26, y + 5),
-            #                 cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 1, cv2.LINE_AA)
-
         return frame
 
     def _draw_spheres(self, frame, sphere_results: dict[str, dict], pose_results: dict):
+        """Dibuja las esferas detectadas sobre el frame.
+
+        Muestra el contorno, circulo circunscrito, centro y etiquetas
+        con el color y la posicion 3D de cada esfera.
+
+        Args:
+            frame: Frame sobre el que dibujar.
+            sphere_results (dict): Resultados de deteccion de esferas.
+            pose_results (dict): Resultados de estimacion de pose.
+
+        Returns:
+            np.ndarray: Frame con las esferas dibujadas.
+        """
         for color, datos in sphere_results.items():
             c = datos.get("center")
             radius = datos.get("radius") or datos.get("area_radius")
@@ -137,7 +170,7 @@ class DetectionDrawer(QRunnable):
 
             try:
                 if contour is not None:
-                    contour = np.asarray(contour, dtype=np.int32)
+                    contour = np.asarray(contour.get(), dtype=np.int32)
                     cv2.drawContours(frame, [contour], -1, (0, 220, 255), 1)
 
                 cv2.circle(frame, center, radius, (0, 255, 0), 2)
@@ -165,6 +198,13 @@ class DetectionDrawer(QRunnable):
         return frame
 
     def _draw_text_lines(self, frame, lines: list[str], origin: tuple[int, int]):
+        """Dibuja multiples lineas de texto con borde negro y relleno blanco.
+
+        Args:
+            frame: Frame sobre el que dibujar.
+            lines (list[str]): Lineas de texto a mostrar.
+            origin (tuple): Coordenadas (x, y) de inicio del texto.
+        """
         x, y = origin
         line_height = 17
         for index, line in enumerate(lines):
@@ -175,10 +215,17 @@ class DetectionDrawer(QRunnable):
                         0.45, (255, 255, 255), 1, cv2.LINE_AA)
 
     def _get_dynamic_font_scale(self, corners: np.ndarray) -> float:
-        """Calcula la escala de fuente basada en ancho de celda medida en pixeles.
+        """Calcula la escala de fuente basada en el ancho de celda medido en pixeles.
 
-        Se hacen dos mediciones en filas opuestas para estimar el ancho de celda y
-        se promedian. Se aplican límites mínimo y máximo preestablecidos.
+        Mide el ancho de celda en dos filas opuestas (superior e inferior)
+        y calcula un promedio para ajustar la escala del texto de forma
+        dinamica segun la distancia de la camara al tablero.
+
+        Args:
+            corners (np.ndarray): Esquinas de la malla con forma (rows, cols, 2).
+
+        Returns:
+            float: Escala de fuente ajustada dinamicamente.
         """
         if corners is None:
             return self.base_font_scale

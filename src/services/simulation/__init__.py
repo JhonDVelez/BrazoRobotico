@@ -1,7 +1,16 @@
-""" Paquete donde se maneja la simulación en pybullet asi como el ambiente para el modelo 3D 
-    mostrado en la interfaz, se tienen los parameters de pybullet, envío y recepción de datos de 
-    este, tratamiento de los datos objetivos y obtenidos, mallas y texturas del modelo visible,
-    urdf y mallas del modelo usado en pybullet, son diferentes debido al formato requerido.
+"""
+Paquete de simulacion del brazo robotico con PyBullet.
+
+Gestiona la simulacion fisica del modelo 3D, el entorno de PyBullet,
+el envio y recepcion de datos de este, las mallas y texturas del
+modelo visible en la interfaz, y el archivo URDF empleado por PyBullet.
+
+Señales:
+    - SimulationSignalManager.update_pybullet_signal: Actualiza posiciones
+      objetivo de la simulacion.
+    - GlobalTimer.update_tick: Sincroniza el paso de simulacion.
+    - GlobalTimer.model_tick: Actualiza la visualizacion 3D.
+    - GlobalTimer.sync_simulation_tick: Actualiza las graficas.
 """
 
 from .physics_worker import PhysicsWorker

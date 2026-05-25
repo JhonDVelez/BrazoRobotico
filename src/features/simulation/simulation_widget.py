@@ -1,15 +1,42 @@
-from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtGui import QPixmap
+"""
+Modulo que define el widget de visualizacion de la simulacion 3D.
+
+Este modulo contiene la clase SimulationWidget, la cual integra una vista
+de QtQuick (QML) dentro de un widget de PyQt6, permitiendo mostrar tanto una
+imagen estatica de placeholder como el modelo 3D interactivo.
+
+Conexiones:
+    - Emite `theme_needed` para solicitar ajustes de color en la escena 3D.
+    - Utiliza `ImageHandler` para gestionar los iconos de carga y placeholders.
+"""
+
+from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtQuick import QQuickView
-from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QVBoxLayout, QLabel, QSizePolicy, QWidget
 from src.services.ui.image_handler import ImageHandler
 
 
 class SimulationWidget(QWidget):
+    """
+    Widget encargado de la interfaz de visualizacion del robot 3D.
+
+    Gestiona el contenedor de ventana (`windowContainer`) necesario para incrustar
+    contenido QML/Quick3D en un entorno de widgets estandares, facilitando el
+    intercambio visual entre la simulacion activa y el estado de reposo.
+
+    Attributes:
+        theme_needed (pyqtSignal): Emite True si se requiere aplicar un tema oscuro.
+    """
     theme_needed = pyqtSignal(bool)
 
     def __init__(self, preloaded_container, pybullet_callback):
+        """
+        Inicializa el widget utilizando recursos previamente cargados.
+
+        Args:
+            preloaded_container (PreloadedContainer): Objeto con la vista y contenedor pre-listos.
+            pybullet_callback (callable): Funcion a ejecutar tras la integracion visual exitosa.
+        """
         super().__init__()
         self.preloaded_container = preloaded_container
         self.pybullet_callback = pybullet_callback
@@ -23,7 +50,7 @@ class SimulationWidget(QWidget):
 
         self.process_running = False
 
-        # Configurar layout
+        # Configurar layout principal
         if not self.layout():
             self.v_layout = QVBoxLayout(self)
             self.v_layout.setContentsMargins(0, 0, 0, 0)
@@ -33,14 +60,16 @@ class SimulationWidget(QWidget):
                            QSizePolicy.Policy.Expanding)
         self.setMinimumSize(160, 120)
 
-        # Configurar imagen estática
+        # Configurar imagen estática (Placeholder)
         self.__setup_static_image()
 
-        # Integrar contenedor pre-cargado
+        # Integrar contenedor pre-cargado en la jerarquia de widgets
         self.__integrate_preloaded_container()
 
     def __setup_static_image(self):
-        """Configura la imagen estática que se muestra cuando no hay simulación"""
+        """
+        Configura la etiqueta de imagen que se muestra cuando la simulacion esta apagada.
+        """
         self.image_path_l = "img:robotArm_l.svg"
         self.image_path_d = "img:robotArm_d.svg"
         self.image_label = QLabel()
@@ -56,7 +85,9 @@ class SimulationWidget(QWidget):
         self.image_handler.set_static_image()
 
     def __integrate_preloaded_container(self):
-        """Integra el contenedor completamente precargado en la interfaz"""
+        """
+        Realiza la integracion tecnica de la ventana QQuickView en el widget de PyQt.
+        """
         try:
             if not self.quick_view:
                 print("Error: No hay vista precargada")
@@ -70,20 +101,20 @@ class SimulationWidget(QWidget):
 
             self.window_container.setParent(self)
 
-            # Configurar políticas de tamaño
+            # Configurar políticas de tamaño para que ocupe todo el espacio
             self.window_container.setSizePolicy(
                 QSizePolicy.Policy.Expanding,
                 QSizePolicy.Policy.Expanding
             )
             self.window_container.setMinimumSize(160, 120)
 
-            # Agregar al layout de SimInterface
+            # Agregar al layout de la interfaz
             self.layout().addWidget(self.window_container)
 
-            # Ocultar inicialmente
+            # Ocultar inicialmente para mostrar el placeholder
             self.window_container.hide()
 
-            # Configurar vista para integración
+            # Configurar flags de la vista Quick3D
             if self.quick_view:
                 self.quick_view.setFlags(
                     Qt.WindowType.Widget | Qt.WindowType.FramelessWindowHint
@@ -93,7 +124,7 @@ class SimulationWidget(QWidget):
             else:
                 print("Error de configuracion de vista")
 
-            # Inicializar worker de física
+            # Inicializar comunicacion con el objeto raiz QML
             self._root_object = self.quick_view.rootObject()
             if self._root_object:
                 self.pybullet_callback(self._root_object)
@@ -104,39 +135,48 @@ class SimulationWidget(QWidget):
             print(f"Error integrando contenedor precargado: {e}")
 
     def get_simulation_widget(self):
+        """
+        Retorna la instancia del widget (self) para compatibilidad de API.
+
+        Returns:
+            SimulationWidget: Esta instancia.
+        """
         return self
 
     def image_show(self):
+        """Muestra la imagen estatica de placeholder."""
         self.image_label.show()
 
     def image_hide(self):
+        """Oculta la imagen estatica de placeholder."""
         self.image_label.hide()
 
     def container_show(self):
+        """Muestra el contenedor de la ventana 3D."""
         self.window_container.show()
 
     def container_hide(self):
+        """Oculta el contenedor de la ventana 3D."""
         self.window_container.hide()
 
     def quick_show(self):
+        """Hace visible la vista de Quick3D."""
         self.quick_view.show()
 
     def quick_hide(self):
+        """Oculta la vista de Quick3D."""
         self.quick_view.hide()
 
     def quick_update(self):
+        """Fuerza una actualizacion de renderizado en la vista 3D."""
         self.quick_view.update()
 
-    def get_process_state(self):
-        return self.process_running
-
-    def set_static_image(self):
-        self.image_handler.set_static_image()
-
-    def set_process_state(self, state: bool):
-        self.process_running = state
-        self.image_handler.set_process_running(state)
-
     def change_theme(self, dark_t: bool):
+        """
+        Actualiza el tema visual del widget y la escena 3D.
+
+        Args:
+            dark_t (bool): True para tema oscuro.
+        """
         self.image_handler.update_theme(dark_t)
         self.theme_needed.emit(dark_t)

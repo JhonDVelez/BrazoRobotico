@@ -1,6 +1,7 @@
 **/.vscode
 **/.venv
 **/config
+**/.opencode
 __pycache__/
 *.py[cod]
 *$py.class

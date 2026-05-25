@@ -1,11 +1,30 @@
+"""
+Modulo encargado de la optimizacion visual y renderizado de graficas.
+
+Este modulo define la clase PlotWorker, la cual extrae las porciones relevantes
+de los buffers circulares globales y aplica tecnicas de coalescencia de eventos
+y limitacion de FPS para asegurar un rendimiento visual optimo.
+
+Conexiones:
+    - Recibe buffers mediante `update_visual_data`.
+    - Emite `render_ready` con los datos listos para Pyqtgraph.
+"""
+
 import time
 import numpy as np
 from PyQt6.QtCore import QObject, pyqtSignal, QTimer, pyqtSlot
 
+
 class PlotWorker(QObject):
     """
-    Worker encargado de la lógica de renderizado y optimización de datos visuales.
-    Implementa coalescencia de eventos y límite de FPS.
+    Worker encargado de la logica de renderizado y optimizacion de datos visuales.
+
+    Implementa coalescencia de eventos para evitar saturar el hilo principal de Qt,
+    recortando los buffers de datos segun la ventana de visualizacion configurada.
+
+    Attributes:
+        render_ready (pyqtSignal): Emite (x, y_sim, y_phy, temp_text).
+        MIN_RENDER_INTERVAL_MS (float): Intervalo minimo entre renders (~60 FPS).
     """
     # Envía los datos listos para ser graficados: (x, y_sim, y_phy, temp_text)
     render_ready = pyqtSignal(np.ndarray, np.ndarray, np.ndarray, str)
@@ -14,6 +33,12 @@ class PlotWorker(QObject):
     MIN_RENDER_INTERVAL_MS = 16.0
 
     def __init__(self, display_window: int):
+        """
+        Inicializa el worker con el ancho de ventana especificado.
+
+        Args:
+            display_window (int): Numero de muestras visibles.
+        """
         super().__init__()
         self._display_window = display_window
         self._is_paused = False
@@ -33,7 +58,16 @@ class PlotWorker(QObject):
     @pyqtSlot(np.ndarray, np.ndarray, str, int, bool)
     def update_visual_data(self, y_sim_full, y_phy_full, temp_phy, write_index, buffer_full):
         """
-        Recibe los buffers completos y extrae la porción necesaria para el renderizado.
+        Extrae la porcion necesaria para el renderizado basandose en la ventana.
+
+        Gestiona los casos de buffer lineal (inicio) y buffer circular (wrap-around).
+
+        Args:
+            y_sim_full (np.ndarray): Buffer completo de simulacion.
+            y_phy_full (np.ndarray): Buffer completo fisico.
+            temp_phy (str): Texto de temperatura.
+            write_index (int): Puntero de escritura.
+            buffer_full (bool): Flag de desbordamiento de buffer.
         """
         if self._is_paused or not self._is_visible:
             return
@@ -73,14 +107,19 @@ class PlotWorker(QObject):
         self._schedule_render()
 
     def _schedule_render(self):
-        """Agenda un render para la próxima vuelta del event loop si no hay uno ya."""
+        """
+        Agenda un render para la proxima vuelta del event loop.
+        """
         if self._render_scheduled:
             return
         self._render_scheduled = True
+        # singleShot(0) permite que Qt procese otros eventos antes de renderizar
         QTimer.singleShot(0, self._do_render)
 
     def _do_render(self):
-        """Ejecuta el render respetando el límite de FPS."""
+        """
+        Ejecuta el render real respetando el limite de FPS configurado.
+        """
         self._render_scheduled = False
         
         if self._is_paused or not self._is_visible or not self._has_new_data:
@@ -90,7 +129,7 @@ class PlotWorker(QObject):
         elapsed_ms = (now_ns - self._last_render_ns) / 1_000_000
         
         if self._last_render_ns and elapsed_ms < self.MIN_RENDER_INTERVAL_MS:
-            # Re-agendar si estamos por debajo del intervalo de FPS
+            # Re-agendar si estamos por debajo del intervalo de FPS (Throttling)
             remaining_ms = int(self.MIN_RENDER_INTERVAL_MS - elapsed_ms)
             self._render_scheduled = True
             QTimer.singleShot(remaining_ms, self._do_render)
@@ -105,14 +144,32 @@ class PlotWorker(QObject):
     # --- Getters / Setters ---
 
     def set_paused(self, paused: bool):
+        """
+        Pausa o reanuda el renderizado visual.
+
+        Args:
+            paused (bool): True para pausar el renderizado.
+        """
         self._is_paused = paused
         if not paused:
             self._schedule_render()
 
     def set_visible(self, visible: bool):
+        """
+        Define si el worker debe procesar datos segun la visibilidad de la UI.
+
+        Args:
+            visible (bool): True si el plot esta visible.
+        """
         self._is_visible = visible
         if visible:
             self._schedule_render()
 
     def get_is_paused(self):
+        """
+        Retorna el estado de pausa del worker.
+
+        Returns:
+            bool: True si esta pausado.
+        """
         return self._is_paused

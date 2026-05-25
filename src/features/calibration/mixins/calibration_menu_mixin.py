@@ -1,5 +1,11 @@
-""" En este modulo se define el menu que se integrara a la barra de titulo y como se comporta.
 """
+Modulo que define los componentes de menu y barra de estado para la calibracion.
+
+Este modulo contiene el CalibrationMenuMixin, el cual extiende las capacidades
+de la ventana de calibracion permitiendo la creacion de una barra de menus y
+una barra de estado personalizada.
+"""
+
 import os
 from PyQt6.QtGui import QAction, QKeySequence, QIcon
 from PyQt6.QtWidgets import QMenuBar, QStatusBar
@@ -7,15 +13,24 @@ from src.main_window.mixins.main_menu_mixin import MainMenuMixin
 
 
 class CalibrationMenuMixin(MainMenuMixin):
-    """ Mixin encargado de definir el menu para la ventana de calibración, 
-        las acciones que hará y su comportamiento con estas
+    """
+    Mixin encargado de definir el menu para la ventana de calibracion.
+
+    Proporciona metodos para configurar la barra de menus, las acciones
+    (como el cambio de tema) y la barra de estado de la ventana.
     """
 
     def __init__(self):
+        """
+        Inicializa el mixin de menu de calibracion.
+        """
         super().__init__()
 
     def create_calibration_menu(self):
-        """ Define la estructura del menu y submenus basado en las acciones definidas.
+        """
+        Define la estructura de la barra de menus y sus acciones asociadas.
+
+        Crea acciones para el control del tema visual y configura atajos de teclado.
         """
         self.menu_bar = QMenuBar()
         self.menu_bar.setFixedHeight(32)
@@ -30,8 +45,8 @@ class CalibrationMenuMixin(MainMenuMixin):
         self.theme_action.setStatusTip("Cambiar tema")
 
     def create_status_bar(self):
-        """ Crea la barra de estado y conecta la visualization del estado de conexión del puerto 
-            serial
+        """
+        Crea e integra una barra de estado en la ventana.
         """
         status_bar = QStatusBar(self)
         self.setStatusBar(status_bar)

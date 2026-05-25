@@ -1,4 +1,11 @@
-# config_manager.py
+"""
+Modulo encargado de la gestion persistente de la configuracion del sistema.
+
+Este modulo centraliza el acceso a archivos JSON (settings, camera, graphics),
+asegurando que los directorios existan, los valores por defecto se mantengan
+y los datos del usuario se fusionen correctamente durante las actualizaciones.
+"""
+
 import sys
 import re
 import json
@@ -7,7 +14,13 @@ from pathlib import Path
 
 def get_app_dir() -> Path:
     """
-    Retorna la carpeta del ejecutable, funcione como .py, .exe o .elf.
+    Determina la ruta del directorio base de la aplicacion.
+
+    Funciona tanto en modo desarrollo (.py) como en ejecutables compilados
+    (.exe o .elf) mediante PyInstaller.
+
+    Returns:
+        Path: Ruta absoluta al directorio raiz de la aplicacion.
     """
     if getattr(sys, "frozen", False):
         # Compilado con PyInstaller (--onefile o --onedir)
@@ -22,7 +35,7 @@ CONFIG_DIR = APP_DIR / "config"
 GRAPH_DIR = APP_DIR / "graphs"
 
 
-# Valores por defecto de cada archivo de configuración
+# Valores por defecto de cada archivo de configuración para asegurar integridad
 DEFAULTS: dict[str, dict] = {
     "settings.json": {
         "window": {"width": 1280, "height": 720, "maximized": False},
@@ -38,8 +51,8 @@ DEFAULTS: dict[str, dict] = {
         },
         "camera": {
             "charuco": False,
-            "ellipse": False,
-            "view": {"charuco": False, "ellipse": False, "interval": 4},
+            "circle": False,
+            "view": {"charuco": False, "circle": False, "interval": 4},
             "calibrate": False,
             "color_calibrate": False,
         },
@@ -86,8 +99,16 @@ DEFAULTS: dict[str, dict] = {
 
 def _merge_defaults(defaults: dict, user_data: dict) -> dict:
     """
-    Crea un nuevo diccionario basado en 'defaults', pero sobreescribe
-    con los valores de 'user_data' si existen. Es recursivo.
+    Fusiona recursivamente los valores por defecto con los datos del usuario.
+
+    Preserva las llaves personalizadas del usuario que no existan en los defaults.
+
+    Args:
+        defaults (dict): Diccionario base de configuracion.
+        user_data (dict): Datos leidos desde el disco.
+
+    Returns:
+        dict: Diccionario fusionado resultante.
     """
     result = defaults.copy()
     for key, value in result.items():
@@ -98,10 +119,8 @@ def _merge_defaults(defaults: dict, user_data: dict) -> dict:
             else:
                 # Si el usuario tiene un valor (y no es un dict), lo respetamos
                 result[key] = user_data[key]
-        # Si la llave no está en user_data, se queda el valor de 'result' (el default)
 
     # También añadimos llaves que el usuario tenga y que NO estén en defaults
-    # (para no borrar configuraciones extra que el usuario haya metido a mano)
     for key, value in user_data.items():
         if key not in result:
             result[key] = value
@@ -110,7 +129,12 @@ def _merge_defaults(defaults: dict, user_data: dict) -> dict:
 
 
 def init_config() -> None:
-    """Crea CONFIG_DIR y asegura la integridad de las llaves en los JSON."""
+    """
+    Inicializa el directorio de configuracion y verifica la integridad de los archivos.
+
+    Crea los archivos faltantes o añade llaves nuevas introducidas en versiones
+    recientes del software, reseteando archivos corruptos si es necesario.
+    """
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
     for filename, defaults in DEFAULTS.items():
@@ -138,7 +162,15 @@ def init_config() -> None:
 
 
 def load(filename: str) -> dict:
-    """Lee un archivo de config; si no existe lo recrea con defaults."""
+    """
+    Carga un archivo de configuracion JSON completo.
+
+    Args:
+        filename (str): Nombre del archivo (e.g. 'camera.json').
+
+    Returns:
+        dict: Contenido del archivo o los defaults si falla.
+    """
     init_config()
     path = CONFIG_DIR / filename
     try:
@@ -151,7 +183,13 @@ def load(filename: str) -> dict:
 
 
 def save(filename: str, data: dict) -> None:
-    """Persiste data en config/<filename>."""
+    """
+    Persiste un diccionario de datos en un archivo JSON en CONFIG_DIR.
+
+    Args:
+        filename (str): Nombre del destino.
+        data (dict): Contenido a guardar.
+    """
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     (CONFIG_DIR / filename).write_text(
         _compact_dumps(data),
@@ -160,14 +198,21 @@ def save(filename: str, data: dict) -> None:
 
 
 def get(filename: str, *keys, default=None):
-    """ Acceso rápido a valores en cualquier nivel de profundidad.
+    """
+    Realiza una busqueda segura y profunda de una llave en la configuracion.
+
+    Args:
+        filename (str): Archivo donde buscar.
+        *keys (str): Secuencia de llaves anidadas.
+        default (any, optional): Valor a retornar si falla la busqueda.
+
+    Returns:
+        any: Valor encontrado o el valor por defecto.
     """
     try:
         data = load(filename)
         # Navegamos por cada clave en la tupla keys
         for key in keys:
-            # Si el nivel actual no es un diccionario o no tiene la clave,
-            # devolvemos el valor por defecto.
             if isinstance(data, dict):
                 data = data.get(key, default)
             else:
@@ -179,14 +224,19 @@ def get(filename: str, *keys, default=None):
 
 
 def set_value(filename: str, *keys: str, value) -> None:
-    """ Modifica valores en cualquier nivel de profundidad.
+    """
+    Modifica o crea un valor en cualquier nivel de profundidad del JSON.
+
+    Args:
+        filename (str): Archivo a modificar.
+        *keys (str): Secuencia de llaves anidadas. La ultima es la clave final.
+        value (any): Nuevo valor a asignar.
     """
     data = load(filename)
 
     # Navegamos hasta el penúltimo nivel
     target = data
     for key in keys[:-1]:
-        # Si la clave no existe, podrías crear un dict vacío o lanzar error
         target = target.setdefault(key, {})
 
     # Asignamos el valor en la última clave
@@ -197,9 +247,17 @@ def set_value(filename: str, *keys: str, value) -> None:
 
 def _compact_dumps(obj, indent: int = 2) -> str:
     """
-    Serializa obj con indent normal pero colapsa en una sola línea
-    cualquier lista que contenga solo números (o listas de números, etc.),
-    imitando el formato legible de arrays numpy.
+    Serializa un objeto JSON optimizando el espacio de listas numericas.
+
+    Colapsa listas de numeros en una sola linea para mejorar la legibilidad
+    en matrices de transformacion y coeficientes de distorsion.
+
+    Args:
+        obj (any): Objeto a serializar.
+        indent (int): Sangria base.
+
+    Returns:
+        str: Cadena JSON formateada.
     """
     raw = json.dumps(obj, indent=indent, ensure_ascii=False)
 

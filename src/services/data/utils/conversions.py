@@ -1,11 +1,24 @@
+"""
+Modulo de funciones de conversion entre unidades angulares.
+
+Proporciona las funciones auxiliares deg_to_rad y rad_to_deg para
+la transformacion de datos entre los distintos componentes del
+sistema (UI, simulacion PyBullet, hardware).
+"""
+
 import numpy as np
 
 
 def deg_to_rad(pos):
-    """ Obtiene los valores objetivos de los slider/spinBox y los convierte a radianes
+    """
+    Convierte un array de grados a radianes.
+
+    Args:
+        pos (list or None): Lista de angulos en grados. Si es None,
+            se retorna un array de ceros.
 
     Returns:
-        NDArray: Array de valores objetivos en radianes
+        np.ndarray: Array de angulos en radianes.
     """
     if pos is None:
         pos = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -14,10 +27,15 @@ def deg_to_rad(pos):
 
 
 def rad_to_deg(pos):
-    """ Obtiene los valores objetivos de los slider/spinBox y los convierte a radianes
+    """
+    Convierte un array de radianes a grados.
+
+    Args:
+        pos (list or None): Lista de angulos en radianes. Si es None,
+            se retorna un array vacio.
 
     Returns:
-        NDArray: Array de valores objetivos en grados
+        np.ndarray: Array de angulos en grados.
     """
     if pos is None:
         pos = []

@@ -1,6 +1,15 @@
 """
-Módulo abstracto para monitoreo de dispositivos multiplataforma.
-Abstrae la detección de cambios de dispositivos entre Windows y Linux.
+Modulo abstracto para monitoreo de dispositivos multiplataforma.
+
+Abstrae la deteccion de cambios de dispositivos entre Windows y Linux.
+Proporciona una fabrica (:func:`get_device_monitor`) que selecciona
+la implementacion adecuada segun el sistema operativo.
+
+Conexiones:
+    - Utilizado por el modulo principal para detectar conexion/desconexion
+      de camaras y puertos serie en tiempo real.
+    - Los callbacks recibidos se encolan via QTimer.singleShot para
+      evitar problemas de concurrencia con el hilo de Qt.
 """
 
 import sys
@@ -10,11 +19,15 @@ from PyQt6.QtCore import QTimer, QAbstractNativeEventFilter
 
 
 class DeviceMonitor(ABC):
-    """Clase abstracta para monitoreo de dispositivos."""
+    """Clase abstracta base para el monitoreo de dispositivos."""
 
     @abstractmethod
     def install_filter(self, app_instance):
-        """Instala el filtro de eventos de dispositivos."""
+        """Instala el filtro de eventos de dispositivos.
+
+        Args:
+            app_instance (QApplication): Instancia de la aplicacion Qt.
+        """
 
     @abstractmethod
     def uninstall_filter(self):
@@ -22,15 +35,28 @@ class DeviceMonitor(ABC):
 
 
 class WindowsDeviceMonitor(DeviceMonitor):
-    """Monitoreo de dispositivos para Windows usando win32con."""
+    """Monitoreo de dispositivos para Windows usando win32con.
+
+    Utiliza un filtro de eventos nativos de Windows para detectar
+    cambios en puertos serie y dispositivos de video.
+    """
 
     def __init__(self, serial_callback, camera_callback):
+        """
+        Args:
+            serial_callback (callable): Funcion a invocar al cambiar puertos serie.
+            camera_callback (callable): Funcion a invocar al cambiar camaras.
+        """
         self.serial_callback = serial_callback
         self.camera_callback = camera_callback
         self._event_filter = None
 
     def install_filter(self, app_instance):
-        """Instala el filtro de eventos nativos de Windows."""
+        """Instala el filtro de eventos nativos de Windows.
+
+        Args:
+            app_instance (QApplication): Instancia de la aplicacion Qt.
+        """
         try:
             self._event_filter = WinDeviceEventFilter(
                 self.serial_callback,
@@ -45,17 +71,35 @@ class WindowsDeviceMonitor(DeviceMonitor):
 
 
 class WinDeviceEventFilter(QAbstractNativeEventFilter):
-    """Filtro de eventos nativos para Windows."""
+    """Filtro de eventos nativos para Windows.
+
+    Captura el mensaje WM_DEVICECHANGE y distingue entre cambios
+    en puertos serie (DBT_DEVTYP_PORT) y cambios en el arbol
+    de dispositivos (DBT_DEVNODES_CHANGED).
+    """
 
     DBT_DEVTYP_PORT = 0x00000003
 
     def __init__(self, serial_callback, camera_callback):
+        """
+        Args:
+            serial_callback (callable): Funcion al cambiar puertos serie.
+            camera_callback (callable): Funcion al cambiar camaras.
+        """
         super().__init__()
         self.serial_callback = serial_callback
         self.camera_callback = camera_callback
 
     def nativeEventFilter(self, _eventType, message):
-        """Filtra eventos nativos de Windows."""
+        """Filtra eventos nativos de Windows.
+
+        Args:
+            _eventType: Tipo de evento nativo (no utilizado).
+            message: Mensaje nativo de Windows.
+
+        Returns:
+            tuple: (bool, int) indicando si el evento fue manejado.
+        """
         try:
             import win32con
             from ctypes import wintypes, cast, POINTER
@@ -87,16 +131,29 @@ class WinDeviceEventFilter(QAbstractNativeEventFilter):
 
 
 class LinuxDeviceMonitor(DeviceMonitor):
-    """Monitoreo de dispositivos para Linux usando pyudev."""
+    """Monitoreo de dispositivos para Linux usando pyudev.
+
+    Utiliza pyudev para monitorizar eventos de dispositivos tty
+    y video4linux en un hilo separado.
+    """
 
     def __init__(self, serial_callback, camera_callback):
+        """
+        Args:
+            serial_callback (callable): Funcion al cambiar puertos serie.
+            camera_callback (callable): Funcion al cambiar camaras.
+        """
         self.serial_callback = serial_callback
         self.camera_callback = camera_callback
         self._monitor_thread = None
         self._should_run = False
 
     def install_filter(self, app_instance):
-        """Inicia el monitoreo de dispositivos en Linux."""
+        """Inicia el monitoreo de dispositivos en Linux.
+
+        Args:
+            app_instance (QApplication): Instancia de la aplicacion Qt.
+        """
         try:
             import pyudev
             self._should_run = True
@@ -115,7 +172,11 @@ class LinuxDeviceMonitor(DeviceMonitor):
             self._monitor_thread.join(timeout=2)
 
     def _monitor_devices(self):
-        """Monitorea eventos de dispositivos en Linux."""
+        """Monitorea eventos de dispositivos en Linux.
+
+        Escucha eventos de dispositivos tty y video4linux
+        y notifica a traves de los callbacks correspondientes.
+        """
         try:
             import pyudev
             context = pyudev.Context()
@@ -141,15 +202,26 @@ class LinuxDeviceMonitor(DeviceMonitor):
 
 
 class CameraEventFilterLinux(DeviceMonitor):
-    """Versión simplificada de detección de cámaras para Linux."""
+    """Version simplificada de deteccion de camaras para Linux.
+
+    Monitorea exclusivamente eventos de dispositivos video4linux.
+    """
 
     def __init__(self, camera_callback):
+        """
+        Args:
+            camera_callback (callable): Funcion al cambiar camaras.
+        """
         self.camera_callback = camera_callback
         self._monitor_thread = None
         self._should_run = False
 
     def install_filter(self, app_instance):
-        """Inicia el monitoreo de cámaras en Linux."""
+        """Inicia el monitoreo de camaras en Linux.
+
+        Args:
+            app_instance (QApplication): Instancia de la aplicacion Qt.
+        """
         try:
             import pyudev
             self._should_run = True
@@ -162,13 +234,16 @@ class CameraEventFilterLinux(DeviceMonitor):
             print("⚠️  pyudev no está instalado. Instala con: pip install pyudev")
 
     def uninstall_filter(self):
-        """Detiene el monitoreo de cámaras."""
+        """Detiene el monitoreo de camaras."""
         self._should_run = False
         if self._monitor_thread and self._monitor_thread.is_alive():
             self._monitor_thread.join(timeout=2)
 
     def _monitor_cameras(self):
-        """Monitorea eventos de cámaras en Linux."""
+        """Monitorea eventos de camaras en Linux.
+
+        Escucha eventos de dispositivos video4linux (add, remove, change).
+        """
         try:
             import pyudev
             context = pyudev.Context()
@@ -192,6 +267,10 @@ class DummyDeviceMonitor(DeviceMonitor):
     """Monitor dummy para sistemas operativos no soportados."""
 
     def install_filter(self, app_instance):
+        """
+        Args:
+            app_instance (QApplication): Instancia de la aplicacion Qt.
+        """
         print("⚠️  Monitoreo de dispositivos no soportado en este SO")
 
     def uninstall_filter(self):
@@ -200,15 +279,19 @@ class DummyDeviceMonitor(DeviceMonitor):
 
 def get_device_monitor(serial_callback=None, camera_callback=None, camera_only=False):
     """
-    Factory para obtener el monitor de dispositivos apropiado según el SO.
+    Fabrica para obtener el monitor de dispositivos apropiado segun el SO.
 
     Args:
-        serial_callback: Función a llamar cuando se detecta cambio en puerto serial
-        camera_callback: Función a llamar cuando se detecta cambio en cámara
-        camera_only: Si True, solo monitorea cámaras (para calibration_window y color_window)
+        serial_callback (callable, optional): Funcion a llamar cuando se detecta
+            cambio en puerto serial.
+        camera_callback (callable, optional): Funcion a llamar cuando se detecta
+            cambio en camara.
+        camera_only (bool, optional): Si True, solo monitorea camaras
+            (para calibration_window y color_window).
 
     Returns:
-        DeviceMonitor: Instancia del monitor de dispositivos apropiado
+        DeviceMonitor: Instancia del monitor de dispositivos apropiado para
+        el sistema operativo actual.
     """
     if sys.platform.startswith('win'):
         return WindowsDeviceMonitor(serial_callback, camera_callback)

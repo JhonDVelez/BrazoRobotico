@@ -1,9 +1,24 @@
+"""
+Modulo que define el gestor de senales para el dominio fisico.
+
+Proporciona el singleton PhysicalSignalManager con senales para
+la comunicacion con el hardware robotico real.
+"""
+
 from PyQt6.QtCore import pyqtSignal
 from .base import _SignalManager
 
 
 class PhysicalSignalManager(_SignalManager):
-    """ SignalManager específico para robot físico
+    """
+    Gestor de senales especifico para el robot fisico.
+
+    Hereda las senales base y anade senales para el envio de comandos
+    y recepcion de telemetria desde el microcontrolador.
+
+    Signals:
+        send_to_robot: Emite una lista de posiciones de servos.
+        data_received: Emite (posiciones, temperaturas) desde el hardware.
     """
     is_connected = False
     send_to_robot = pyqtSignal(list)
@@ -13,11 +28,11 @@ class PhysicalSignalManager(_SignalManager):
 
     @classmethod
     def get_instance(cls):
-        """ Permite obtener una única instancia del objeto evitando que se generen multiples señales
-            de comunicación. En caso de que no haya ninguna instancia entonces se crea una nueva.
+        """
+        Obtiene la instancia unica del gestor (patron Singleton).
 
         Returns:
-            PhysicalSignalManager: instancia única de la clase
+            PhysicalSignalManager: Instancia unica.
         """
         if cls._instance is None:
             cls._instance = cls()

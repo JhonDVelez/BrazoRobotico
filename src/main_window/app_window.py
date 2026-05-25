@@ -1,4 +1,15 @@
-from re import S
+"""
+Modulo principal de la interfaz grafica de usuario.
+
+Define la clase MainWindow, la cual orquesta la integracion de multiples mixins
+para gestionar la inicializacion, acciones, menus y la barra de titulo personalizada.
+Centraliza el control de la simulacion y la conexion con el hardware.
+
+Conexiones:
+    - Hereda de `FramelessMainWindow` para una estetica moderna sin bordes.
+    - Utiliza `ThemeManager` para la gestion de estilos claro/oscuro.
+    - Se comunica con controladores de camara, simulacion, cinematica y sliders.
+"""
 
 from qframelesswindow import FramelessMainWindow
 from PyQt6.QtWidgets import QMessageBox, QVBoxLayout, QWidget, QLabel, QApplication, QMainWindow
@@ -11,16 +22,24 @@ from src.services.data.signals import SearchSignalManager, ThemeSignalManager
 from src.services.styling import ThemeManager
 from src.services.data import config_manager as cfg
 
-# os.environ["QT_LOGGING_RULES"] = "qt.qpa.window=false"
-
 
 class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuMixin):
-    """ Ventana principal de la interfaz la cual hereda todos los mixin los cuales solo almacenan
-        los métodos utilizados en la interfaz como estructura de las diferentes secciones, widgets
-        y el comportamiento de estos.
+    """
+    Ventana principal de la aplicacion de control del brazo robotico.
+
+    Hereda de multiples mixins que organizan la estructura de la interfaz,
+    widgets y comportamiento de las diferentes secciones (Camara, Graficos,
+    Controles y Simulacion).
     """
 
     def __init__(self, quick3d, robot_id):
+        """
+        Inicializa la ventana principal y configura todos los sub-sistemas.
+
+        Args:
+            quick3d (PreloadedContainer): Datos y recursos pre-cargados de QML/Quick3D.
+            robot_id (str): Identificador unico para el robot (URDF/Config).
+        """
         super().__init__()
         self.preloaded_data = quick3d
         self.robot_id = robot_id
@@ -40,17 +59,16 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         self.last_com = None
         self.last_camera_name = None
 
-        # Crear contenedor principal
+        # Crear contenedor principal para manejar barra de titulo personalizada y contenido
         container = QWidget()
         container_layout = QVBoxLayout(container)
         container_layout.setContentsMargins(0, 0, 0, 0)
         container_layout.setSpacing(0)
 
-        # Barra de título
+        # Barra de titulo personalizada
         self.create_main_menu()
         self.title_bar = MainTitleBarMixin(self)
         self.title_bar.setObjectName("title_bar")
-        # necesario para acciones de ventana como arrastrar/min/max
         self.setTitleBar(self.title_bar)
         container_layout.addWidget(self.title_bar)
 
@@ -62,6 +80,7 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         self.setup_ui(self.content)
         self.inner_window.setCentralWidget(self.content)
 
+        # Inicializacion de servicios y controladores (definidos en Mixins)
         self.create_status_bar()
         self.init_camera()
         self.init_controls()
@@ -69,12 +88,14 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         self.init_simulation()
         self.init_graphics()
         self.setup_connections()
-        # Se añade la QToolbar creada en init_controls()
+
+        # Añadir toolbar de acciones
         self.inner_window.addToolBar(
-            Qt.ToolBarArea.LeftToolBarArea,   # posición inicial
+            Qt.ToolBarArea.LeftToolBarArea,
             self.actions_toolbar
         )
 
+        # Cargar configuracion de visibilidad de paneles desde archivo
         settings = cfg.get("settings.json")
         content = settings.get("content")
         mapping_content = {
@@ -86,22 +107,23 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
 
         for key, (widget, action) in mapping_content.items():
             if key in content:
-                # Usamos setVisible para evitar el if/else interno
                 widget.setVisible(bool(content[key]))
                 action.setChecked(bool(content[key]))
 
+        # Cargar configuracion de busqueda visual
         camera = settings.get("camera")
         search_manager = SearchSignalManager().get_instance()
         for key, widget in camera.items():
             state = bool(camera[key])
             if key == "charuco":
                 search_manager.set_charuco(state)
-            elif key == "ellipse":
-                search_manager.set_ellipse(state)
+            elif key == "circle":
+                search_manager.set_circle(state)
 
         self.hab_simulation = settings.get(
             "simulation").get("activated", True)
 
+        # Configurar modo de control inicial (Sliders o Cinematica)
         mapping_mode = {
             'sliders': self.sliders_controller.get_widget(),
             'kinematics': self.kinematics_controller.get_widget()
@@ -115,11 +137,11 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
                     self.kinematics_controller.get_widget().set_horizontal_layout()
         self.theme_manager.toggle_theme_event()
 
-        # Conectar señal al cambio de tema
+        # Conectar señal al cambio de tema del sistema
         QApplication.instance().styleHints().colorSchemeChanged.connect(
             self.theme_manager.update_theme)
 
-        # Instalar monitor de dispositivos multiplataforma
+        # Instalar monitor de dispositivos (Cámaras y Puertos COM)
         self.camera_devices = CameraDevices()
         self._device_monitor = get_device_monitor(
             self.get_com_ports, self.camera_devices.get_cameras)
@@ -127,20 +149,28 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
 
         self.get_com_ports()
         self.camera_devices.get_cameras()
-        # ahora el central widget real es el contenedor con barra + contenido
         self.setCentralWidget(container)
 
         self.resize(1280, 720)
         self.center_window()
 
     def _on_external_theme_changed(self, is_dark: bool):
-        """Actualiza la ventana principal cuando otra ventana cambia el tema."""
+        """
+        Actualiza el estilo cuando se detecta un cambio de tema externo.
+
+        Args:
+            is_dark (bool): True si el nuevo tema es oscuro.
+        """
         self.theme_manager._apply_theme_from_signal(is_dark)
 
     def setup_connections(self):
-        """ Configura las conexiones de eventos para los botones de la interfaz
         """
-        # Visibilidad de ventanas
+        Configura todas las conexiones de señales y slots de la interfaz.
+
+        Enlaza botones, acciones de menu y eventos de controladores con sus
+        respectivas funciones de respuesta.
+        """
+        # Visibilidad de ventanas/paneles
         if hasattr(self, 'cameraBox'):
             if hasattr(self, 'camera_action'):
                 self.camera_action.triggered.connect(
@@ -156,7 +186,7 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
             self.controls_action.triggered.connect(
                 self.toggle_visibility_controls_event)
 
-        # Configuración de cámara
+        # Configuracion de deteccion visual
         if hasattr(self, 'charuco_action'):
             self.charuco_action.toggled.connect(
                 self.toggle_charuco_search)
@@ -170,19 +200,19 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
             self.color_calibration_action.triggered.connect(
                 self.initiate_color_calibration)
 
-        # Visibilidad y uso de controles
+        # Visibilidad y uso de controles (Manual/Cinematico)
         if hasattr(self, "sliders_action"):
             self.sliders_action.toggled.connect(self.toggle_sliders_controls)
         if hasattr(self, "kinematics_action"):
             self.kinematics_action.toggled.connect(
                 self.toggle_kinematics_controls)
 
-        # Conexión Kinematics -> Sliders
+        # Sincronizacion Kinematics -> Sliders
         if hasattr(self, 'kinematics_controller') and hasattr(self, 'sliders_controller'):
             self.kinematics_controller.status_updated.connect(
                 self.sliders_controller.set_external_values)
 
-        # Botones de control de estado (usando las acciones del toolbar)
+        # Botones de control de flujo (Start, Pause, Stop, Reset)
         if hasattr(self, 'start_action'):
             self.start_action.triggered.connect(self.start)
         if hasattr(self, 'pause_action'):
@@ -192,33 +222,37 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         if hasattr(self, 'reset_action'):
             self.reset_action.triggered.connect(self.reset)
 
-        # Activación o desactivación de la simulación
+        # Activacion de simulacion fisica
         if hasattr(self, 'simulation_action'):
             self.simulation_action.triggered.connect(
                 self.toggle_activation_simulation_event)
 
-        # Botón de cambio de tema
+        # Control de temas y conexion de hardware
         if hasattr(self, 'theme_action'):
             self.theme_action.triggered.connect(
                 self.theme_manager.toggle_theme_event)
 
-        # Conectar cambios de tema desde otras ventanas
         self.theme_signal_manager.theme_changed.connect(
             self._on_external_theme_changed)
 
-        # Botón para conectar el robot
         if hasattr(self, 'connect_action'):
             self.connect_action.triggered.connect(self.connect_robot)
 
     def closeEvent(self, event):
-        """ Gestiona el evento de cerrado presentando una ventana para verificar la salida """
+        """
+        Gestiona el cierre de la aplicacion y la liberacion de recursos.
 
+        Muestra un dialogo de confirmacion y asegura que los hilos de camara,
+        simulacion y ventanas secundarias se detengan correctamente.
+
+        Args:
+            event (QCloseEvent): Evento de cierre de Qt.
+        """
         msg = QMessageBox(self)
         msg.setWindowTitle("Salir")
         msg.setText("¿Seguro que quieres cerrar la aplicación?")
         msg.setIcon(QMessageBox.Icon.Question)
 
-        # 🔥 Hace que el mensaje quede por encima de todo
         msg.setWindowFlags(
             msg.windowFlags() | Qt.WindowType.WindowStaysOnTopHint
         )
@@ -230,6 +264,7 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         msg.exec()
 
         if msg.clickedButton() == si_btn:
+            # Detencion segura de procesos
             if hasattr(self, "calibration_window"):
                 if hasattr(self.calibration_window, "calibration_interface"):
                     self.calibration_window.calibration_interface.stop_video()

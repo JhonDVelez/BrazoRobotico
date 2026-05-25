@@ -1,3 +1,10 @@
+"""Hoja de estilo QSS para el tema claro de la interfaz.
+
+Contiene la personalizacion completa de todos los widgets Qt
+para el modo claro, con colores base #F7F7FA y acentos #2378D5.
+Modificada a partir de PyQtDarkTheme (MIT License).
+"""
+
 STYLE_SHEET = """
 /* ==========================================================================================
  * PyQtDarkTheme.

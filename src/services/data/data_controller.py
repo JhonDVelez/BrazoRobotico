@@ -13,7 +13,8 @@ Conexiones:
 
 import numpy as np
 from PyQt6.QtCore import QObject, QThread, pyqtSlot, pyqtSignal
-from src.services.data.signals import PhysicalSignalManager, SimulationSignalManager
+from src.services.data import config_manager
+from src.services.data.signals import PhysicalSignalManager, SimulationSignalManager, ConfigSignalManager
 from src.services.data.enums import Modes, Units, Domains
 from src.services.data.timers import GlobalTimer
 from src.services.data.utils import deg_to_rad, rad_to_deg
@@ -34,6 +35,7 @@ class DataController(QObject):
     # Señal interna para solicitar procesamiento al worker
     # (data, units, mode)
     request_processing = pyqtSignal(list, object, object)
+    _config_initialized = False
 
     def __init__(self, mode: Modes, unit: Units, domain: Domains, robot_controller=None) -> None:
         """
@@ -55,6 +57,14 @@ class DataController(QObject):
         self._signal_manager = None
         self._target_data = None  # Buffer de estado para posiciones objetivo
         self._robot_controller = robot_controller
+
+        # Inicialización de configuración (solo la primera instancia)
+        if not DataController._config_initialized:
+            self._config_manager = ConfigSignalManager.get_instance()
+            self._load_initial_config()
+            self._config_manager.change_requested.connect(
+                self._on_config_change_requested)
+            DataController._config_initialized = True
 
         # Seleccion del dominio y SignalManager
         if self._domain is Domains.SIMULATION:
@@ -79,6 +89,23 @@ class DataController(QObject):
         # Suscripcion reactiva a nuevos datos de objetivos
         self._signal_manager.update_target_signal.connect(
             self.update_target_positions)
+
+    def _load_initial_config(self):
+        """
+        Carga todos los archivos de configuracion en el ConfigSignalManager.
+        """
+        config_manager.init_config()
+        for filename in config_manager.DEFAULTS.keys():
+            data = config_manager.load(filename)
+            self._config_manager.set_all_config(filename, data)
+
+    @pyqtSlot(str, list, object)
+    def _on_config_change_requested(self, filename: str, keys: list, value: object):
+        """
+        Atiende solicitudes de cambio en la configuracion y las persiste en disco.
+        """
+        config_manager.set_value(filename, *keys, value=value)
+        self._config_manager.update_param(filename, keys, value)
 
     def _setup_connections(self):
         """

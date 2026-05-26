@@ -24,7 +24,7 @@ except Exception:
     pass
 
 
-class CameraControl:
+class CameraConnection:
     """Gestiona una camara y sus operaciones basicas de captura.
 
     Optimizada para usar UMat (OpenCL) en preprocesado. Configura

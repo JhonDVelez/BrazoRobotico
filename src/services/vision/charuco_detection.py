@@ -1,9 +1,7 @@
-import trace
 import traceback
 import cv2
 import numpy as np
 from PyQt6.QtCore import QRunnable
-from src.services.data import config_manager as cfg
 
 
 class ChArUcoDetection(QRunnable):
@@ -15,19 +13,16 @@ class ChArUcoDetection(QRunnable):
     homografía precisa y extrapolar la malla completa, incluso con oclusiones.
     """
 
-    def __init__(self, frame, frame_id, detection_callback, error_callback):
+    def __init__(self, frame, frame_id, camera_matrix, dist_coeff, detection_callback, error_callback):
         """Inicializa el detector de tableros ChArUco.
         """
         super().__init__()
         self.frame = frame.get().copy()
         self.frame_id = frame_id
+        self.camera_matrix = camera_matrix
+        self.dist_coeff = dist_coeff
         self.detection_callback = detection_callback
         self.error_callback = error_callback
-
-        camera_config = cfg.load("camera.json")
-        self.camera_matrix = np.array(camera_config.get("matrix"))
-        self.dist_coeff = np.array(
-            camera_config.get("distortion coefficients"))
 
         # Incializa los detectores para el codigo ArUco y almacena los de ChArUco
         dictionary_id = cv2.aruco.DICT_4X4_50

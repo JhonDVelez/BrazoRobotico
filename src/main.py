@@ -20,7 +20,6 @@ from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtQuick import QQuickView
 from qdarktheme.qtpy.QtWidgets import QSplashScreen
 from src.main_window import MainWindow
-from src.services.data import config_manager as cfg
 
 
 class PreloadedContainer:
@@ -229,8 +228,6 @@ class CompletePreloader:
 
 
 if __name__ == '__main__':
-    cfg.init_config()
-
     if sys.platform == "win32":
         myappid = 'laser.openbotv.control.lab'  # string único
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)

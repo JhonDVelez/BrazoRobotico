@@ -13,6 +13,7 @@ from .search import SearchSignalManager
 from .draw_view import DrawViewSignalManager
 from .camera import CameraSignalManager
 from .theme import ThemeSignalManager
+from .config import ConfigSignalManager
 
 __all__ = [
     '_SignalManager',
@@ -21,5 +22,6 @@ __all__ = [
     'SearchSignalManager',
     'DrawViewSignalManager',
     'CameraSignalManager',
-    'ThemeSignalManager'
+    'ThemeSignalManager',
+    'ConfigSignalManager'
 ]

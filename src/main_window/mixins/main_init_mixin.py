@@ -14,7 +14,7 @@ from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QSize, Qt
 from src.services.data.enums import Modes, Units, Domains
 from src.services.data import DataController
-from src.services.data import config_manager as cfg
+from src.services.data.signals import ConfigSignalManager
 from src.services.robot import RobotController
 from src.features.camera import CameraController
 from src.features.sliders import SlidersController
@@ -255,7 +255,8 @@ class MainInitMixin:
             "Activa/Desactiva la deteccion de las esferas de colores")
         self.sphere_action.setCheckable(True)
 
-        settings = cfg.get("settings.json")
+        config_manager = ConfigSignalManager.get_instance()
+        settings = config_manager.get_param("settings.json", default={})
         camera_config = settings.get("camera", {})
         if "charuco" in camera_config:
             self.charuco_action.setChecked(camera_config.get("charuco"))

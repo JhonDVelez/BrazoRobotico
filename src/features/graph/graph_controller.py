@@ -18,9 +18,7 @@ from src.features.graph.graph_widget import GraphWidget
 from src.features.graph.graph_worker import GraphWorker
 from src.features.graph.graph_processing_worker import GraphProcessingWorker
 from src.features.graph.plots.plot_controller import PlotController
-from src.services.data.signals import SimulationSignalManager, PhysicalSignalManager
-from src.services.styling.theme_manger import ThemeSignalManager
-from src.services.data import config_manager as cfg
+from src.services.data.signals import SimulationSignalManager, PhysicalSignalManager, ConfigSignalManager, ThemeSignalManager
 
 
 class GraphController(QObject):
@@ -68,7 +66,8 @@ class GraphController(QObject):
         Lee la configuracion de rejilla desde `graphics.json` para posicionar
         adecuadamente los plots en los layouts angulares y cartesianos.
         """
-        config = cfg.get("graphics.json", "grid")
+        config_manager = ConfigSignalManager.get_instance()
+        config = config_manager.get_param("graphics.json", "grid", default={})
 
         # Angular (6 motores)
         labels_ang = [f"motor {i+1}" for i in range(6)]

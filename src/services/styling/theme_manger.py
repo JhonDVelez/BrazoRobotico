@@ -9,8 +9,7 @@ import qdarktheme.dist.dark.stylesheet
 import qdarktheme.dist.light
 import qdarktheme.dist.light.stylesheet
 from src.services.styling.theme_stylesheet import dark_style, light_style
-from src.services.data import config_manager as cfg
-from src.services.data.signals import ThemeSignalManager
+from src.services.data.signals import ThemeSignalManager, ConfigSignalManager
 
 
 class ThemeManager:
@@ -34,24 +33,26 @@ class ThemeManager:
     def update_theme(self, scheme: Qt.ColorScheme | None):
         """ Se ejecuta cada vez que cambia el tema del sistema
         """
+        config_manager = ConfigSignalManager.get_instance()
         if scheme == Qt.ColorScheme.Dark:
             self._load_dark_theme()
-            cfg.set_value("settings.json", "theme", value="dark")
+            config_manager.request_change("settings.json", "theme", value="dark")
         elif scheme == Qt.ColorScheme.Light:
             self._load_light_theme()
-            cfg.set_value("settings.json", "theme", value="light")
+            config_manager.request_change("settings.json", "theme", value="light")
         else:
             print("Error: Tema desconocido")
 
     def _apply_theme_from_signal(self, is_dark: bool):
         """ Aplica el tema cuando se recibe una señal de otra ventana (sin emitir de nuevo).
         """
+        config_manager = ConfigSignalManager.get_instance()
         if is_dark:
             self._load_dark_theme()
-            cfg.set_value("settings.json", "theme", value="dark")
+            config_manager.request_change("settings.json", "theme", value="dark")
         else:
             self._load_light_theme()
-            cfg.set_value("settings.json", "theme", value="light")
+            config_manager.request_change("settings.json", "theme", value="light")
         self.actual_theme = Qt.ColorScheme.Dark if is_dark else Qt.ColorScheme.Light
 
     def _load_current_theme(self):
@@ -65,7 +66,8 @@ class ThemeManager:
         tema a la interfaz.
         """
         if self.actual_theme is None:
-            theme = cfg.get("settings.json", "theme").lower()
+            config_manager = ConfigSignalManager.get_instance()
+            theme = config_manager.get_param("settings.json", "theme", default="dark").lower()
             self.actual_theme = (
                 Qt.ColorScheme.Dark if theme == "dark" else Qt.ColorScheme.Light
             )

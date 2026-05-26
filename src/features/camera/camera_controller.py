@@ -15,8 +15,7 @@ Conexiones:
 from PyQt6.QtCore import pyqtSlot, pyqtSignal, QObject
 from src.features.camera.camera_widget import CameraWidget
 from src.features.camera.camera_worker import CameraWorker
-from src.services.data.signals import ThemeSignalManager, DrawViewSignalManager, CameraSignalManager
-from src.services.data import config_manager as cfg
+from src.services.data.signals import ThemeSignalManager, DrawViewSignalManager, CameraSignalManager, ConfigSignalManager
 
 
 class CameraController(QObject):
@@ -49,7 +48,8 @@ class CameraController(QObject):
         self.camera_index = None
         self.worker = None
 
-        self.camera_config = cfg.load("camera.json")
+        self.config_manager = ConfigSignalManager.get_instance()
+        self.camera_config = self.config_manager.get_param("camera.json", default={})
         init_view_config = self.camera_config.get("view", {})
         self.theme_manager = ThemeSignalManager.get_instance()
         self.draw_manager = DrawViewSignalManager.get_instance()
@@ -126,7 +126,7 @@ class CameraController(QObject):
             return
 
         try:
-            self.camera_config = cfg.load("camera.json")
+            self.camera_config = self.config_manager.get_param("camera.json", default={})
             self.worker = CameraWorker(camera_index=self.camera_index,
                                        camera_config=self.camera_config,
                                        is_calibration=self.is_calibration)

@@ -15,7 +15,6 @@ import traceback
 import numpy as np
 import cv2
 from PyQt6.QtCore import QRunnable
-from src.services.data import config_manager as cfg
 
 
 class DetectionDrawer(QRunnable):
@@ -34,7 +33,7 @@ class DetectionDrawer(QRunnable):
         error_callback (callable): Funcion para reportar errores.
     """
 
-    def __init__(self, frame: np.ndarray, results: dict, view: tuple, custom_origin: tuple, frame_callback, error_callback) -> None:
+    def __init__(self, frame: np.ndarray, results: dict, view: tuple, custom_origin: tuple, camera_width: int, frame_callback, error_callback) -> None:
         super().__init__()
         self.frame = frame
         self.results = results
@@ -42,10 +41,6 @@ class DetectionDrawer(QRunnable):
         self.custom_origin = custom_origin
         self.frame_callback = frame_callback
         self.error_callback = error_callback
-
-        camera = cfg.load("camera.json")
-        camera_resolution = camera.get("resolution", {})
-        camera_width = camera_resolution.get("width", 1280)
 
         font_scale_base = 0.3
         thickness_base = 0.4

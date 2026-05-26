@@ -18,9 +18,9 @@ from src.main_window.mixins import (
     MainInitMixin, MainActionsMixin, MainMenuMixin, MainTitleBarMixin)
 from src.services.devices import CameraDevices
 from src.services.devices.device_monitor import get_device_monitor
-from src.services.data.signals import SearchSignalManager, ThemeSignalManager
+from src.services.data.signals import SearchSignalManager, ThemeSignalManager, ConfigSignalManager
 from src.services.styling import ThemeManager
-from src.services.data import config_manager as cfg
+from src.services.data import config_manager, DataController
 
 
 class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuMixin):
@@ -41,6 +41,16 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
             robot_id (str): Identificador unico para el robot (URDF/Config).
         """
         super().__init__()
+        # Inicialización centralizada de configuración (antes de cualquier controller)
+        self.config_manager = ConfigSignalManager.get_instance()
+        config_manager.init_config()
+        for filename in config_manager.DEFAULTS.keys():
+            data = config_manager.load(filename)
+            self.config_manager.set_all_config(filename, data)
+        self.config_manager.change_requested.connect(
+            self._on_config_change_requested)
+        DataController._config_initialized = True
+
         self.preloaded_data = quick3d
         self.robot_id = robot_id
         self.simulation_controller = None
@@ -96,8 +106,8 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         )
 
         # Cargar configuracion de visibilidad de paneles desde archivo
-        settings = cfg.get("settings.json")
-        content = settings.get("content")
+        settings = self.config_manager.get_param("settings.json")
+        content = settings.get("content", {})
         mapping_content = {
             "camera": (self.cameraBox, self.camera_action),
             "model": (self.modelBox, self.model_action),
@@ -111,7 +121,7 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
                 action.setChecked(bool(content[key]))
 
         # Cargar configuracion de busqueda visual
-        camera = settings.get("camera")
+        camera = settings.get("camera", {})
         search_manager = SearchSignalManager().get_instance()
         for key, widget in camera.items():
             state = bool(camera[key])
@@ -121,14 +131,14 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
                 search_manager.set_circle(state)
 
         self.hab_simulation = settings.get(
-            "simulation").get("activated", True)
+            "simulation", {}).get("activated", True)
 
         # Configurar modo de control inicial (Sliders o Cinematica)
         mapping_mode = {
             'sliders': self.sliders_controller.get_widget(),
             'kinematics': self.kinematics_controller.get_widget()
         }
-        mode = settings.get('mode')
+        mode = settings.get('mode', {})
         for key, widget in mapping_mode.items():
             if key in mode:
                 state = bool(mode[key])
@@ -162,6 +172,13 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
             is_dark (bool): True si el nuevo tema es oscuro.
         """
         self.theme_manager._apply_theme_from_signal(is_dark)
+
+    def _on_config_change_requested(self, filename: str, keys: list, value: object):
+        """
+        Persiste cambios de configuracion solicitados via ConfigSignalManager.
+        """
+        config_manager.set_value(filename, *keys, value=value)
+        self.config_manager.update_param(filename, keys, value)
 
     def setup_connections(self):
         """

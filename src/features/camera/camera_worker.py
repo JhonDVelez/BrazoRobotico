@@ -16,7 +16,7 @@ from threading import Lock
 import numpy as np
 import cv2
 from PyQt6.QtCore import QThread, pyqtSignal, QThreadPool, pyqtSlot
-from src.services.vision import ChArUcoDetection, CircleDetection, CameraControl, PoseEstimation, DetectionDrawer
+from src.services.vision import ChArUcoDetection, CircleDetection, CameraConnection, PoseEstimation, DetectionDrawer
 from src.services.data.signals import SearchSignalManager, DrawViewSignalManager, SimulationSignalManager
 from src.services.data.timers import FrameCounter
 
@@ -67,7 +67,7 @@ class CameraWorker(QThread):
             "resolution", {"width": 1280, "height": 720}).values())[:2]
 
         self.thread_pool = QThreadPool().globalInstance()
-        self.camera = CameraControl(
+        self.camera = CameraConnection(
             camera_index, self.camera_config, is_calibration)
 
         self.search_manager = SearchSignalManager().get_instance()
@@ -106,7 +106,8 @@ class CameraWorker(QThread):
                     self.frame_id += 1
                     if charuco_state:
                         self.thread_pool.start(ChArUcoDetection(
-                            frame_umat, self.frame_id, self.on_charuco_done, self._emit_error))
+                            frame_umat, self.frame_id, self.camera_matrix, self.dist_coeff,
+                            self.on_charuco_done, self._emit_error))
                     if circle_state:
                         self.thread_pool.start(CircleDetection(
                             frame_umat, self.frame_id, self.last_roi, self.hsv_colors,
@@ -115,8 +116,10 @@ class CameraWorker(QThread):
                     self._process_frame = False
 
                 view = self.draw_view_manager.get_state()
-                self.thread_pool.start(DetectionDrawer(frame, self.results.get(
-                    self.frame_id-1), view, self.custom_origin, self._emit_frame_ready, self._emit_error))
+                self.thread_pool.start(DetectionDrawer(
+                    frame, self.results.get(
+                        self.frame_id-1), view, self.custom_origin,
+                    self.frame_size[0], self._emit_frame_ready, self._emit_error))
                 self.frame_counter.tick()
 
         except (OSError, RuntimeError) as e:
@@ -243,7 +246,7 @@ class CameraWorker(QThread):
         last_entry = self.results.get(fid - 1)
         if last_entry and last_entry.get("poses") is None:
             has_charuco_or_circles = (last_entry.get("charuco") is not None or
-                                       last_entry.get("circles") is not None)
+                                      last_entry.get("circles") is not None)
             if has_charuco_or_circles:
                 self.sim_signal_manager.sphere_pos.emit({})
         if not entry:

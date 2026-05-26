@@ -16,7 +16,7 @@ from PyQt6.QtCore import QObject, pyqtSlot
 from src.features.camera import CameraController
 from src.features.color.color_worker import ColorWorker
 from src.features.color.color_widget import ColorWidget
-from src.services.data import config_manager as cfg
+from src.services.data.signals import ConfigSignalManager
 
 
 class ColorController(QObject):
@@ -56,7 +56,8 @@ class ColorController(QObject):
         """
         Carga los valores HSV iniciales desde el archivo de configuracion camera.json.
         """
-        hsv_config = cfg.get("camera.json", "hsv_colors", default={})
+        config_manager = ConfigSignalManager.get_instance()
+        hsv_config = config_manager.get_param("camera.json", "hsv_colors", default={})
         if hsv_config:
             # Usar el primer color disponible como default para inicializar sliders
             color = self._widget.get_selected_color()
@@ -148,7 +149,8 @@ class ColorController(QObject):
         Args:
             color (str): Nombre del color seleccionado (e.g. 'azul').
         """
-        hsv_config = cfg.get("camera.json", "hsv_colors", default={})
+        config_manager = ConfigSignalManager.get_instance()
+        hsv_config = config_manager.get_param("camera.json", "hsv_colors", default={})
         if color in hsv_config:
             values = hsv_config[color]
             order = ["h_min", "s_min", "v_min", "h_max", "s_max", "v_max"]
@@ -165,7 +167,7 @@ class ColorController(QObject):
         order = ["h_min", "s_min", "v_min", "h_max", "s_max", "v_max"]
         values = [ranges[key] for key in order]
 
-        cfg.set_value("camera.json", "hsv_colors", color, value=values)
+        ConfigSignalManager.get_instance().request_change("camera.json", "hsv_colors", color, value=values)
         print(f"Configuración guardada para {color}: {values}")
 
     def cleanup(self):

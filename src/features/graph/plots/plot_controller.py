@@ -16,8 +16,7 @@ from PyQt6.QtCore import QObject, pyqtSlot, Qt
 from PyQt6.QtWidgets import QMenu, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QPushButton, QFileDialog, QMessageBox
 from src.features.graph.plots.plot_widget import PlotWidget
 from src.features.graph.plots.plot_worker import PlotWorker
-from src.services.data import config_manager as cfg
-from src.services.styling.theme_manger import ThemeSignalManager
+from src.services.data.signals import ConfigSignalManager, ThemeSignalManager
 
 
 class PlotController(QObject):
@@ -288,10 +287,11 @@ class PlotController(QObject):
             index (int): Indice del parametro en la configuracion.
             value: Valor a guardar (escala o booleano de grid).
         """
-        config = cfg.get("graphics.json", "grid", self._graph_type)
+        config_manager = ConfigSignalManager.get_instance()
+        config = config_manager.get_param("graphics.json", "grid", self._graph_type)
         if config and len(config) > self._graph_index:
             config[self._graph_index][index] = value
-            cfg.set_value("graphics.json", "grid", self._graph_type, value=config)
+            config_manager.request_change("graphics.json", "grid", self._graph_type, value=config)
 
     def set_paused(self, paused: bool):
         """

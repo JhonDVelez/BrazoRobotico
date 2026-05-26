@@ -17,7 +17,7 @@ from src.features.camera import CameraController
 from src.features.calibration.calibration_worker import CalibrationWorker
 from src.features.calibration.calibration_widget import CalibrationWidget
 from src.services.ui.calibration_result_dialog import CalibrationResultDialog
-from src.services.data import config_manager as cfg
+from src.services.data.signals import ConfigSignalManager
 
 
 class CalibrationController(QObject):
@@ -115,8 +115,9 @@ class CalibrationController(QObject):
             error (float): Error de reproyeccion final.
         """
         # Guardar en configuracion
-        cfg.set_value("camera.json", "matrix", value=matrix.tolist())
-        cfg.set_value("camera.json", "distortion coefficients", value=dist.tolist())
+        config_manager = ConfigSignalManager.get_instance()
+        config_manager.request_change("camera.json", "matrix", value=matrix.tolist())
+        config_manager.request_change("camera.json", "distortion coefficients", value=dist.tolist())
 
         # Mostrar dialogo de resultados
         dialog = CalibrationResultDialog(self._widget, matrix, dist, error)

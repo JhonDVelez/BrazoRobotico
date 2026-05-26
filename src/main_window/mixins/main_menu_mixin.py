@@ -15,8 +15,7 @@ from serial.tools import list_ports
 from src.services.robot import RobotController
 from src.services.data import DataController
 from src.services.data.timers import FrameCounter
-from src.services.data import config_manager as cfg
-from src.services.data.signals import ThemeSignalManager
+from src.services.data.signals import ThemeSignalManager, ConfigSignalManager
 
 
 class MainMenuMixin:
@@ -41,7 +40,8 @@ class MainMenuMixin:
         Lee la configuracion guardada en settings.json para inicializar
         el estado de las acciones checkables.
         """
-        settings = cfg.get("settings.json")
+        config_manager = ConfigSignalManager.get_instance()
+        settings = config_manager.get_param("settings.json", default={})
 
         mapping_mode = {
             "mode": {
@@ -137,8 +137,10 @@ class MainMenuMixin:
         self.camera_interval_group = QActionGroup(self)
         self.camera_interval_group.setExclusive(True)
         presets_interval = [1, 2, 4, 10]
-        pre_interval = cfg.get(
-            "settings.json", "camera", "view", "interval")
+        
+        pre_interval = ConfigSignalManager.get_instance().get_param(
+            "settings.json", "camera", "view", "interval", default=4)
+        
         for preset in presets_interval:
             action = self.camera_interval_submenu.addAction(f"{preset}")
             action.setCheckable(True)

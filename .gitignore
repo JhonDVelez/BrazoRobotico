@@ -3,6 +3,8 @@
 **/config
 **/.opencode
 __pycache__/
+graphify-out/
+.graphify_*
 *.py[cod]
 *$py.class
 *.pylintrc

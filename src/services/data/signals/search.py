@@ -6,7 +6,7 @@ esferas de color, sincronizado con el archivo de configuracion.
 """
 
 import threading
-from .. import config_manager as cfg
+from .config import ConfigSignalManager
 
 
 class SearchSignalManager:
@@ -40,9 +40,10 @@ class SearchSignalManager:
         Inicializa el estado desde la configuracion persistente.
         """
         self._lock = threading.Lock()
-        state = cfg.get("settings.json", "camera")
-        self._charuco = state.get("charuco")
-        self._circle = state.get("circle")
+        config_manager = ConfigSignalManager.get_instance()
+        state = config_manager.get_param("settings.json", "camera", default={})
+        self._charuco = state.get("charuco", False)
+        self._circle = state.get("circle", False)
 
     def set_charuco(self, checked: bool):
         """
@@ -53,12 +54,12 @@ class SearchSignalManager:
         """
         with self._lock:
             self._charuco = checked
-            cfg.set_value("settings.json", "camera", "charuco", value=checked)
+            ConfigSignalManager.get_instance().request_change("settings.json", "camera", "charuco", value=checked)
 
     def set_circle(self, checked: bool):
         with self._lock:
             self._circle = checked
-            cfg.set_value("settings.json", "camera", "circle", value=checked)
+            ConfigSignalManager.get_instance().request_change("settings.json", "camera", "circle", value=checked)
 
     def get_state(self):
         """

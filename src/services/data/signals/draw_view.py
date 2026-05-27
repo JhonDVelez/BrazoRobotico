@@ -20,6 +20,8 @@ class DrawViewSignalManager:
     """
     _instance = None
     _lock_instance = threading.Lock()
+    _charuco = False
+    _circle = False
 
     @classmethod
     def get_instance(cls):
@@ -41,7 +43,8 @@ class DrawViewSignalManager:
         """
         self._lock = threading.Lock()
         config_manager = ConfigSignalManager.get_instance()
-        state = config_manager.get_param("settings.json", "camera", "view", default={})
+        state = config_manager.get_param(
+            "settings.json", "camera", "view", default={})
         self._charuco = state.get("charuco", False)
         self._circle = state.get("circle", False)
 
@@ -55,7 +58,7 @@ class DrawViewSignalManager:
         with self._lock:
             self._charuco = checked
             ConfigSignalManager.get_instance().request_change("settings.json", "camera",
-                          "view", "charuco", value=checked)
+                                                              "view", "charuco", value=checked)
 
     def set_circle(self, checked: bool):
         """
@@ -67,7 +70,7 @@ class DrawViewSignalManager:
         with self._lock:
             self._circle = checked
             ConfigSignalManager.get_instance().request_change("settings.json", "camera",
-                          "view", "circle", value=checked)
+                                                              "view", "circle", value=checked)
 
     def get_state(self):
         """

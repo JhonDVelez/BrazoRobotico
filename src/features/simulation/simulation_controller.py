@@ -12,11 +12,11 @@ Conexiones:
 """
 
 from PyQt6.QtCore import pyqtSlot, QObject
-from src.services.data import DataController
 from src.services.data.enums import Units, Modes, Domains
 from src.services.simulation import PhysicsWorker
 from src.services.styling.theme_manger import ThemeSignalManager
 from src.services.data.signals import SimulationSignalManager
+from src.services.data.timers import GlobalTimer
 from src.features.simulation.simulation_worker import SimulationWorker
 from src.features.simulation.simulation_widget import SimulationWidget
 
@@ -54,15 +54,31 @@ class SimulationController(QObject):
         self.theme_manager.theme_changed.connect(self.change_theme)
         self.simulation_widget.theme_needed.connect(self._apply_root_theme)
 
-        # Controlador de datos especifico para el dominio de simulacion
-        self.controller = DataController(
-            Modes.SLIDERS, Units.RAD, Domains.SIMULATION)
+        # Conexiones de señales globales (Escuchar al DataController)
+        self.simulation_signal_manager = SimulationSignalManager.get_instance()
+        self.simulation_signal_manager.update_pybullet_signal.connect(
+            self.physics_worker.update_target)
+        
+        # Conexiones de feedback local del worker hacia el bus global
+        self.physics_worker.model_updated.connect(
+            self.simulation_signal_manager.model_position_signal.emit)
+        self.physics_worker.sensor_updated.connect(
+            self.simulation_signal_manager.sensor_position_signal.emit)
 
-        # Conexiones de señales globales
-        self.signal_manager = SimulationSignalManager.get_instance()
-        self.signal_manager.update_robot_signal.connect(self.update_simulation)
-        self.signal_manager.sphere_pos.connect(
-            self.update_sphere_pose_simulation)
+        # Orquestación de Timers para el worker
+        self.global_timer = GlobalTimer.get_instance()
+        self.global_timer.update_tick.connect(self.physics_worker.update_simulation)
+        self.global_timer.model_tick.connect(self.physics_worker.update_3d_model)
+        self.global_timer.sync_simulation_tick.connect(self.physics_worker.update_graphs)
+
+        self.simulation_signal_manager.update_robot_signal.connect(
+            self.update_simulation)
+        self.simulation_signal_manager.sphere_pos_from_camera.connect(
+            self.update_sphere_pose_from_camera)
+        self.simulation_signal_manager.sphere_pos_from_pybullet.connect(
+            self.update_sphere_pose_from_pybullet)
+        self.simulation_signal_manager.release_sphere.connect(
+            self.physics_worker.release_sphere)
 
     def init_pybullet_processing(self, root_object):
         """
@@ -121,13 +137,17 @@ class SimulationController(QObject):
             self.simulation_worker.update_simulation(joint_positions)
 
     @pyqtSlot(dict)
-    def update_sphere_pose_simulation(self, poses: dict):
+    def update_sphere_pose_from_camera(self, poses: dict):
         """
         Slot para actualizar las posiciones 3D de las esferas detectadas.
 
         Args:
             poses (dict): Coordenadas cartesianas de las esferas.
         """
+        if self.simulation_worker is not None:
+            self.physics_worker.update_sphere_initial_positions(poses)
+
+    def update_sphere_pose_from_pybullet(self, poses: dict):
         if self.simulation_worker is not None:
             self.simulation_worker.update_sphere_pose_simulation(poses)
 

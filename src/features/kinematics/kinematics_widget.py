@@ -53,7 +53,7 @@ class KinematicsWidget(QWidget):
         self._spins = {}
 
         # Configuracion de ejes: (Etiqueta, Minimo, Maximo)
-        axes_config = [("X", 0, 270), ("Y", 0, 200), ("Z", 0, 520)]
+        axes_config = [("X", 0, 200), ("Y", -200, 200), ("Z", 0, 520)]
         self._keys = ["x", "y", "z"]
 
         for i, (text, s_min, s_max) in enumerate(axes_config):
@@ -62,7 +62,8 @@ class KinematicsWidget(QWidget):
             self._labels[self._keys[i]] = label
 
             spin = QSpinBox(self.holder_widget)
-            spin.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
+            spin.setSizePolicy(QSizePolicy(
+                QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
             spin.setMaximumSize(QSize(200, 16777215))
             spin.setRange(s_min, s_max)
             self._spins[self._keys[i]] = spin

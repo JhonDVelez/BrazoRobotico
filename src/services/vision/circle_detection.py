@@ -125,15 +125,14 @@ class CircleDetection(QRunnable):
                             circle = cv2.fitEllipse(largest_contour)
 
                         resultados[nombre_color] = {
-                            "model": "circle",
                             "circle": circle,
                             "center": center,
-                            "circle_center": enclosing_center,
+                            # "circle_center": enclosing_center,
                             "radius": float(enclosing_radius),
-                            "area_radius": area_radius,
-                            "circularity": circularity,
-                            "area":   area,
-                            "contour": largest_contour
+                            # "area_radius": area_radius,
+                            # "circularity": circularity,
+                            # "area":   area,
+                            # "contour": largest_contour
                         }
             self.detection_callback(
                 self.frame_id, resultados if resultados else None)

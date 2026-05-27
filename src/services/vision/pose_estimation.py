@@ -88,8 +88,8 @@ class PoseEstimation(QRunnable):
 
                 final_poses[color_name] = p_final.flatten().tolist()
                 sphere_data["position"] = final_poses[color_name]
-                sphere_data["position_board"] = p_world.flatten().tolist()
-                sphere_data["position_camera"] = p_cam.flatten().tolist()
+                # sphere_data["position_board"] = p_world.flatten().tolist()
+                # sphere_data["position_camera"] = p_cam.flatten().tolist()
 
             if self.pose_callback is not None:
                 self.pose_callback(self.frame_id, final_poses)

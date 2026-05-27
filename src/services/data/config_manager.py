@@ -58,7 +58,8 @@ DEFAULTS: dict[str, dict] = {
         },
         "mode": {
             "sliders": True,
-            "kinematics": False
+            "kinematics": False,
+            "pick_place": False
         },
     },
     "camera.json": {

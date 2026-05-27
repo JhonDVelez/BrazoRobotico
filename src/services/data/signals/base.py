@@ -29,7 +29,7 @@ class _SignalManager(QObject):
     """
     get_data_signal = pyqtSignal()
     sensor_position_signal = pyqtSignal(list)
-    model_position_signal = pyqtSignal(list)
+    model_position_signal = pyqtSignal(list, dict)
     update_robot_signal = pyqtSignal(list)
     update_graph_signal = pyqtSignal(list)
     update_pybullet_signal = pyqtSignal(list)

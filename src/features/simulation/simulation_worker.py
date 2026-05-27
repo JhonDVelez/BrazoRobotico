@@ -86,11 +86,11 @@ class SimulationWorker(QThread):
         """
         for color, property_name in self.colors.items():
             if color in poses:
-                pose = poses.get(color)
+                pose = poses.get(color, {}).get('position', (0, 0, 0))
                 if pose is not None:
                     # Mapeo de coordenadas cartesianas al espacio local de la escena QML
                     self.root_object.setProperty(
-                        property_name, QVector3D(-pose[1]-100, 100, pose[0]))
+                        property_name, QVector3D(-pose[1], 100, pose[0]))
             else:
                 # Ocultar o resetear esferas no detectadas
                 self.root_object.setProperty(

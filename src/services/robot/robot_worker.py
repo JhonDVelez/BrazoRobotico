@@ -16,9 +16,6 @@ import time
 import queue
 import serial
 from PyQt6.QtCore import QThread, pyqtSignal
-from ..data.signals import PhysicalSignalManager
-from ..data.timers import GlobalTimer
-
 
 class RobotWorker(QThread):
     """
@@ -29,9 +26,11 @@ class RobotWorker(QThread):
 
     Attributes:
         data_received (pyqtSignal): Señal que envia (lista_posiciones, lista_temperaturas).
+        connection_status_changed (pyqtSignal): Señal que informa cambio en el estado serie.
     """
-    # Definimos señales para comunicar resultados hacia el Controller
+    # Definimos señales locales para el Controller
     data_received = pyqtSignal(list, list)
+    connection_status_changed = pyqtSignal(bool)
 
     def __init__(self, com: str, compensator=None):
         """
@@ -48,18 +47,15 @@ class RobotWorker(QThread):
         self._send_queue = queue.Queue()
         self._running = True
 
-        self._signal_manager = PhysicalSignalManager.get_instance()
-
         # Intentar abrir el puerto serial
         try:
             self._cm904 = serial.Serial(self._com, 9600, timeout=1)
-            self._signal_manager.is_connected = True
+            self.connection_status_changed.emit(True)
         except (serial.SerialException, PermissionError, OSError) as e:
             print(f"No se pudo abrir {self._com}: {e}")
             self._cm904 = None
-            self._signal_manager.is_connected = False
+            self.connection_status_changed.emit(False)
 
-        self._sync_timer = GlobalTimer.get_instance()
         self._recv_buffer = ""
         self._last_positions = [None] * 6
         self._last_temperaturas = [None] * 6
@@ -81,7 +77,7 @@ class RobotWorker(QThread):
         Returns:
             bool: True si esta conectado.
         """
-        return self._signal_manager.is_connected
+        return self._cm904 is not None and getattr(self._cm904, 'is_open', False)
 
     def get_last_positions(self) -> list:
         """
@@ -151,17 +147,17 @@ class RobotWorker(QThread):
         if self._cm904 is None or not getattr(self._cm904, 'is_open', False):
             try:
                 self._cm904 = serial.Serial(self._com, 9600, timeout=1)
-                self._signal_manager.is_connected = True
+                self.connection_status_changed.emit(True)
             except (serial.SerialException, PermissionError, OSError) as e:
                 print(f"No se pudo abrir {self._com} antes de enviar: {e}")
-                self._signal_manager.is_connected = False
+                self.connection_status_changed.emit(False)
                 return
 
         try:
             self._cm904.reset_input_buffer()
         except Exception as e:
             print(f"Error limpiando buffer: {e}")
-            self._signal_manager.is_connected = False
+            self.connection_status_changed.emit(False)
             self._cm904 = None
             return
 
@@ -173,7 +169,7 @@ class RobotWorker(QThread):
                 time.sleep(0.001)
         except (serial.SerialException, OSError) as e:
             print(f"Error al escribir en serial: {e}")
-            self._signal_manager.is_connected = False
+            self.connection_status_changed.emit(False)
             try:
                 if self._cm904:
                     self._cm904.close()
@@ -191,7 +187,7 @@ class RobotWorker(QThread):
                 try:
                     avail = self._cm904.in_waiting
                 except Exception:
-                    self._signal_manager.is_connected = False
+                    self.connection_status_changed.emit(False)
                     self._cm904 = None
                     return
                 if avail:
@@ -251,10 +247,7 @@ class RobotWorker(QThread):
                     except Exception:
                         pass
 
-            # Notificacion de nuevos datos
-            self._sync_timer.sync_simulation_tick.emit()
-            self._signal_manager.data_received.emit(
-                self._last_positions.copy(), self._last_temperaturas.copy())
+            # Notificacion de nuevos datos locales
             self.data_received.emit(
                 self._last_positions.copy(), self._last_temperaturas.copy())
 
@@ -271,6 +264,6 @@ class RobotWorker(QThread):
                 self._cm904.close()
         except Exception:
             pass
-        self._signal_manager.is_connected = False
+        self.connection_status_changed.emit(False)
         self.quit()
         self.wait()

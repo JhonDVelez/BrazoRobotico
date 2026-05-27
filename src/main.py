@@ -179,7 +179,7 @@ class CompletePreloader:
         )
 
         try:
-            p.connect(p.DIRECT)
+            p.connect(p.GUI)
             p.setGravity(0, 0, -9.81)
             p.setTimeStep(1./240.)
 
@@ -202,11 +202,12 @@ class CompletePreloader:
 
             robot_id = p.loadURDF(
                 self.urdf_path,
-                basePosition=[0, 0, 0],
-                baseOrientation=p.getQuaternionFromEuler([0, 0, 0]),
+                basePosition=[0, 0, -0.01],
+                baseOrientation=p.getQuaternionFromEuler([0, 0, 3.14159]),
                 useFixedBase=True,
                 flags=p.URDF_USE_INERTIA_FROM_FILE | p.URDF_ENABLE_CACHED_GRAPHICS_SHAPES
             )
+            p.setCollisionFilterGroupMask(robot_id, -1, 1, 1)
             p.stepSimulation()
 
             return robot_id
@@ -274,10 +275,12 @@ if __name__ == '__main__':
     app.processEvents()
 
     # Rutas
-    qml_path = os.path.join(os.path.dirname(__file__),
-                            "features", "simulation", "qml", "simulation.qml")
-    urdf_path = os.path.join(os.path.dirname(__file__),
-                             "services", "simulation", "urdf", 'openbot_v1.urdf')
+    QDir.addSearchPath(
+        "qml", f"{src_path}/resources/qml")
+    QDir.addSearchPath(
+        "pybullet", f"{src_path}/resources/pybullet/")
+    qml_path = QDir("qml:simulation.qml").path()
+    urdf_path = QDir("pybullet:/urdf/openbot_v1.urdf").path()
 
     if cv2.ocl.haveOpenCL():
         cv2.ocl.setUseOpenCL(True)

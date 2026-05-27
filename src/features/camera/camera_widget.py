@@ -38,7 +38,7 @@ class CameraWidget(QWidget):
     geometry_toggled = pyqtSignal()
     camera_changed = pyqtSignal(int)
 
-    def __init__(self, parent=None, camera_config: dict = {"charuco": False, "circle": False}):
+    def __init__(self, parent=None, camera_config: dict = {}, view_config: dict = {"charuco": False, "circle": False}):
         """
         Inicializa el widget de camara con la configuracion de vista inicial.
 
@@ -47,8 +47,12 @@ class CameraWidget(QWidget):
             camera_config (dict): Configuracion inicial de visibilidad de overlays.
         """
         super().__init__(parent)
-        self.charuco_view = camera_config.get("charuco", False)
-        self.sphere_view = camera_config.get("circle", False)
+        self.camera_config = camera_config
+        window_config = self.camera_config.get("window", {})
+        self.orig_w = window_config.get("width", 1280)
+        self.orig_h = window_config.get("height", 720)
+        self.charuco_view = view_config.get("charuco", False)
+        self.sphere_view = view_config.get("circle", False)
         self.__setup_ui()
         self.image_handler = ImageHandler(
             self.image_label, "img:camera_d.svg", "img:camera_l.svg"
@@ -111,7 +115,7 @@ class CameraWidget(QWidget):
         self.show_grid_icon = QIcon('icons:gridOn.png')
         self.hide_grid_icon = QIcon('icons:gridOff.png')
         self.grid_button.setIcon(
-            self.show_grid_icon if self.sphere_view else self.hide_grid_icon)
+            self.hide_grid_icon if self.charuco_view else self.show_grid_icon)
 
         self.geometry_button = QPushButton()
         self.geometry_button.setFixedSize(30, 30)
@@ -121,7 +125,7 @@ class CameraWidget(QWidget):
         self.show_circle_icon = QIcon('icons:geometryOn.png')
         self.hide_circle_icon = QIcon('icons:geometryOff.png')
         self.geometry_button.setIcon(
-            self.show_circle_icon if self.charuco_view else self.hide_circle_icon)
+            self.hide_circle_icon if self.sphere_view else self.show_circle_icon)
 
         camera_buttons_layout.addWidget(self.video_button)
         camera_buttons_layout.addWidget(self.grid_button)
@@ -231,6 +235,26 @@ class CameraWidget(QWidget):
             pixmap = ImageHandler.numpy_to_qpixmap(frame) if isinstance(
                 frame, np.ndarray) else ImageHandler.umat_to_pixmap(frame)
             self.image_handler.set_video_image(pixmap)
+
+    def get_pixmap_geometry(self):
+        """
+        Retorna la geometria visible del pixmap para mapear clics externos.
+
+        Returns:
+            tuple: Offsets, tamano visual y tamano del pixmap escalado.
+        """
+        pixmap = self.image_label.pixmap()
+        if not pixmap or pixmap.isNull():
+            return None, None, None, None, None, None
+        label_size = self.image_label.size()
+        pix_size = pixmap.size()
+        if pix_size.width() == 0 or pix_size.height() == 0:
+            return None, None, None, None, None, None
+        scaled = pix_size.scaled(
+            label_size, Qt.AspectRatioMode.KeepAspectRatio)
+        x_off = (label_size.width() - scaled.width()) // 2
+        y_off = (label_size.height() - scaled.height()) // 2
+        return x_off, y_off, scaled.width(), scaled.height(), pixmap.width(), pixmap.height()
 
     def resizeEvent(self, event):
         """

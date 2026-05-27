@@ -12,10 +12,12 @@ Conexiones:
 """
 
 import numpy as np
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 from src.features.kinematics.kinematics_widget import KinematicsWidget
 from src.features.kinematics.kinematics_worker import KinematicsWorker
-from src.services.data.signals import PhysicalSignalManager, SimulationSignalManager
+from src.services.data.signals import (
+    PhysicalSignalManager, PickPlaceSignalManager, SimulationSignalManager
+)
 from src.services.data.enums import Modes
 from src.services.data.utils import rad_to_deg
 
@@ -58,12 +60,18 @@ class KinematicsController(QObject):
         self.kinematics_widget.send_clicked.connect(self.execute_kinematics)
 
         # Telemetria -> Worker (Retroalimentacion para control de lazo cerrado)
+        # El controlador actúa como puente hacia el worker
         PhysicalSignalManager.get_instance().data_received.connect(
             self.kinematics_worker.update_sensor_data)
 
         # Worker -> Sistema (Publicacion de comandos calculados)
         self.kinematics_worker.commands_ready.connect(
             self._update_shared_status)
+
+        # Pick and Place -> Cinematica (calculo aislado en este feature)
+        PickPlaceSignalManager.get_instance().inverse_kinematics_requested.connect(
+            self._on_inverse_kinematics_requested
+        )
 
     def execute_kinematics(self):
         """
@@ -72,9 +80,9 @@ class KinematicsController(QObject):
         Cambia el modo de operacion a KINEMATIC y establece el objetivo
         en el worker para el seguimiento de la trayectoria.
         """
-        # Cambiar modo de operación global para que el sistema ignore los Sliders manuales
-        PhysicalSignalManager.get_instance().change_mode_signal.emit(Modes.KINEMATIC)
-        SimulationSignalManager.get_instance().change_mode_signal.emit(Modes.KINEMATIC)
+        # Cambiar modo de operación global (bus de UI)
+        SimulationSignalManager.get_instance().change_mode_signal.emit(
+            Modes.KINEMATIC)
 
         coords = self.kinematics_widget.get_coordinates()
 
@@ -83,10 +91,8 @@ class KinematicsController(QObject):
             coords['x'], coords['y'], coords['z'])
 
         # 2. Estimación inicial rápida mediante CI iterativa para actualizacion inmediata
-        best_q, _ = self.kinematics_worker.ci(
-            coords['x'], coords['y'], coords['z'], 0)
-        q_deg = rad_to_deg(best_q.flatten())
 
+        _, q_deg = self.execute_inverse_kinematics(coords)
         # Mapeo a formato de servos (0-300) con offsets y signos correspondientes
         initial_status = [
             np.abs(q_deg[0] + 150.0),
@@ -98,6 +104,48 @@ class KinematicsController(QObject):
         ]
         self._update_shared_status(initial_status)
 
+    def execute_inverse_kinematics(self, coords: dict):
+        """
+        Calcula cinematica inversa para coordenadas cartesianas.
+
+        Args:
+            coords (dict): Coordenadas objetivo con claves `x`, `y` y `z`.
+
+        Returns:
+            tuple: Angulos articulares en radianes y grados.
+        """
+        q_rad, _ = self.kinematics_worker.ci(
+            coords['x']+100, coords['y'], coords['z'], 0)
+        q_deg = rad_to_deg(q_rad.flatten())
+        return q_rad, q_deg
+
+    @pyqtSlot(dict)
+    def _on_inverse_kinematics_requested(self, request: dict):
+        """
+        Atiende solicitudes de cinematica inversa del flujo Pick and Place.
+
+        Args:
+            request (dict): Contiene `color`, `coords` y `gripper_degrees`.
+        """
+        coords = request.get('coords')
+        if not coords:
+            return
+
+        _, q_deg = self.execute_inverse_kinematics(coords)
+        gripper_degrees = request.get('gripper_degrees', 0)
+        target = [
+            np.abs(q_deg[0] + 150.0),
+            np.abs(q_deg[1] - 150.0),
+            np.abs(q_deg[2] - 150.0),
+            150.0,
+            np.abs(q_deg[3] + 150.0),
+            float(gripper_degrees + 150.0)
+        ]
+        PickPlaceSignalManager.get_instance().inverse_kinematics_ready.emit({
+            'color': request.get('color'),
+            'target': target
+        })
+
     def _update_shared_status(self, status):
         """
         Actualiza el estado interno y notifica a los suscriptores del sistema.
@@ -107,8 +155,7 @@ class KinematicsController(QObject):
         """
         KinematicsController.kinematics_status = status
         self.status_updated.emit(status)
-        # Notificar al DataFlow (Simulacion y Robot Fisico) de forma reactiva
-        PhysicalSignalManager.get_instance().update_target_signal.emit(status)
+        # Notificar el nuevo objetivo al bus global. El DataController orquestará el resto.
         SimulationSignalManager.get_instance().update_target_signal.emit(status)
 
     @classmethod

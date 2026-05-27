@@ -154,7 +154,7 @@ class DetectionDrawer(QRunnable):
         """
         for color, datos in sphere_results.items():
             c = datos.get("center")
-            radius = datos.get("radius") or datos.get("area_radius")
+            radius = datos.get("radius")
             contour = datos.get("contour")
 
             if c is None or radius is None:

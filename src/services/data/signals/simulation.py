@@ -20,7 +20,9 @@ class SimulationSignalManager(_SignalManager):
         sphere_pos: Emite un diccionario {color: [x, y, z]}.
     """
     _instance = None
-    sphere_pos = pyqtSignal(dict)
+    sphere_pos_from_camera = pyqtSignal(dict)
+    sphere_pos_from_pybullet = pyqtSignal(dict)
+    release_sphere = pyqtSignal(str)
 
     @classmethod
     def get_instance(cls):

@@ -15,10 +15,7 @@ Conexiones:
 """
 
 from PyQt6.QtCore import QThread, pyqtSignal, pyqtSlot, QElapsedTimer, QTimer
-from src.services.data.signals import SimulationSignalManager
 from src.services.simulation.physics_pybullet import RobotArmPhysics
-from src.services.data.timers import GlobalTimer
-
 
 class PhysicsWorker(QThread):
     """Worker encargado de actualizar la simulacion de PyBullet en segundo plano.
@@ -30,6 +27,11 @@ class PhysicsWorker(QThread):
         robot_id: Identificador del robot cargado en PyBullet.
     """
 
+    # Señales locales para comunicación con el controlador
+    # (Evita el uso de SignalManagers globales en el worker)
+    model_updated = pyqtSignal(list, dict)
+    sensor_updated = pyqtSignal(list)
+
     def __init__(self, robot_id) -> None:
         super().__init__()
         self.target_position = [0, 0, 0, 0, 0, 0]
@@ -39,14 +41,7 @@ class PhysicsWorker(QThread):
         self._running = False
         self._paused = False
         self.max_velocity = 1.2
-        self.signal_manager = SimulationSignalManager.get_instance()
-        self.signal_manager.update_pybullet_signal.connect(self.update_target)
-        self.sync_timer = GlobalTimer.get_instance()
-        self.sync_timer.update_tick.connect(self.update_simulation)
-        self.sync_timer.model_tick.connect(self.update_3d_model)
-        self.sync_timer.sync_simulation_tick.connect(self.update_graphs)
-        self.sync_timer.start()
-
+        
         self.physic = RobotArmPhysics()
         self.physic.load_models(robot_id)
 
@@ -93,7 +88,11 @@ class PhysicsWorker(QThread):
                     self.physic.set_joint_positions(
                         self.target_position, self.max_velocity)
                     self.target_position_prev = self.target_position
-                if any(abs(x - y) >= 0.0005 for x, y in zip(self.target_position, self.physic.get_joint_positions())):
+                is_moving = any(
+                    abs(x - y) >= 0.0005
+                    for x, y in zip(self.target_position, self.physic.get_joint_positions())
+                )
+                if is_moving or self.physic.has_released_spheres():
                     self.physic.step_simulation()
 
     @pyqtSlot()
@@ -103,8 +102,8 @@ class PhysicsWorker(QThread):
         Emite las posiciones articulares actuales al modelo 3D de la interfaz.
         """
         if self._running:
-            self.signal_manager.model_position_signal.emit(
-                self.physic.get_joint_positions())
+            self.model_updated.emit(
+                self.physic.get_joint_positions(), self.physic.get_sphere_position())
 
     @pyqtSlot()
     def update_graphs(self):
@@ -114,7 +113,7 @@ class PhysicsWorker(QThread):
         sync_simulation_tick de GlobalTimer.
         """
         if self._running:
-            self.signal_manager.sensor_position_signal.emit(
+            self.sensor_updated.emit(
                 self.physic.get_joint_positions())
 
     @pyqtSlot(list)
@@ -127,8 +126,21 @@ class PhysicsWorker(QThread):
         Args:
             target_position (list): Lista de 6 posiciones objetivo en radianes.
         """
-        self.signal_manager.model_position_signal.emit(
-            self.physic.get_joint_positions())
+        self.model_updated.emit(
+            self.physic.get_joint_positions(), self.physic.get_sphere_position())
         self.target_position = [
             pos - 2.617994 for pos in target_position]
         self.update_simulation()
+
+    def update_sphere_initial_positions(self, poses: dict):
+        self.physic.update_spheres(poses)
+
+    @pyqtSlot(str)
+    def release_sphere(self, color: str):
+        """
+        Libera una esfera para que PyBullet deje de recibir poses de camara.
+
+        Args:
+            color (str): Identificador de la esfera seleccionada.
+        """
+        self.physic.release_sphere(color)

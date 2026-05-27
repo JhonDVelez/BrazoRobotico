@@ -51,6 +51,9 @@ class MainMenuMixin:
                 "kinematics": ("kinematics_action", "Cinemática",
                                "Cinemática", "Ctrl+s",
                                "Mostrar/Ocultar controles de cinematica", True),
+                "pick_place": ("pick_place_action", "Pick and Place",
+                               "Pick and Place", "Ctrl+d",
+                               "Mostrar/Ocultar controles de pick and place", True),
             }
         }
 
@@ -137,10 +140,10 @@ class MainMenuMixin:
         self.camera_interval_group = QActionGroup(self)
         self.camera_interval_group.setExclusive(True)
         presets_interval = [1, 2, 4, 10]
-        
+
         pre_interval = ConfigSignalManager.get_instance().get_param(
             "settings.json", "camera", "view", "interval", default=4)
-        
+
         for preset in presets_interval:
             action = self.camera_interval_submenu.addAction(f"{preset}")
             action.setCheckable(True)
@@ -152,8 +155,14 @@ class MainMenuMixin:
         self.camera_interval_submenu.setEnabled(False)
 
         self.mode_menu = self.menu_bar.addMenu("&Modo")
+        self.mode_group = QActionGroup(self.mode_menu)
         self.mode_menu.addAction(self.sliders_action)
         self.mode_menu.addAction(self.kinematics_action)
+        self.mode_menu.addAction(self.pick_place_action)
+        self.mode_group.addAction(self.sliders_action)
+        self.mode_group.addAction(self.kinematics_action)
+        self.mode_group.addAction(self.pick_place_action)
+        self.mode_group.setExclusive(True)
 
         self.simulation_menu = self.menu_bar.addMenu("&Simulación")
         self.simulation_menu.addAction(self.simulation_action)

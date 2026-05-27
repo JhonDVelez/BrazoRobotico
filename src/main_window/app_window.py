@@ -49,7 +49,9 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
             self.config_manager.set_all_config(filename, data)
         self.config_manager.change_requested.connect(
             self._on_config_change_requested)
-        DataController._config_initialized = True
+        
+        # Orquestador Central de Datos e Inter-Controladores
+        self.data_controller = DataController()
 
         self.preloaded_data = quick3d
         self.robot_id = robot_id
@@ -108,17 +110,19 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         # Cargar configuracion de visibilidad de paneles desde archivo
         settings = self.config_manager.get_param("settings.json")
         content = settings.get("content", {})
+        mode = settings.get('mode', {})
         mapping_content = {
-            "camera": (self.cameraBox, self.camera_action),
-            "model": (self.modelBox, self.model_action),
-            "graphs": (self.graphsBox, self.graphs_action),
-            "controls": (self.controlsBox, self.controls_action),
+            "camera": (self.cameraBox, self.camera_action, True),
+            "model": (self.modelBox, self.model_action, True),
+            "graphs": (self.graphsBox, self.graphs_action, True),
+            "controls": (self.controlsBox, self.controls_action, not mode.get("pick_place", False)),
         }
 
-        for key, (widget, action) in mapping_content.items():
+        for key, (widget, action, enable) in mapping_content.items():
             if key in content:
                 widget.setVisible(bool(content[key]))
                 action.setChecked(bool(content[key]))
+                action.setEnabled(bool(enable))
 
         # Cargar configuracion de busqueda visual
         camera = settings.get("camera", {})
@@ -138,7 +142,7 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
             'sliders': self.sliders_controller.get_widget(),
             'kinematics': self.kinematics_controller.get_widget()
         }
-        mode = settings.get('mode', {})
+
         for key, widget in mapping_mode.items():
             if key in mode:
                 state = bool(mode[key])
@@ -223,6 +227,9 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         if hasattr(self, "kinematics_action"):
             self.kinematics_action.toggled.connect(
                 self.toggle_kinematics_controls)
+        if hasattr(self, "pick_place_action"):
+            self.pick_place_action.toggled.connect(
+                self.toggle_pick_place_controls)
 
         # Sincronizacion Kinematics -> Sliders
         if hasattr(self, 'kinematics_controller') and hasattr(self, 'sliders_controller'):

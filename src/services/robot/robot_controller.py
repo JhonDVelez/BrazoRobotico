@@ -33,6 +33,22 @@ class RobotController(QObject):
         self._worker = RobotWorker(com, self._compensator)
         self._signal_manager = PhysicalSignalManager.get_instance()
 
+        # Conexiones Locales (Worker -> Controller)
+        self._worker.data_received.connect(self._on_data_received)
+        self._worker.connection_status_changed.connect(
+            self._on_connection_changed)
+
+        # Conexiones Globales (SignalManager -> Controller)
+        self._signal_manager.send_to_robot.connect(self.move_to)
+
+    def _on_data_received(self, positions, temperatures):
+        """Re-emite datos locales al bus global."""
+        self._signal_manager.data_received.emit(positions, temperatures)
+
+    def _on_connection_changed(self, connected):
+        """Actualiza el estado de conexión en el bus global."""
+        self._signal_manager.is_connected = connected
+
     # --- Getters ---
 
     def get_worker(self) -> RobotWorker:

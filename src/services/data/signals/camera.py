@@ -22,7 +22,7 @@ class CameraSignalManager(QObject):
     available_cameras = pyqtSignal(list)
     charuco_done = pyqtSignal(int, object)
     circles_done = pyqtSignal(int, object)
-    fusion_done = pyqtSignal(int, object)
+    pose_done = pyqtSignal(int, object)
 
     _instance = None
 

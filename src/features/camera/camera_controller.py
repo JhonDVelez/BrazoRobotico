@@ -9,13 +9,18 @@ Conexiones:
     - Escucha eventos de `CameraWidget` (toggle video, grid, etc.).
     - Gestiona el ciclo de vida del `CameraWorker`.
     - Sincroniza estados de dibujo con `DrawViewSignalManager`.
+    - Envía datos de posición de las esferas al sistema de pick and place
     - Actualiza el estado de conexion en el componente padre.
 """
 
 from PyQt6.QtCore import pyqtSlot, pyqtSignal, QObject
 from src.features.camera.camera_widget import CameraWidget
 from src.features.camera.camera_worker import CameraWorker
-from src.services.data.signals import ThemeSignalManager, DrawViewSignalManager, CameraSignalManager, ConfigSignalManager
+from src.services.data.signals import (
+    ThemeSignalManager, DrawViewSignalManager,
+    CameraSignalManager, ConfigSignalManager,
+    PickPlaceSignalManager, SimulationSignalManager
+)
 
 
 class CameraController(QObject):
@@ -49,13 +54,17 @@ class CameraController(QObject):
         self.worker = None
 
         self.config_manager = ConfigSignalManager.get_instance()
-        self.camera_config = self.config_manager.get_param("camera.json", default={})
-        init_view_config = self.camera_config.get("view", {})
-        self.theme_manager = ThemeSignalManager.get_instance()
-        self.draw_manager = DrawViewSignalManager.get_instance()
-        self.camera_manager = CameraSignalManager.get_instance()
+        self.camera_config = self.config_manager.get_param(
+            "camera.json", default={})
+        init_view_config = self.config_manager.get_param(
+            "settings.json", "camera", "view", default={})
+        self.theme_signal_manager = ThemeSignalManager.get_instance()
+        self.draw_signal_manager = DrawViewSignalManager.get_instance()
+        self.camera_signal_manager = CameraSignalManager.get_instance()
+        self.simuation_signal_manager = SimulationSignalManager().get_instance()
+        self.pick_place_signal_manager = PickPlaceSignalManager().get_instance()
 
-        self.view = CameraWidget(parent, init_view_config)
+        self.view = CameraWidget(parent, self.camera_config, init_view_config)
         self._setup_connections()
 
     def _setup_connections(self):
@@ -67,9 +76,9 @@ class CameraController(QObject):
         self.view.geometry_toggled.connect(self.toggle_geometry)
         self.view.camera_changed.connect(self._on_camera_changed)
 
-        self.theme_manager.theme_changed.connect(
+        self.theme_signal_manager.theme_changed.connect(
             self.view.get_image_handler().update_theme)
-        self.camera_manager.available_cameras.connect(
+        self.camera_signal_manager.available_cameras.connect(
             self.view.set_available_cameras)
 
     def _on_camera_changed(self, index):
@@ -87,8 +96,8 @@ class CameraController(QObject):
         """
         Alterna la visibilidad de la cuadricula (grid) de calibracion.
         """
-        grid_enabled = not self.draw_manager.get_state()[0]
-        self.draw_manager.set_charuco(grid_enabled)
+        grid_enabled = not self.draw_signal_manager.get_state()[0]
+        self.draw_signal_manager.set_charuco(grid_enabled)
         self.view.grid_button.setIcon(
             self.view.hide_grid_icon if grid_enabled else self.view.show_grid_icon)
 
@@ -96,8 +105,8 @@ class CameraController(QObject):
         """
         Alterna la visibilidad de las geometrias (esferas) detectadas.
         """
-        circle_enabled = not self.draw_manager.get_state()[1]
-        self.draw_manager.set_circle(circle_enabled)
+        circle_enabled = not self.draw_signal_manager.get_state()[1]
+        self.draw_signal_manager.set_circle(circle_enabled)
         self.view.geometry_button.setIcon(
             self.view.hide_circle_icon if circle_enabled else self.view.show_circle_icon)
 
@@ -126,10 +135,12 @@ class CameraController(QObject):
             return
 
         try:
-            self.camera_config = self.config_manager.get_param("camera.json", default={})
+            self.camera_config = self.config_manager.get_param(
+                "camera.json", default={})
             self.worker = CameraWorker(camera_index=self.camera_index,
                                        camera_config=self.camera_config,
                                        is_calibration=self.is_calibration)
+            self.worker.sphere_ready.connect(self.on_sphere_ready)
 
             # Solo conectar feed directo si no es modo calibración
             if not self.is_calibration:
@@ -164,6 +175,7 @@ class CameraController(QObject):
             try:
                 # Desconectar todas las conexiones de las señales (seguro y limpio)
                 self.worker.frame_ready.disconnect()
+                self.worker.sphere_ready.disconnect()
             except Exception:
                 pass
 
@@ -179,7 +191,7 @@ class CameraController(QObject):
         self.view.get_image_handler().set_process_running(False)
         self.view.set_ui_running_state(False)
         self.view.get_image_handler().set_static_image()
-        
+
         self._set_camera_connection_status("Cámara no conectada")
         self.status_changed.emit("Cámara no conectada")
         self.active_state_changed.emit(False)
@@ -242,3 +254,17 @@ class CameraController(QObject):
             CameraWorker: Instancia del hilo de procesamiento.
         """
         return self.worker
+
+    @pyqtSlot(dict)
+    def on_sphere_ready(self, circles: dict):
+        poses = {}
+        for color, data in circles.items():
+            # .pop() elimina 'position' de 'spheres' y retorna su valor
+            if 'position' in data:
+                poses[color] = {
+                    'position': data.pop('position')}
+        
+        # Notificar detecciones 2D al bus de pick and place.
+        self.pick_place_signal_manager.spheres_detected_2d.emit(circles)
+        self.pick_place_signal_manager.poses_from_camera.emit(poses)
+        self.simuation_signal_manager.sphere_pos_from_camera.emit(poses)

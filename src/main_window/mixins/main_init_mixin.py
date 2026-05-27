@@ -19,6 +19,7 @@ from src.services.robot import RobotController
 from src.features.camera import CameraController
 from src.features.sliders import SlidersController
 from src.features.kinematics import KinematicsController
+from src.features.pick_and_place import PickAndPlaceController
 from src.features.simulation.simulation_controller import SimulationController
 from src.features.graph import GraphController
 
@@ -138,6 +139,11 @@ class MainInitMixin:
 
         self.camera_controller = CameraController(self)
         self.cameraBox.layout().addWidget(self.camera_controller.get_widget())
+
+        # Inicializar el controlador de Pick and Place asociado a la cámara
+        self.pick_and_place_controller = PickAndPlaceController(
+            self.camera_controller.get_widget()
+        )
 
         self.camera_controller.status_changed.connect(
             self.camera_connected_label.setText)
@@ -326,18 +332,13 @@ class MainInitMixin:
         """
         Inicializa la conexion con el microcontrolador via puerto serie.
 
-        Crea el RobotController y el DataController para el dominio fisico.
+        Crea el RobotController para el dominio fisico. El DataController
+        central ya esta orquestando las señales.
 
         Args:
             com (str): Nombre del puerto COM (e.g. 'COM3').
         """
         self.robot_service = RobotController(com)
-
-        self.robot_controller = DataController(
-            Modes.SLIDERS, Units.DEG, Domains.PHYSICAL,
-            robot_controller=self.robot_service
-        )
-
         self.robot_service.start_service()
 
         self.connect_action.setEnabled(False)

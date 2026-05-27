@@ -17,7 +17,7 @@ import numpy as np
 import cv2
 from PyQt6.QtCore import QThread, pyqtSignal, QThreadPool, pyqtSlot
 from src.services.vision import ChArUcoDetection, CircleDetection, CameraConnection, PoseEstimation, DetectionDrawer
-from src.services.data.signals import SearchSignalManager, DrawViewSignalManager, SimulationSignalManager
+from src.services.data.signals import CameraSignalManager, SearchSignalManager, DrawViewSignalManager
 from src.services.data.timers import FrameCounter
 
 
@@ -35,6 +35,7 @@ class CameraWorker(QThread):
     """
     frame_ready = pyqtSignal(object)  # numpy BGR frame or UMat
     error_occurred = pyqtSignal(str)
+    sphere_ready = pyqtSignal(dict)
 
     def __init__(self, camera_index: int = 0, camera_config: dict = None, is_calibration: bool = False):
         """
@@ -70,11 +71,13 @@ class CameraWorker(QThread):
         self.camera = CameraConnection(
             camera_index, self.camera_config, is_calibration)
 
-        self.search_manager = SearchSignalManager().get_instance()
-        self.draw_view_manager = DrawViewSignalManager.get_instance()
+        self.camera_signal_manager = CameraSignalManager().get_instance()
+        self.search_signal_manager = SearchSignalManager().get_instance()
+        self.draw_view_signal_manager = DrawViewSignalManager.get_instance()
         self.frame_counter = FrameCounter.get_instance()
         self.frame_counter.process_frame_signal.connect(self._on_process_frame)
-        self.sim_signal_manager = SimulationSignalManager.get_instance()
+        self.pick_place_active = False
+        self.latest_circles = {}
 
     def run(self):
         """
@@ -102,7 +105,7 @@ class CameraWorker(QThread):
                     self._emit_frame_ready(frame)
                     continue
                 elif self._process_frame:
-                    charuco_state, circle_state = self.search_manager.get_state()
+                    charuco_state, circle_state = self.search_signal_manager.get_state()
                     self.frame_id += 1
                     if charuco_state:
                         self.thread_pool.start(ChArUcoDetection(
@@ -115,7 +118,7 @@ class CameraWorker(QThread):
 
                     self._process_frame = False
 
-                view = self.draw_view_manager.get_state()
+                view = self.draw_view_signal_manager.get_state()
                 self.thread_pool.start(DetectionDrawer(
                     frame, self.results.get(
                         self.frame_id-1), view, self.custom_origin,
@@ -225,7 +228,6 @@ class CameraWorker(QThread):
             poses (dict): Coordenadas 3D (x, y, z) de las esferas.
         """
         with self.lock:
-            self.sim_signal_manager.sphere_pos.emit(poses)
             entry = self.results.get(fid)
             if not entry:
                 return
@@ -234,6 +236,7 @@ class CameraWorker(QThread):
             for color, position in poses.items():
                 if color in circles:
                     circles[color]["position"] = position
+            self.sphere_ready.emit(circles)
 
     def _try_pose_estimation(self, fid: int):
         """
@@ -243,12 +246,6 @@ class CameraWorker(QThread):
             fid (int): ID del frame a verificar.
         """
         entry = self.results.get(fid)
-        last_entry = self.results.get(fid - 1)
-        if last_entry and last_entry.get("poses") is None:
-            has_charuco_or_circles = (last_entry.get("charuco") is not None or
-                                      last_entry.get("circles") is not None)
-            if has_charuco_or_circles:
-                self.sim_signal_manager.sphere_pos.emit({})
         if not entry:
             return
         if entry["charuco"] is not None and entry["circles"] is not None:

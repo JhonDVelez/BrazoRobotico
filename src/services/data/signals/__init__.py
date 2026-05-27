@@ -14,6 +14,7 @@ from .draw_view import DrawViewSignalManager
 from .camera import CameraSignalManager
 from .theme import ThemeSignalManager
 from .config import ConfigSignalManager
+from .pick_place import PickPlaceSignalManager
 
 __all__ = [
     '_SignalManager',
@@ -23,5 +24,6 @@ __all__ = [
     'DrawViewSignalManager',
     'CameraSignalManager',
     'ThemeSignalManager',
-    'ConfigSignalManager'
+    'ConfigSignalManager',
+    'PickPlaceSignalManager'
 ]

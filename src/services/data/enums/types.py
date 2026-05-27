@@ -19,6 +19,7 @@ class Modes(Enum):
     """
     SLIDERS = 1
     KINEMATIC = 2
+    PICK_PLACE = 3
 
 
 class Units(Enum):

@@ -20,7 +20,8 @@ class MainActionsMixin:
     """
 
     def __init__(self):
-        self.hab_simulation = ConfigSignalManager.get_instance().get_param("settings.json", "simulation", "activated", default=True)
+        self.hab_simulation = ConfigSignalManager.get_instance().get_param(
+            "settings.json", "simulation", "activated", default=True)
 
     def start(self):
         """
@@ -118,7 +119,8 @@ class MainActionsMixin:
             checked (bool): True para mostrar el panel.
         """
         self.cameraBox.setVisible(checked)
-        ConfigSignalManager.get_instance().request_change("settings.json", "content", "camera", value=checked)
+        ConfigSignalManager.get_instance().request_change(
+            "settings.json", "content", "camera", value=checked)
         self.check_handle_visibility()
 
     @pyqtSlot(bool)
@@ -130,7 +132,8 @@ class MainActionsMixin:
             checked (bool): True para mostrar el panel.
         """
         self.modelBox.setVisible(checked)
-        ConfigSignalManager.get_instance().request_change("settings.json", "content", "model", value=checked)
+        ConfigSignalManager.get_instance().request_change(
+            "settings.json", "content", "model", value=checked)
         self.check_handle_visibility()
 
     @pyqtSlot(bool)
@@ -142,7 +145,8 @@ class MainActionsMixin:
             checked (bool): True para mostrar el panel.
         """
         self.graphsBox.setVisible(checked)
-        ConfigSignalManager.get_instance().request_change("settings.json", "content", "graphs", value=checked)
+        ConfigSignalManager.get_instance().request_change(
+            "settings.json", "content", "graphs", value=checked)
         self.check_handle_visibility()
 
     @pyqtSlot(bool)
@@ -154,7 +158,8 @@ class MainActionsMixin:
             checked (bool): True para mostrar el panel.
         """
         self.controlsBox.setVisible(checked)
-        ConfigSignalManager.get_instance().request_change("settings.json", "content", "controls", value=checked)
+        ConfigSignalManager.get_instance().request_change(
+            "settings.json", "content", "controls", value=checked)
         self.check_handle_visibility()
 
     def check_handle_visibility(self):
@@ -215,7 +220,7 @@ class MainActionsMixin:
         """
         self.hab_simulation = checked
         ConfigSignalManager.get_instance().request_change("settings.json", "simulation",
-                      "activated", value=checked)
+                                                          "activated", value=checked)
 
     @pyqtSlot(bool)
     def toggle_charuco_search(self, checked: bool):
@@ -226,7 +231,8 @@ class MainActionsMixin:
             checked (bool): True para activar la deteccion.
         """
         SearchSignalManager().get_instance().set_charuco(checked)
-        ConfigSignalManager.get_instance().request_change("settings.json", "camera", "charuco", value=checked)
+        ConfigSignalManager.get_instance().request_change(
+            "settings.json", "camera", "charuco", value=checked)
 
     @pyqtSlot(bool)
     def toggle_sphere_search(self, checked: bool):
@@ -237,7 +243,8 @@ class MainActionsMixin:
             checked (bool): True para activar la deteccion.
         """
         SearchSignalManager().get_instance().set_circle(checked)
-        ConfigSignalManager.get_instance().request_change("settings.json", "camera", "circle", value=checked)
+        ConfigSignalManager.get_instance().request_change(
+            "settings.json", "camera", "circle", value=checked)
 
     def toggle_sliders_controls(self, checked: bool):
         """
@@ -252,7 +259,8 @@ class MainActionsMixin:
         else:
             self.sliders_controller.get_widget().hide()
             self.kinematics_controller.get_widget().set_horizontal_layout()
-        ConfigSignalManager.get_instance().request_change('settings.json', "mode", 'sliders', value=checked)
+        ConfigSignalManager.get_instance().request_change(
+            'settings.json', "mode", 'sliders', value=checked)
 
     def toggle_kinematics_controls(self, checked: bool):
         """
@@ -265,7 +273,24 @@ class MainActionsMixin:
             self.kinematics_controller.get_widget().show()
         else:
             self.kinematics_controller.get_widget().hide()
-        ConfigSignalManager.get_instance().request_change('settings.json', "mode", 'kinematics', value=checked)
+        ConfigSignalManager.get_instance().request_change(
+            'settings.json', "mode", 'kinematics', value=checked)
+
+    def toggle_pick_place_controls(self, checked: bool):
+        """
+        Alterna la visibilidad del panel de control pick and place.
+
+        Args:
+            checked (bool): True para mostrar el panel de controles
+        """
+        from src.services.data.signals import PickPlaceSignalManager
+        PickPlaceSignalManager.get_instance().set_state(checked)
+        
+        self.toggle_visibility_controls_event(not checked)
+        self.controls_action.setChecked(not checked)
+        self.controls_action.setEnabled(not checked)
+        ConfigSignalManager.get_instance().request_change(
+            'settings.json', "mode", 'pick_place', value=checked)
 
     def connect_robot(self):
         """

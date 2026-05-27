@@ -15,7 +15,7 @@ from PyQt6.QtCore import QObject
 from src.features.sliders.sliders_widget import SlidersWidget
 from src.features.sliders.sliders_worker import SlidersWorker
 from src.services.data.enums import Modes
-from src.services.data.signals import PhysicalSignalManager, SimulationSignalManager
+from src.services.data.signals import SimulationSignalManager
 
 
 class SlidersController(QObject):
@@ -65,8 +65,7 @@ class SlidersController(QObject):
             index (int): Indice del motor modificado (0-5).
             value (int): Nuevo valor de angulo (0-300).
         """
-        # Cambiar modo global a SLIDERS al interactuar con cualquier control manual
-        PhysicalSignalManager.get_instance().change_mode_signal.emit(Modes.SLIDERS)
+        # Cambiar modo global a SLIDERS mediante el manager de simulación (actúa como bus de UI)
         SimulationSignalManager.get_instance().change_mode_signal.emit(Modes.SLIDERS)
         
         # Actualizar el buffer interno del worker
@@ -80,8 +79,7 @@ class SlidersController(QObject):
             status (list): Vector completo de posiciones articulares.
         """
         SlidersController.sliders_status = status
-        # Notificar a los managers de Simulacion y Robot Fisico el nuevo objetivo
-        PhysicalSignalManager.get_instance().update_target_signal.emit(status)
+        # Notificar el nuevo objetivo al bus global. El DataController orquestará el resto.
         SimulationSignalManager.get_instance().update_target_signal.emit(status)
 
     # --- API Pública ---

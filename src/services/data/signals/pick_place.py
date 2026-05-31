@@ -6,14 +6,18 @@ from .config import ConfigSignalManager
 class PickPlaceSignalManager(QObject):
     _instance = None
     _pk_active = False
+    _pick_place_running = False
 
     poses_from_camera = pyqtSignal(dict)
     spheres_detected_2d = pyqtSignal(dict)
     sphere_selected = pyqtSignal(str)
+    place_requested = pyqtSignal(dict)
     pick_requested = pyqtSignal(str)
     inverse_kinematics_requested = pyqtSignal(dict)
     inverse_kinematics_ready = pyqtSignal(dict)
+    target_reached = pyqtSignal(list)
     state_changed = pyqtSignal(bool)
+    pick_place_running_changed = pyqtSignal(bool)
 
     @classmethod
     def get_instance(cls):
@@ -47,3 +51,16 @@ class PickPlaceSignalManager(QObject):
         """
         self._pk_active = state
         self.state_changed.emit(state)
+
+    def is_pick_place_running(self):
+        """Retorna True si una secuencia de pick and place esta en ejecucion."""
+        return self._pick_place_running
+
+    def set_pick_place_running(self, running):
+        """Establece el estado de ejecucion de la secuencia.
+
+        Args:
+            running (bool): True si la secuencia esta activa.
+        """
+        self._pick_place_running = running
+        self.pick_place_running_changed.emit(running)

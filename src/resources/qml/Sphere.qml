@@ -6,6 +6,7 @@ Node {
 
     property color modelColor: "white"
     property vector3d modelPosition: Qt.vector3d(0, 0, 0)
+    property vector3d modelRotation: Qt.vector3d(0, 0, 0)
     property string meshSource: "meshes/sphere.mesh"
 
     // Oculto automáticamente si la posición es 0,0,0
@@ -17,8 +18,9 @@ Node {
 
     Model {
         source: root.meshSource
+        scale: Qt.vector3d(1, 1, 1)
         position: root.modelPosition
-        eulerRotation.x: -90
+        eulerRotation: root.modelRotation
 
         materials: [
             PrincipledMaterial {

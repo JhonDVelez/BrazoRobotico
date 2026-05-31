@@ -16,6 +16,7 @@ from src.services.data.enums import Units, Modes, Domains
 from src.services.simulation import PhysicsWorker
 from src.services.styling.theme_manger import ThemeSignalManager
 from src.services.data.signals import SimulationSignalManager
+from src.services.data.signals.pick_place import PickPlaceSignalManager
 from src.services.data.timers import GlobalTimer
 from src.features.simulation.simulation_worker import SimulationWorker
 from src.features.simulation.simulation_widget import SimulationWidget
@@ -56,6 +57,7 @@ class SimulationController(QObject):
 
         # Conexiones de señales globales (Escuchar al DataController)
         self.simulation_signal_manager = SimulationSignalManager.get_instance()
+        self.pick_place_signal_manager = PickPlaceSignalManager.get_instance()
         self.simulation_signal_manager.update_pybullet_signal.connect(
             self.physics_worker.update_target)
         
@@ -138,12 +140,16 @@ class SimulationController(QObject):
 
     @pyqtSlot(dict)
     def update_sphere_pose_from_camera(self, poses: dict):
-        """
-        Slot para actualizar las posiciones 3D de las esferas detectadas.
+        """Actualiza posiciones 3D de esferas desde la camara.
+
+        Se interrumpe cuando una secuencia de pick and place esta activa,
+        permitiendo que la fisica de PyBullet controle las esferas.
 
         Args:
             poses (dict): Coordenadas cartesianas de las esferas.
         """
+        if self.pick_place_signal_manager.is_pick_place_running():
+            return
         if self.simulation_worker is not None:
             self.physics_worker.update_sphere_initial_positions(poses)
 

@@ -196,6 +196,7 @@ class CameraWorker(QThread):
             entry = self.results.setdefault(
                 fid, {"charuco": None, "circles": None, "poses": None})
             entry["charuco"] = data
+            self.camera_signal_manager.charuco_done.emit(fid, data)
             if data and data.get("roi") is not None:
                 self.last_roi = data["roi"]
             else:

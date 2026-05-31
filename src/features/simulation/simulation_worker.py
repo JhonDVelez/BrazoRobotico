@@ -46,11 +46,11 @@ class SimulationWorker(QThread):
             "x"
         ]
         self.colors = {
-            "amarillo":  "sphereYellowPos",
-            "verde": "sphereGreenPos",
-            "azul": "sphereBluePos",
-            "naranja": "sphereOrangePos",
-            "morado": "spherePurplePos"
+            "amarillo":  ["sphereYellowPos", "sphereYellowRot"],
+            "verde": ["sphereGreenPos", "sphereGreenRot"],
+            "azul": ["sphereBluePos", "sphereBlueRot"],
+            "naranja": ["sphereOrangePos", "sphereOrangeRot"],
+            "morado": ["spherePurplePos", "spherePurpleRot"]
         }
 
     def update_simulation(self, joint_positions=None):
@@ -84,14 +84,28 @@ class SimulationWorker(QThread):
         Args:
             poses (dict): Diccionario {color: [x, y, z]} con coordenadas en mm.
         """
-        for color, property_name in self.colors.items():
+        import numpy as np
+        for color, properties in self.colors.items():
+            pos_prop, rot_prop = properties
             if color in poses:
-                pose = poses.get(color, {}).get('position', (0, 0, 0))
+                data = poses.get(color, {})
+                pose = data.get('position', (0, 0, 0))
+                orientation = data.get('orientation', (0, 0, 0))
+
                 if pose is not None:
                     # Mapeo de coordenadas cartesianas al espacio local de la escena QML
+                    # UI(x,y,z) -> QML(x, y_up, z)
+                    # En PyBullet unificamos el suelo a +100
+                    # print(f'sim: {pose}')
                     self.root_object.setProperty(
-                        property_name, QVector3D(-pose[1], 100, pose[0]))
+                        pos_prop, QVector3D(pose[0], pose[1], pose[2]))
+
+                if orientation is not None:
+                    # Convertir orientacion de radianes (PyBullet) a grados (QML)
+                    # La esfera en Blender tiene offset de -90 en X
+                    rot_deg = np.rad2deg(orientation)
+                    self.root_object.setProperty(
+                        rot_prop, QVector3D(rot_deg[0], rot_deg[1], rot_deg[2]))
             else:
                 # Ocultar o resetear esferas no detectadas
-                self.root_object.setProperty(
-                    property_name, QVector3D(0, 0, 0))
+                self.root_object.setProperty(pos_prop, QVector3D(0, 0, 0))

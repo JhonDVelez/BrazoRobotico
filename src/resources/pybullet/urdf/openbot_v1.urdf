@@ -28,7 +28,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/collision/base_link_collision.stl" scale="0.0001 0.0001 0.0001"/>
+        <mesh filename="meshes/collision/base_link_vhacd.obj" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
@@ -48,7 +48,7 @@
     <collision>
       <origin rpy="0 0 -1.5708" xyz="-0.021121 0.012617 -0.431403"/>
       <geometry>
-        <mesh filename="meshes/collision/clamp2_link_collision.stl" scale="0.0001 0.0001 0.0001"/>
+        <mesh filename="meshes/collision/clamp2_link_1_vhacd.obj" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
@@ -68,7 +68,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0.000286 0.013919 -0.248787"/>
       <geometry>
-        <mesh filename="meshes/collision/arm3_link_collision.stl" scale="0.0001 0.0001 0.0001"/>
+        <mesh filename="meshes/collision/arm3_link_1_vhacd.obj" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
@@ -88,7 +88,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="-0.000333 -0.013218 -0.155124"/>
       <geometry>
-        <mesh filename="meshes/collision/arm2_link_collision.stl" scale="0.0001 0.0001 0.0001"/>
+        <mesh filename="meshes/collision/arm2_link_1_vhacd.obj" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
@@ -108,7 +108,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="-8e-06 0.001272 -0.12251"/>
       <geometry>
-        <mesh filename="meshes/collision/arm1_link_collision.stl" scale="0.0001 0.0001 0.0001"/>
+        <mesh filename="meshes/collision/arm1_link_1_vhacd.obj" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
@@ -128,7 +128,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="-0.003047 0.013326 -0.361226"/>
       <geometry>
-        <mesh filename="meshes/collision/clamp_arm_link_collision.stl" scale="0.0001 0.0001 0.0001"/>
+        <mesh filename="meshes/collision/clamp_arm_link_1_vhacd.obj" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
@@ -148,7 +148,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="-0.001767 6.1e-05 -0.333127"/>
       <geometry>
-        <mesh filename="meshes/collision/arm4_link_collision.stl" scale="0.0001 0.0001 0.0001"/>
+        <mesh filename="meshes/collision/arm4_link_1_vhacd.obj" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>

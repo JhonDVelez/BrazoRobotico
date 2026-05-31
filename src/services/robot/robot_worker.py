@@ -59,6 +59,8 @@ class RobotWorker(QThread):
         self._recv_buffer = ""
         self._last_positions = [None] * 6
         self._last_temperaturas = [None] * 6
+        self._last_valid_positions = [150.0] * 6
+        self._jump_freeze_count = [0] * 6
 
     # --- Getters and Setters ---
     def get_com(self) -> str:
@@ -161,12 +163,11 @@ class RobotWorker(QThread):
             self._cm904 = None
             return
 
-        # Envio de tramas: Formato 'X<valor>\n' donde X es A-F
+        # Envio de trama compacta: A<pwm>B<pwm>C<pwm>D<pwm>E<pwm>F<pwm>\n
         try:
-            for i, char in enumerate(['A', 'B', 'C', 'D', 'E', 'F']):
-                val_pwm = round(valorm[i] * (1023 / 300))
-                self._cm904.write(f"{char}{val_pwm}\n".encode())
-                time.sleep(0.001)
+            frame = self._build_command_frame(valorm)
+            self._cm904.write(frame)
+            self._cm904.flush()
         except (serial.SerialException, OSError) as e:
             print(f"Error al escribir en serial: {e}")
             self.connection_status_changed.emit(False)
@@ -180,72 +181,17 @@ class RobotWorker(QThread):
 
         # Recepcion y parseo de telemetria
         try:
-            timeout = 0.001
-            start = time.time()
-            data = b""
-            while time.time() - start < timeout:
-                try:
-                    avail = self._cm904.in_waiting
-                except Exception:
-                    self.connection_status_changed.emit(False)
-                    self._cm904 = None
-                    return
-                if avail:
-                    chunk = self._cm904.read(avail)
-                    if chunk:
-                        data += chunk
-                        if b';' in data:
-                            break
-                else:
-                    time.sleep(0.01)
-
-            if not data:
+            raw_frame = self._read_telemetry_frame()
+            if not raw_frame:
                 return
 
-            try:
-                s = data.decode('ascii', errors='ignore')
-            except Exception:
-                s = ''
+            parsed = self._parse_telemetry(raw_frame)
+            if parsed is None:
+                return
 
-            # Manejo de tramas incompletas mediante buffer circular simple
-            combined = self._recv_buffer + s
-            parts = combined.split(';')
-            complete_tokens = parts[:-1]
-            self._recv_buffer = parts[-1]
-
-            for token in complete_tokens:
-                token = token.strip()
-                if not token:
-                    continue
-                # Parseo de Temperatura (T<Id><Val>) y Posicion (<Id><Val>)
-                temp_match = re.search(r'T([A-F])(\d+)', token)
-                pos_match = re.match(r'([A-F])(\d+(?:\.\d+)?)', token)
-
-                pos_letter = None
-                pos_val = None
-                if pos_match:
-                    pos_letter = pos_match.group(1)
-                    pos_val = pos_match.group(2)
-                else:
-                    m = re.search(r'(\d+(?:\.\d+)?)(?=T)', token)
-                    if m and temp_match:
-                        pos_val = m.group(1)
-                        pos_letter = temp_match.group(1)
-
-                if pos_letter and pos_val is not None:
-                    idx = ord(pos_letter) - ord('A')
-                    try:
-                        self._last_positions[idx] = float(pos_val)
-                    except Exception:
-                        pass
-                if temp_match:
-                    t_letter = temp_match.group(1)
-                    t_val = temp_match.group(2)
-                    idx = ord(t_letter) - ord('A')
-                    try:
-                        self._last_temperaturas[idx] = int(t_val)
-                    except Exception:
-                        pass
+            positions, temperatures = parsed
+            self._last_positions = self._filter_positions(positions)
+            self._last_temperaturas = temperatures
 
             # Notificacion de nuevos datos locales
             self.data_received.emit(
@@ -253,6 +199,109 @@ class RobotWorker(QThread):
 
         except Exception as e:
             print(f"Error lectura: {e}")
+
+    def _build_command_frame(self, positions: list) -> bytes:
+        """
+        Construye la trama compacta esperada por el microcontrolador.
+
+        Args:
+            positions (list): Lista de 6 posiciones objetivo en grados (0-300).
+
+        Returns:
+            bytes: Trama ASCII `A...B...C...D...E...F...\n` con valores PWM.
+        """
+        frame = ""
+        for index, char in enumerate(['A', 'B', 'C', 'D', 'E', 'F']):
+            position = max(0.0, min(300.0, float(positions[index])))
+            pwm_value = int(round(position * (1023 / 300)))
+            frame += f"{char}{pwm_value}"
+        return f"{frame}\n".encode('ascii')
+
+    def _read_telemetry_frame(self) -> str:
+        """
+        Lee una rafaga de telemetria disponible sin bloquear el hilo serial.
+
+        Returns:
+            str: Texto ASCII acumulado desde el puerto serie.
+        """
+        timeout = 0.03
+        start = time.time()
+        data = b""
+        while time.time() - start < timeout:
+            try:
+                available = self._cm904.in_waiting
+            except Exception:
+                self.connection_status_changed.emit(False)
+                self._cm904 = None
+                return ""
+
+            if available:
+                chunk = self._cm904.read(available)
+                if chunk:
+                    data += chunk
+                    if b'\n' in data:
+                        break
+            else:
+                time.sleep(0.001)
+
+        return data.decode('ascii', errors='ignore').strip() if data else ""
+
+    def _parse_telemetry(self, frame: str):
+        """
+        Extrae posiciones y temperaturas desde una trama completa del robot.
+
+        Args:
+            frame (str): Trama con tokens tipo `A150.0TA35` para motores A-F.
+
+        Returns:
+            tuple[list, list] | None: Posiciones y temperaturas si hay 6 motores.
+        """
+        pattern = re.compile(r"([A-F])(\d+\.?\d*)T[A-F](\d+)")
+        matches = pattern.findall(frame)
+        if len(matches) < 6:
+            return None
+
+        positions = [None] * 6
+        temperatures = list(self._last_temperaturas)
+        for motor_char, position_value, temperature_value in matches:
+            index = ord(motor_char) - ord('A')
+            if 0 <= index < 6:
+                positions[index] = float(position_value)
+                temperatures[index] = int(temperature_value)
+
+        if any(position is None for position in positions):
+            return None
+
+        return positions, temperatures
+
+    def _filter_positions(self, positions: list) -> list:
+        """
+        Filtra tramas nulas y saltos electromagneticos de la telemetria fisica.
+
+        Args:
+            positions (list): Lecturas crudas de posicion para los motores A-F.
+
+        Returns:
+            list: Posiciones validadas y persistentes para publicar al sistema.
+        """
+        if all(abs(value) < 0.001 for value in positions[:4]):
+            return list(self._last_valid_positions)
+
+        valid_frame = True
+        for index, position in enumerate(positions):
+            difference = abs(position - self._last_valid_positions[index])
+            if difference > 35.0:
+                self._jump_freeze_count[index] += 1
+                if self._jump_freeze_count[index] <= 4:
+                    valid_frame = False
+            else:
+                self._jump_freeze_count[index] = 0
+
+        if not valid_frame:
+            return list(self._last_valid_positions)
+
+        self._last_valid_positions = list(positions)
+        return list(positions)
 
     def stop(self):
         """

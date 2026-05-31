@@ -41,13 +41,15 @@ class RobotArmPhysics(QWidget):
         self.robot_id = None
 
         sphere_visual_path = QDir(
-            "pybullet:/meshes/visual/sphere_visual.stl").path()
+            "pybullet:/meshes/visual/sphere.obj").path()
+        sphere_collision_path = QDir(
+            "pybullet:/meshes/collision/sphere_vhacd.obj").path()
         self.spheres = {}
         self.released_spheres = set()
         self.col_id = p.createCollisionShape(
-            shapeType=p.GEOM_SPHERE, radius=0.02)
+            shapeType=p.GEOM_MESH, fileName=sphere_collision_path, meshScale=[1, 1, 1])
         self.vis_id = p.createVisualShape(
-            shapeType=p.GEOM_MESH, fileName=sphere_visual_path, meshScale=[0.001, 0.001, 0.001], rgbaColor=[1, 0.5, 0, 1])
+            shapeType=p.GEOM_MESH, fileName=sphere_visual_path, meshScale=[1, 1, 1], rgbaColor=[1, 0.5, 0, 1])
 
     def get_robot_id(self) -> int:
         """Obtiene el ID del robot en el motor de fisicas de PyBullet.
@@ -124,27 +126,35 @@ class RobotArmPhysics(QWidget):
         for color, pose in poses.items():
             if color in self.released_spheres:
                 continue
+
+            # Extraer la posicion si viene en un diccionario
+            pos_list = pose.get('position') if isinstance(pose, dict) else pose
+
             if color in self.spheres:
-                self.set_sphere_position(self.spheres.get(color), pose)
+                self.set_sphere_position(self.spheres.get(color), pos_list)
             else:
-                self.create_sphere(color, pose)
+                self.create_sphere(color, pos_list)
 
     def create_sphere(self, color, posicion):
+        # Convertir mm a metros y mapear ejes
+        x, y, z = posicion
+        pos = [y * 0.001, x * 0.001, z * 0.001]
+
         body_id = p.createMultiBody(
-            baseMass=1.0,
+            baseMass=0.05,
             baseCollisionShapeIndex=self.col_id,
             baseVisualShapeIndex=self.vis_id,
-            basePosition=posicion
+            basePosition=pos
         )
 
         self.spheres[color] = body_id
         p.changeDynamics(
             body_id,
             -1,
-            lateralFriction=1.0,
-            rollingFriction=0.01,
-            spinningFriction=0.01,
-            restitution=0.0
+            lateralFriction=0.3,
+            restitution=0.5,
+            contactStiffness=40000.0,
+            contactDamping=50.0
         )
         p.setCollisionFilterGroupMask(body_id, -1, 1, 1)
         return body_id
@@ -153,26 +163,35 @@ class RobotArmPhysics(QWidget):
         sphere_state = {}
         for color, id in self.spheres.items():
             position, orientation = p.getBasePositionAndOrientation(id)
+            # Mapeo inverso: Metros a mm y swap de ejes para UI
             pos = [
-                position[1] * 1000,
-                position[0] * 1000,
-                position[2] * 1000
+                -position[0] * 1000,  # UI_X = Py_X
+                position[2] * 1000,  # UI_Y = Py_Z Hacia arriba
+                position[1] * 1000  # UI_Z = Py_Y
+            ]
+            # print(f'get: {pos}')
+            rot = p.getEulerFromQuaternion(orientation)
+            rot = [
+                rot[0],
+                rot[2],
+                rot[1]
             ]
             sphere_state[color] = {
                 'position': pos, 'orientation': p.getEulerFromQuaternion(orientation)}
-            print(f'get: {pos}')
         return sphere_state
 
     def set_sphere_position(self, id, new_pos):
+        # Asegurar que sea una lista de coordenadas
         position = new_pos.get('position') if isinstance(
             new_pos, dict) else new_pos
-        x, y, z = position
-        y += 100
-        z += 20
-        pos = [y*0.001, x*0.001, z*0.001]
+
+        y, x, z = position
+        # Convertir mm a metros y mapear ejes: UI(x,y,z) -> PyBullet(y,x,z)
+        pos = [(x+100) * 0.001, y * 0.001, (z+101) * 0.001]
+        # print(f'set: {pos}')
         p.resetBasePositionAndOrientation(
             id, pos, [0, 0, 0, 1])
-        print(f'set: {pos}')
+        # p.changeDynamics(id, -1, mass=0.0)
 
     def release_sphere(self, color):
         """
@@ -184,6 +203,7 @@ class RobotArmPhysics(QWidget):
         if color not in self.spheres:
             return
         self.released_spheres.add(color)
+        # p.changeDynamics(self.spheres[color], -1, mass=0.05)
         p.setCollisionFilterGroupMask(self.spheres[color], -1, 1, 1)
 
     def has_released_spheres(self):

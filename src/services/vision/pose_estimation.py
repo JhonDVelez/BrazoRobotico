@@ -14,6 +14,7 @@ Conexiones:
 import cv2
 import numpy as np
 from PyQt6.QtCore import QRunnable
+from src.services.vision.geometry_utils import pixel_to_board_coordinates
 
 
 class PoseEstimation(QRunnable):
@@ -81,81 +82,29 @@ class PoseEstimation(QRunnable):
             final_poses = {}
 
             for color_name, sphere_data in self.circle_results.items():
-                p_world = self._calculate_sphere_board_coordinates(
-                    sphere_data, rotation_matrix)
-                p_cam = rotation_matrix @ p_world + self.tvec.reshape(3, 1)
+                center = sphere_data.get("center")
+                if center is None:
+                    continue
+                
+                # Calculamos la posicion del centro de la esfera (plane_z = radio)
+                p_world = pixel_to_board_coordinates(
+                    center, self.rvec, self.tvec, self.camera_matrix, 
+                    self.dist_coeffs, self.frame_size, self.sphere_radius
+                )
+                
+                if p_world is None:
+                    continue
+
                 p_final = self._apply_custom_origin(p_world)
 
                 final_poses[color_name] = p_final.flatten().tolist()
                 sphere_data["position"] = final_poses[color_name]
-                # sphere_data["position_board"] = p_world.flatten().tolist()
-                # sphere_data["position_camera"] = p_cam.flatten().tolist()
 
             if self.pose_callback is not None:
                 self.pose_callback(self.frame_id, final_poses)
 
         except Exception as e:
             self.error_callback(str(e))
-
-    def _calculate_sphere_board_coordinates(self, sphere_data, rotation_matrix):
-        """
-        Calcula las coordenadas 3D de la esfera respecto al tablero.
-
-        Intersecta el rayo del centro 2D de la esfera con el plano paralelo al
-        tablero donde debe estar el centro 3D de una esfera apoyada en el.
-
-        Args:
-            sphere_data (dict): Datos de la elipse detectada.
-            rotation_matrix (np.ndarray): Matriz de rotacion del tablero (3x3).
-
-        Returns:
-            np.ndarray: Vector de posicion 3x1 en el espacio del tablero.
-
-        Raises:
-            ValueError: Si el centro de la esfera es invalido o el rayo es paralelo al plano.
-        """
-        center = sphere_data.get("center")
-        if center is None:
-            raise ValueError("Centro de la esfera perdido.")
-
-        ray_cam = self._pixel_to_camera_ray(center)
-        tvec = np.asarray(self.tvec, dtype=np.float64).reshape(3, 1)
-        rotation_matrix = np.asarray(rotation_matrix, dtype=np.float64)
-
-        # Transformamos el centro de la camara y el rayo al espacio del tablero
-        camera_center_board = -rotation_matrix.T @ tvec
-        ray_board = rotation_matrix.T @ ray_cam
-
-        if abs(ray_board[2, 0]) < 1e-10:
-            raise ValueError("El rayo es paralelo al plano de soporte de la esfera.")
-
-        # La esfera esta del lado visible del tablero: el mismo lado donde esta la camara.
-        support_z = self.sphere_radius
-        if camera_center_board[2, 0] < 0:
-            support_z = -self.sphere_radius
-
-        # Calculo de la interseccion rayo-plano
-        ray_scale = (support_z - camera_center_board[2, 0]) / ray_board[2, 0]
-        return camera_center_board + ray_scale * ray_board
-
-    def _pixel_to_camera_ray(self, center):
-        """
-        Convierte un pixel distorsionado en un rayo normalizado de camara.
-
-        Args:
-            center (tuple): Coordenadas (x, y) del pixel en la imagen original.
-
-        Returns:
-            np.ndarray: Vector unitario (rayo) 3x1 en coordenadas de camara.
-        """
-        image_point = np.array([[center]], dtype=np.float64)
-        new_camera_matrix, _ = cv2.getOptimalNewCameraMatrix(
-            self.camera_matrix, self.dist_coeffs, self.frame_size, 1)
-        # UndistortPoints devuelve coordenadas normalizadas (x/z, y/z)
-        undistorted = cv2.undistortPoints(
-            image_point, new_camera_matrix, self.dist_coeffs)
-        x_norm, y_norm = undistorted[0, 0]
-        return np.array([[x_norm], [y_norm], [1.0]], dtype=np.float64)
 
     def _apply_custom_origin(self, p_world):
         """

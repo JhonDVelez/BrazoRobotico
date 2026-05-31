@@ -263,7 +263,7 @@ class CameraController(QObject):
             if 'position' in data:
                 poses[color] = {
                     'position': data.pop('position')}
-        
+
         # Notificar detecciones 2D al bus de pick and place.
         self.pick_place_signal_manager.spheres_detected_2d.emit(circles)
         self.pick_place_signal_manager.poses_from_camera.emit(poses)

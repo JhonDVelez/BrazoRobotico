@@ -17,6 +17,7 @@ Conexiones:
 from PyQt6.QtCore import QThread, pyqtSignal, pyqtSlot, QElapsedTimer, QTimer
 from src.services.simulation.physics_pybullet import RobotArmPhysics
 
+
 class PhysicsWorker(QThread):
     """Worker encargado de actualizar la simulacion de PyBullet en segundo plano.
 
@@ -41,7 +42,7 @@ class PhysicsWorker(QThread):
         self._running = False
         self._paused = False
         self.max_velocity = 1.2
-        
+
         self.physic = RobotArmPhysics()
         self.physic.load_models(robot_id)
 
@@ -89,7 +90,7 @@ class PhysicsWorker(QThread):
                         self.target_position, self.max_velocity)
                     self.target_position_prev = self.target_position
                 is_moving = any(
-                    abs(x - y) >= 0.0005
+                    abs(x - y) >= 0.000001
                     for x, y in zip(self.target_position, self.physic.get_joint_positions())
                 )
                 if is_moving or self.physic.has_released_spheres():
@@ -128,6 +129,7 @@ class PhysicsWorker(QThread):
         """
         self.model_updated.emit(
             self.physic.get_joint_positions(), self.physic.get_sphere_position())
+        # print(f'on sim {self.target_position}')
         self.target_position = [
             pos - 2.617994 for pos in target_position]
         self.update_simulation()

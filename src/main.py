@@ -47,7 +47,7 @@ class CompletePreloader:
     de simulacion PyBullet con el modelo URDF del robot.
     """
 
-    def __init__(self, qml: str, urdf: str):
+    def __init__(self, qml: str, urdf: str, box_v_path: str, box_c_path: str):
         """
         Args:
             qml (str): Ruta al archivo QML de la simulacion 3D.
@@ -59,6 +59,10 @@ class CompletePreloader:
         self.preloaded_view: QQuickView | None = None
         self.preloaded_container: PreloadedContainer | None = None
         self.window_container = None
+        self.box_visual_path = box_v_path
+        self.box_collision_path = box_c_path
+        self.col_id = None
+        self.vis_id = None
 
     def create_parent_widget(self) -> bool:
         """
@@ -199,15 +203,39 @@ class CompletePreloader:
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
                 Qt.GlobalColor.white
             )
+            # Create collision and visual shapes (For Static Concave Meshes)
+            box_collision_id = p.createCollisionShape(
+                shapeType=p.GEOM_MESH,
+                fileName=self.box_collision_path,
+                flags=p.GEOM_FORCE_CONCAVE_TRIMESH,
+            )
+
+            box_visual_id = p.createVisualShape(
+                shapeType=p.GEOM_MESH,
+                fileName=self.box_visual_path,
+                rgbaColor=[1, 1, 1, 1]
+            )
+
+            box_id = p.createMultiBody(
+                baseMass=0,
+                baseCollisionShapeIndex=box_collision_id,
+                baseVisualShapeIndex=box_visual_id,
+                basePosition=[0.085, 0, 0],
+                baseOrientation=p.getQuaternionFromEuler([0, 0, 0])
+            )
 
             robot_id = p.loadURDF(
                 self.urdf_path,
-                basePosition=[0, 0, -0.01],
+                basePosition=[0, 0, 0.09],
                 baseOrientation=p.getQuaternionFromEuler([0, 0, 3.14159]),
                 useFixedBase=True,
                 flags=p.URDF_USE_INERTIA_FROM_FILE | p.URDF_ENABLE_CACHED_GRAPHICS_SHAPES
             )
+            p.setCollisionFilterGroupMask(box_id, -1, 1, 1)
+            # p.changeDynamics(box_id, -1, collisionMargin=0.000001)
             p.setCollisionFilterGroupMask(robot_id, -1, 1, 1)
+            # p.changeDynamics(robot_id, 5, collisionMargin=0.00001)
+            # p.changeDynamics(robot_id, 6, collisionMargin=0.00001)
             p.stepSimulation()
 
             return robot_id
@@ -281,11 +309,15 @@ if __name__ == '__main__':
         "pybullet", f"{src_path}/resources/pybullet/")
     qml_path = QDir("qml:simulation.qml").path()
     urdf_path = QDir("pybullet:/urdf/openbot_v1.urdf").path()
+    box_visual_path = QDir("pybullet:/meshes/visual/caja.obj").path()
+    box_collision_path = QDir(
+        "pybullet:/meshes/collision/caja_vhacd.obj").path()
 
     if cv2.ocl.haveOpenCL():
         cv2.ocl.setUseOpenCL(True)
 
-    preloader = CompletePreloader(qml_path, urdf_path)
+    preloader = CompletePreloader(
+        qml_path, urdf_path, box_visual_path, box_collision_path)
     preloaded_container = preloader.preload_complete_quick3d_setup()
     pybullet_robot = preloader.preload_pybullet()
 

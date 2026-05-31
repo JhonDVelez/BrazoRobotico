@@ -15,6 +15,7 @@ Conexiones:
 import time
 import numpy as np
 from PyQt6.QtCore import QThread, pyqtSignal, pyqtSlot
+from src.services.robot.robot_compensator import CartesianPidCompensator
 
 
 class KinematicsWorker(QThread):
@@ -43,10 +44,13 @@ class KinematicsWorker(QThread):
         super().__init__()
         # Dimensiones de los eslabones (mm) - Valores originales
         self._L1, self._L2, self._L3, self._L4 = 155, 92, 111, 155
+        self._cartesian_pid = CartesianPidCompensator()
 
         # Estado interno
         self._current_positions = [150.0] * 6
         self._target_pos = None
+        self._target_waypoints = []
+        self._waypoint_index = 0
         self._start_time = None
         self._prev_positions = list(self._current_positions)
         self._is_paused = False
@@ -162,11 +166,11 @@ class KinematicsWorker(QThread):
             t4 (float): Angulo articular 4 en radianes.
 
         Returns:
-            np.ndarray: Vector de posicion [x, y, z]^T de 3x1.
+            np.ndarray: Vector de posicion [x, y, z] en milimetros.
         """
-        T_list = self._t_matrices(t1, t2, t3, t4)
-        _, P, _, _ = self._h_dh(T_list[-1])
-        return P
+        return self._cartesian_pid.forward_kinematics(
+            np.array([t1, t2, t3, t4], dtype=float)
+        )
 
     def ci(self, px, py, pz, phi):
         """
@@ -186,21 +190,19 @@ class KinematicsWorker(QThread):
                 - q (np.ndarray): Vector de angulos articulares 4x1 en radianes.
                 - error (np.ndarray): Vector de error de posicion residual 3x1.
         """
-        q_limit = np.pi/2
-        q_min, q_max = -q_limit, q_limit
         q = np.deg2rad(np.array([40, 60, 90, phi], dtype=float)).reshape((4, 1))
         lambda_val, tol, max_iter = 0.5, 0.1, 100
-        P_deseada = np.array([[px], [py], [pz]])
-        for k in range(max_iter):
+        P_deseada = np.array([px, py, pz], dtype=float)
+        for _ in range(max_iter):
             P_actual = self.cd(q[0, 0], q[1, 0], q[2, 0], q[3, 0])
             error = P_deseada - P_actual
             if np.linalg.norm(error) < tol:
                 break
-            J = self._jacobiano_analitico(q.flatten())
-            # Actualizacion mediante la pseudoinversa de Moore-Penrose
-            q = q + lambda_val * (np.linalg.pinv(J) @ error)
-            q = np.clip(q, q_min, q_max)
-        return q, error
+            dq = self._cartesian_pid.inverse_kinematics_step(q.flatten(), error)
+            q = self._cartesian_pid.apply_physical_limits(
+                q.flatten() + lambda_val * dq
+            ).reshape((4, 1))
+        return q, error.reshape((3, 1))
 
     def _jacobiano_analitico(self, q_flat):
         """
@@ -247,49 +249,29 @@ class KinematicsWorker(QThread):
         if self._target_pos is None or self._is_paused:
             return
 
-        # Deteccion de bloqueo: Si ha pasado mas de 1s y el movimiento es minimo
-        if self._start_time is not None:
-            if time.time() - self._start_time > 1.0:
-                mov = sum(abs(self._current_positions[i] - self._prev_positions[i]) for i in [0, 1, 2, 4])
-                if mov < 0.1:
-                    print("¡Movimiento bloqueado! Abortando secuencia.")
-                    self._target_pos = None
-                    return
         self._prev_positions = list(self._current_positions)
 
-        # Mapeo de grados de servos a coordenadas articulares (radianes)
-        # Se ajustan los offsets y direcciones segun el ensamblaje fisico
-        r_deg = self._current_positions
-        q_actual = np.array([
-            np.deg2rad(r_deg[0] - 150.0),
-            np.deg2rad(150.0 - r_deg[1]),
-            np.deg2rad(150.0 - r_deg[2]),
-            np.deg2rad(r_deg[4] - 150.0),
-        ]).reshape((4, 1))
+        active_target = self._target_waypoints[self._waypoint_index]
+        command, reached, _, _ = self._cartesian_pid.compute_command(
+            active_target, self._current_positions
+        )
 
-        P_real = self.cd(q_actual[0, 0], q_actual[1, 0], q_actual[2, 0], q_actual[3, 0])
-        dist = np.linalg.norm(self._target_pos - P_real)
-        
-        if dist < 4.0:
-            self._target_pos = None # Objetivo alcanzado
-            return
+        if reached:
+            self._waypoint_index += 1
+            self._cartesian_pid.reset()
+            if self._waypoint_index >= len(self._target_waypoints):
+                self._target_pos = None
+                self._target_waypoints = []
+                return
+            active_target = self._target_waypoints[self._waypoint_index]
+            command, reached, _, _ = self._cartesian_pid.compute_command(
+                active_target, self._current_positions
+            )
+            if reached:
+                return
 
-        # Control mediante Minimos Cuadrados Amortiguados (DLS)
-        J = self._jacobiano_analitico(q_actual.flatten())
-        dq = np.linalg.inv(J.T @ J + 0.15**2 * np.eye(4)) @ J.T @ (self._target_pos - P_real)
-        dq = np.clip(dq, -np.deg2rad(20), np.deg2rad(20)) # Limite de velocidad por tick
-        q_nuevo = np.clip(q_actual + dq, np.deg2rad(-90), np.deg2rad(90))
-
-        # Re-mapeo a comandos de servo (grados)
-        q_deg_obj = np.rad2deg(q_nuevo.flatten())
-        qr = list(self._current_positions)
-        qr[0] = q_deg_obj[0] + 150.0
-        qr[1] = 150.0 - q_deg_obj[1]
-        qr[2] = 150.0 - q_deg_obj[2]
-        qr[4] = q_deg_obj[3] + 150.0
-        
-        qr = [max(0.0, min(300.0, x)) for x in qr]
-        self.commands_ready.emit(qr)
+        if command is not None:
+            self.commands_ready.emit(command)
 
     # --- Getters / Setters ---
 
@@ -304,11 +286,39 @@ class KinematicsWorker(QThread):
         """
         if px is None or py is None or pz is None:
             self._target_pos = None
+            self._target_waypoints = []
         else:
-            self._target_pos = np.array([[px], [py], [pz]])
+            self._target_pos = np.array([px, py, pz], dtype=float)
+            self._target_waypoints = self._build_target_waypoints(px, py, pz)
+            self._waypoint_index = 0
+            self._cartesian_pid.reset()
             self._start_time = time.time()
             self._prev_positions = list(self._current_positions)
             self.update_sensor_data(self._current_positions)
+
+    def _build_target_waypoints(self, px, py, pz):
+        """
+        Construye una secuencia desacoplada de movimiento X, Y y Z.
+
+        Args:
+            px (float): Objetivo final X en mm.
+            py (float): Objetivo final Y en mm.
+            pz (float): Objetivo final Z en mm.
+
+        Returns:
+            list: Waypoints cartesianos para elevar, desplazar y descender.
+        """
+        current_q = self._cartesian_pid.servo_to_joint_angles(
+            self._current_positions
+        )
+        current_xyz = self._cartesian_pid.forward_kinematics(current_q)
+        safe_z = pz + 30.0
+        return [
+            np.array([current_xyz[0], current_xyz[1], safe_z], dtype=float),
+            np.array([px, current_xyz[1], safe_z], dtype=float),
+            np.array([px, py, safe_z], dtype=float),
+            np.array([px, py, pz], dtype=float),
+        ]
 
     def set_paused(self, paused: bool):
         """

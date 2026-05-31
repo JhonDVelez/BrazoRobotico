@@ -1,48 +1,88 @@
 """
 Modulo que controla la logica de Pick and Place y la interaccion con la UI.
 
-El PickAndPlaceController orquesta la deteccion de objetos a traves de la camara
-y la confirmacion del usuario para iniciar las secuencias de movimiento.
+El PickAndPlaceController orquesta la deteccion de objetos a traves de la camara,
+la confirmacion del usuario, y coordina el PickAndPlaceWorker con el bus global
+de senales para ejecutar la secuencia de pickup y colocacion.
+
+Conexiones:
+    - Overlay -> Controller: sphere_selected(str) cuando el usuario elige una esfera.
+    - Bus Global -> Worker: poses_from_camera, target_reached, inverse_kinematics_ready.
+    - Worker -> Bus Global: action_request(dict) ruteado a Simulation/Physical/Kinematics.
 """
 
 from PyQt6.QtCore import QObject, pyqtSlot, QEvent
-from src.services.data.signals import PickPlaceSignalManager
+from src.services.data.signals import (
+    PickPlaceSignalManager, SimulationSignalManager,
+    PhysicalSignalManager, CameraSignalManager
+)
 from src.features.pick_and_place.pick_and_place_widget import PickAndPlaceWidget
+from src.features.pick_and_place.pick_and_place_worker import PickAndPlaceWorker
+from src.services.data.enums import Modes
 
 
 class PickAndPlaceController(QObject):
-    """
-    Controlador para el feature de Pick and Place.
+    """Controlador para el feature de Pick and Place.
 
-    Gestiona la interaccion del usuario sobre la vista de camara y
-    coordina con el bus global de señales.
+    Gestiona la interaccion del usuario sobre la vista de camara,
+    instancia y coordina el PickAndPlaceWorker, y rutea las acciones
+    del worker hacia el bus global de senales.
+
+    Attributes:
+        overlay: Widget transparente para seleccion de esferas.
+        worker: Worker con maquina de estados para la secuencia.
     """
 
     def __init__(self, camera_widget=None):
+        """Inicializa el controlador, worker y overlay.
+
+        Args:
+            camera_widget: Widget de camara donde se superpone el overlay.
+        """
         super().__init__()
         self.signal_manager = PickPlaceSignalManager.get_instance()
+        self.sim_signals = SimulationSignalManager.get_instance()
         self.camera_widget = None
         self._filter_installed = False
 
-        # Crear el overlay de interaccion (temporalmente sin parent si no hay)
         self.overlay = PickAndPlaceWidget()
+        self.worker = PickAndPlaceWorker()
 
         if camera_widget:
             self.set_camera_widget(camera_widget)
 
         self._setup_connections()
-
-        # Estado inicial
         self._on_state_changed(self.signal_manager.get_state())
 
     def _setup_connections(self):
-        """Configura las conexiones con el gestor de señales global."""
+        """Configura conexiones entre senales globales, worker y overlay."""
         self.signal_manager.state_changed.connect(self._on_state_changed)
         self.signal_manager.spheres_detected_2d.connect(
             self._on_spheres_detected_2d)
+        
+        # Conectar resultados de charuco para modo Place
+        CameraSignalManager.get_instance().charuco_done.connect(self._on_charuco_done)
 
-        # Conectar el overlay con el bus global
         self.overlay.sphere_selected.connect(self._request_pick)
+        self.overlay.place_requested.connect(self._request_place)
+
+        self.signal_manager.poses_from_camera.connect(
+            self.worker.on_poses_from_camera)
+        self.signal_manager.target_reached.connect(
+            self.worker.on_target_reached)
+        self.signal_manager.inverse_kinematics_ready.connect(
+            self.worker.on_ik_ready)
+
+        self.worker.action_request.connect(self._route_action)
+        self.worker.sequence_completed.connect(self._on_sequence_completed)
+        self.worker.sequence_failed.connect(self._on_sequence_failed)
+
+        sim_signals = SimulationSignalManager.get_instance()
+        phys_signals = PhysicalSignalManager.get_instance()
+        sim_signals.update_graph_signal.connect(
+            self.worker.on_feedback_update)
+        phys_signals.update_graph_signal.connect(
+            self.worker.on_feedback_update)
 
     def set_camera_widget(self, camera_widget):
         """Asocia el controlador con el widget de camara."""
@@ -53,15 +93,28 @@ class PickAndPlaceController(QObject):
         self.camera_widget = camera_widget
         self.overlay.setParent(camera_widget)
         if camera_widget:
+            # Obtener configuracion de camara para el widget (matriz, distorsion)
+            config = camera_widget.camera_config
+            matrix = config.get("matrix")
+            dist = config.get("distortion coefficients")
+            
             self.overlay.update_config(
-                camera_widget.orig_w, camera_widget.orig_h)
+                camera_widget.orig_w, 
+                camera_widget.orig_h
+            )
+            # Pasar parametros de camara directamente al pose_data del widget
+            self.overlay._charuco_pose = {
+                'camera_matrix': matrix,
+                'dist_coeffs': dist
+            }
+            
             self.overlay.resize(camera_widget.size())
             self._sync_overlay_stack()
             if self.signal_manager.get_state():
                 self._install_filter()
 
     @pyqtSlot(bool)
-    def _on_state_changed(self, active: bool):
+    def _on_state_changed(self, active):
         """Maneja la activacion/desactivacion del modo Pick and Place."""
         if active:
             if self.camera_widget:
@@ -71,38 +124,109 @@ class PickAndPlaceController(QObject):
             self._install_filter()
         else:
             self.overlay.hide()
+            self.worker.abort()
             if self.camera_widget and self._filter_installed:
                 self.camera_widget.removeEventFilter(self)
                 self._filter_installed = False
 
     def _install_filter(self):
-        """Instala el filtro usado solo para sincronizar el redimensionamiento."""
+        """Instala el filtro para sincronizar el redimensionamiento."""
         if self.camera_widget and not self._filter_installed:
             self.camera_widget.installEventFilter(self)
             self._filter_installed = True
 
     def _sync_overlay_stack(self):
-        """Mantiene el overlay sobre la imagen y los controles de camara al frente."""
+        """Mantiene el overlay sobre la imagen y los controles al frente."""
         self.overlay.raise_()
         if self.camera_widget:
             self.camera_widget.buttons_widget.raise_()
             self.camera_widget.toast.raise_()
 
     @pyqtSlot(dict)
-    def _on_spheres_detected_2d(self, circles_2d: dict):
+    def _on_spheres_detected_2d(self, circles_2d):
         """Actualiza el estado del overlay con nuevas detecciones."""
         if self.overlay.isVisible():
             self.overlay.update_detected_circles(circles_2d)
 
-    @pyqtSlot(str)
-    def _request_pick(self, color: str):
-        """
-        Publica la intencion de tomar una esfera en el bus global.
+    @pyqtSlot(int, object)
+    def _on_charuco_done(self, frame_id, data):
+        """Actualiza la pose del tablero en el overlay."""
+        if self.overlay.isVisible() and data:
+            if self.overlay._charuco_pose is None:
+                self.overlay._charuco_pose = {}
+            
+            self.overlay._charuco_pose.update({
+                'rvec': data.get('rvec'),
+                'tvec': data.get('tvec')
+            })
+            self.overlay.update()
 
-        El DataController escucha esta solicitud y orquesta la secuencia.
+
+    @pyqtSlot(str)
+    def _request_pick(self, color):
+        """Inicia la secuencia de pick para la esfera del color indicado.
+
+        Args:
+            color (str): Color de la esfera seleccionada por el usuario.
         """
         self.signal_manager.sphere_selected.emit(color)
-        self.signal_manager.pick_requested.emit(color)
+        self.sim_signals.change_mode_signal.emit(Modes.KINEMATIC)
+        self.sim_signals.release_sphere.emit(color)
+        self.signal_manager.set_pick_place_running(True)
+        self.worker.pick(color)
+
+    @pyqtSlot(dict)
+    def _request_place(self, coords):
+        """Inicia la secuencia de place para las coordenadas indicadas.
+
+        Args:
+            coords (dict): Coordenadas {x, y, z} seleccionadas en el tablero.
+        """
+        self.signal_manager.place_requested.emit(coords)
+        self.signal_manager.set_pick_place_running(True)
+        self.worker.place(coords)
+
+    @pyqtSlot(dict)
+    def _route_action(self, action):
+        """Rutea las acciones del worker hacia el bus global de senales.
+
+        Args:
+            action (dict): Accion emitida por el worker con claves
+                'type' y datos especificos del tipo de accion.
+        """
+        action_type = action.get('type')
+        if action_type == 'move':
+            self.sim_signals.update_target_signal.emit(action['target'])
+        elif action_type == 'compute_ik':
+            self.signal_manager.inverse_kinematics_requested.emit(action)
+
+    @pyqtSlot()
+    def _on_sequence_completed(self):
+        """Maneja la finalizacion exitosa de la secuencia."""
+        self.signal_manager.set_pick_place_running(False)
+        
+        # Si terminamos un Pick, pasar a modo Place
+        if self.worker.current_state_value == 'idle':
+            # Determinar si venimos de un Pick o de un Place
+            # Si el worker tiene una esfera (estaba en lifting antes de idle)
+            # En este punto el worker ya esta en idle.
+            # Podriamos usar una flag en el controller o preguntar al worker.
+            if self.overlay._mode == 'pick':
+                self.overlay.set_mode('place')
+            else:
+                self.overlay.set_mode('pick')
+                
+        self.sim_signals.change_mode_signal.emit(Modes.KINEMATIC)
+
+    @pyqtSlot(str)
+    def _on_sequence_failed(self, reason):
+        """Maneja el fallo de la secuencia.
+
+        Args:
+            reason (str): Descripcion del error.
+        """
+        self.signal_manager.set_pick_place_running(False)
+        print(f'[PickAndPlace] Secuencia fallida: {reason}')
 
     def eventFilter(self, watched, event):
         """Captura eventos del CameraWidget para el overlay."""

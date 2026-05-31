@@ -24,10 +24,15 @@ View3D {
     property alias bgMode: env.backgroundMode
     property alias floorColor: floorMaterial.baseColor
     property alias sphereOrangePos: sphereOrange.modelPosition
+    property alias sphereOrangeRot: sphereOrange.modelRotation
     property alias sphereGreenPos: sphereGreen.modelPosition
+    property alias sphereGreenRot: sphereGreen.modelRotation
     property alias sphereBluePos: sphereBlue.modelPosition
+    property alias sphereBlueRot: sphereBlue.modelRotation
     property alias spherePurplePos: spherePurple.modelPosition
+    property alias spherePurpleRot: spherePurple.modelRotation
     property alias sphereYellowPos: sphereYellow.modelPosition
+    property alias sphereYellowRot: sphereYellow.modelRotation
 
     environment: SceneEnvironment {
         id: env

@@ -183,7 +183,7 @@ class CompletePreloader:
         )
 
         try:
-            p.connect(p.GUI)
+            p.connect(p.DIRECT)
             p.setGravity(0, 0, -9.81)
             p.setTimeStep(1./240.)
 

@@ -128,6 +128,7 @@ class GraphController(QObject):
         Args:
             data (list): Lista de angulos en grados.
         """
+        #print("Datos de simulación recibidos:", data)
         # 1. Procesamiento Angular Sim (Invertir ejes si es necesario por convencion visual)
         ang_data = list(data)
         ang_data[1] *= -1
@@ -153,6 +154,7 @@ class GraphController(QObject):
             temp_data (list): Temperaturas de los motores.
         """
         # 1. Procesamiento Angular Phy (Ajuste de offset respecto al centro 150)
+        print(f"Datos de robot recibidos: Posiciones={pos_data}, Temperaturas={temp_data}")
         pos_ang = list(pos_data)
         pos_ang[0] -= 150
         pos_ang[1] = -pos_ang[1] + 150

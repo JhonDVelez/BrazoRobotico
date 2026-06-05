@@ -105,6 +105,7 @@ class DataController(QObject):
 
     @pyqtSlot()
     def _handle_sync_tick(self):
+
         """Despacha posiciones y detecta llegada al objetivo."""
         if self._target_data is None:
             return
@@ -112,6 +113,7 @@ class DataController(QObject):
         data_rad = deg_to_rad(self._target_data)
         self.sim_signals.update_pybullet_signal.emit(data_rad.tolist())
 
+        
         if self.phys_signals.is_connected:
             self.phys_signals.send_to_robot.emit(self._target_data)
 

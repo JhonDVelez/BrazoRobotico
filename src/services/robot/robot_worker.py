@@ -185,7 +185,7 @@ class RobotWorker(QThread):
             if not raw_frame:
                 return
 
-            parsed = self._parse_telemetry(raw_frame)
+            parsed = self._parse_telemetry(raw_frame)    
             if parsed is None:
                 return
 
@@ -193,7 +193,6 @@ class RobotWorker(QThread):
             self._last_positions = self._filter_positions(positions)
             self._last_temperaturas = temperatures
 
-            # Notificacion de nuevos datos locales
             self.data_received.emit(
                 self._last_positions.copy(), self._last_temperaturas.copy())
 
@@ -224,7 +223,7 @@ class RobotWorker(QThread):
         Returns:
             str: Texto ASCII acumulado desde el puerto serie.
         """
-        timeout = 0.03
+        timeout = 1
         start = time.time()
         data = b""
         while time.time() - start < timeout:

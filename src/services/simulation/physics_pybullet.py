@@ -10,6 +10,7 @@ Conexiones:
     - Emite robot_loaded cuando termina de cargar el modelo URDF.
 """
 
+import math
 import pybullet as p
 from PyQt6.QtCore import pyqtSignal, QDir
 from PyQt6.QtWidgets import QWidget
@@ -46,6 +47,7 @@ class RobotArmPhysics(QWidget):
             "pybullet:/meshes/collision/sphere_vhacd.obj").path()
         self.spheres = {}
         self.released_spheres = set()
+        self.missing_counters = {}
         self.col_id = p.createCollisionShape(
             shapeType=p.GEOM_MESH, fileName=sphere_collision_path, meshScale=[1, 1, 1])
         self.vis_id = p.createVisualShape(
@@ -123,17 +125,45 @@ class RobotArmPhysics(QWidget):
                 self.joint_indices.append(i)
 
     def update_spheres(self, poses: dict):
+        """
+        Actualiza las posiciones de las esferas segun las detecciones de la camara.
+
+        Si una esfera no se detecta durante 5 frames seguidos, se oculta.
+        Las esferas en proceso de pick and place (released) se ignoran.
+
+        Args:
+            poses (dict): Diccionario {color: posicion_o_dict}.
+        """
+        detected_colors = set(poses.keys())
+
         for color, pose in poses.items():
             if color in self.released_spheres:
                 continue
+
+            # Reiniciar contador si se detecta
+            self.missing_counters[color] = 0
 
             # Extraer la posicion si viene en un diccionario
             pos_list = pose.get('position') if isinstance(pose, dict) else pose
 
             if color in self.spheres:
-                self.set_sphere_position(self.spheres.get(color), pos_list)
+                self.show_sphere(self.spheres.get(color), pos_list)
             else:
                 self.create_sphere(color, pos_list)
+
+        # Incrementar contadores para esferas no detectadas
+        for color in list(self.spheres.keys()):
+            if color not in detected_colors and color not in self.released_spheres:
+                self.missing_counters[color] = self.missing_counters.get(color, 0) + 1
+                if self.missing_counters[color] >= 5:
+                    self.hide_sphere(self.spheres[color])
+
+    def hide_all_spheres(self):
+        """Oculta todas las esferas de la simulacion inmediatamente."""
+        for color, body_id in self.spheres.items():
+            if color not in self.released_spheres:
+                self.hide_sphere(body_id)
+                self.missing_counters[color] = 5
 
     def create_sphere(self, color, posicion):
         # Convertir mm a metros y mapear ejes
@@ -154,7 +184,8 @@ class RobotArmPhysics(QWidget):
             lateralFriction=0.3,
             restitution=0.5,
             contactStiffness=40000.0,
-            contactDamping=50.0
+            contactDamping=50.0,
+            collisionMargin=0.000001
         )
         p.setCollisionFilterGroupMask(body_id, -1, 1, 1)
         return body_id
@@ -163,6 +194,7 @@ class RobotArmPhysics(QWidget):
         sphere_state = {}
         for color, id in self.spheres.items():
             position, orientation = p.getBasePositionAndOrientation(id)
+            # print(position)
             # Mapeo inverso: Metros a mm y swap de ejes para UI
             pos = [
                 -position[0] * 1000,  # UI_X = Py_X
@@ -172,12 +204,12 @@ class RobotArmPhysics(QWidget):
             # print(f'get: {pos}')
             rot = p.getEulerFromQuaternion(orientation)
             rot = [
-                rot[0],
+                -rot[0],
                 rot[2],
                 rot[1]
             ]
             sphere_state[color] = {
-                'position': pos, 'orientation': p.getEulerFromQuaternion(orientation)}
+                'position': pos, 'orientation': rot}
         return sphere_state
 
     def set_sphere_position(self, id, new_pos):
@@ -187,11 +219,10 @@ class RobotArmPhysics(QWidget):
 
         y, x, z = position
         # Convertir mm a metros y mapear ejes: UI(x,y,z) -> PyBullet(y,x,z)
-        pos = [(x+100) * 0.001, y * 0.001, (z+101) * 0.001]
+        pos = [(x+100) * 0.001, y * 0.001, (z+102.3) * 0.001]
         # print(f'set: {pos}')
         p.resetBasePositionAndOrientation(
             id, pos, [0, 0, 0, 1])
-        # p.changeDynamics(id, -1, mass=0.0)
 
     def release_sphere(self, color):
         """
@@ -203,8 +234,17 @@ class RobotArmPhysics(QWidget):
         if color not in self.spheres:
             return
         self.released_spheres.add(color)
-        # p.changeDynamics(self.spheres[color], -1, mass=0.05)
         p.setCollisionFilterGroupMask(self.spheres[color], -1, 1, 1)
+
+    def reattach_sphere(self, color):
+        """
+        Reanuda el seguimiento por camara de una esfera.
+
+        Args:
+            color (str): Clave de color de la esfera a reasociar.
+        """
+        if color in self.released_spheres:
+            self.released_spheres.remove(color)
 
     def has_released_spheres(self):
         """

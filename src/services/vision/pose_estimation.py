@@ -68,18 +68,22 @@ class PoseEstimation(QRunnable):
         y proyecta cada esfera al espacio 3D del tablero y del origen personalizado.
         """
         try:
+            final_poses = {}
+
             if self.rvec is None or self.tvec is None:
-                self.error_callback(
-                    "No fue posible estimar la pose del tablero ChArUco.")
+                # No podemos estimar poses sin el tablero, reportamos vacio
+                if self.pose_callback is not None:
+                    self.pose_callback(self.frame_id, final_poses)
                 return
 
             if not self.circle_results:
+                # No hay esferas detectadas, reportamos vacio
+                if self.pose_callback is not None:
+                    self.pose_callback(self.frame_id, final_poses)
                 return
 
             # R transforma coordenadas del tablero hacia coordenadas de camara.
             rotation_matrix, _ = cv2.Rodrigues(self.rvec)
-
-            final_poses = {}
 
             for color_name, sphere_data in self.circle_results.items():
                 center = sphere_data.get("center")

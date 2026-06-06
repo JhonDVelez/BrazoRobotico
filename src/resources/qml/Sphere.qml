@@ -15,19 +15,21 @@ Node {
     visible: hideOnZero
              ? !(modelPosition.x === 0 && modelPosition.y === 0 && modelPosition.z === 0)
              : true
-
-    Model {
-        source: root.meshSource
-        scale: Qt.vector3d(1, 1, 1)
+    Node {
         position: root.modelPosition
         eulerRotation: root.modelRotation
+        Model {
+            source: root.meshSource
+            scale: Qt.vector3d(1, 1, 1)
+            eulerRotation: Qt.vector3d(-90, 0, 0)
 
-        materials: [
-            PrincipledMaterial {
-                baseColor: root.modelColor
-                roughness: 0.4
-            }
-        ]
-        receivesShadows: true
+            materials: [
+                PrincipledMaterial {
+                    baseColor: root.modelColor
+                    roughness: 0.4
+                }
+            ]
+            receivesShadows: true
+        }
     }
 }

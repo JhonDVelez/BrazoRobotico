@@ -71,10 +71,10 @@ class ImageHandler(QObject):
             return
         if pixmap and not pixmap.isNull():
             self.image_label.setContentsMargins(0, 0, 0, 0)
-            self._apply_pixmap(pixmap, Qt.TransformationMode.FastTransformation)
+            self._apply_pixmap(
+                pixmap, Qt.TransformationMode.SmoothTransformation)
         else:
             print("El frame obtenido no es valido")
-
 
     def _apply_pixmap(self, pixmap: QPixmap, transform_type: Qt.TransformationMode):
         """Escala y aplica un QPixmap al QLabel respetando los margenes.

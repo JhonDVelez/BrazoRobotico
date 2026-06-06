@@ -183,7 +183,7 @@ class CompletePreloader:
         )
 
         try:
-            p.connect(p.GUI)
+            p.connect(p.DIRECT)
             p.setGravity(0, 0, -9.81)
             p.setTimeStep(1./240.)
 
@@ -232,10 +232,10 @@ class CompletePreloader:
                 flags=p.URDF_USE_INERTIA_FROM_FILE | p.URDF_ENABLE_CACHED_GRAPHICS_SHAPES
             )
             p.setCollisionFilterGroupMask(box_id, -1, 1, 1)
-            # p.changeDynamics(box_id, -1, collisionMargin=0.000001)
+            p.changeDynamics(box_id, -1, collisionMargin=0.000001)
             p.setCollisionFilterGroupMask(robot_id, -1, 1, 1)
-            # p.changeDynamics(robot_id, 5, collisionMargin=0.00001)
-            # p.changeDynamics(robot_id, 6, collisionMargin=0.00001)
+            p.changeDynamics(robot_id, 5, collisionMargin=0.000001)
+            p.changeDynamics(robot_id, 6, collisionMargin=0.000001)
             p.stepSimulation()
 
             return robot_id

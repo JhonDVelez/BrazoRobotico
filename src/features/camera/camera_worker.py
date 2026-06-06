@@ -71,8 +71,8 @@ class CameraWorker(QThread):
         self.camera = CameraConnection(
             camera_index, self.camera_config, is_calibration)
 
-        self.camera_signal_manager = CameraSignalManager().get_instance()
-        self.search_signal_manager = SearchSignalManager().get_instance()
+        self.camera_signal_manager = CameraSignalManager.get_instance()
+        self.search_signal_manager = SearchSignalManager.get_instance()
         self.draw_view_signal_manager = DrawViewSignalManager.get_instance()
         self.frame_counter = FrameCounter.get_instance()
         self.frame_counter.process_frame_signal.connect(self._on_process_frame)

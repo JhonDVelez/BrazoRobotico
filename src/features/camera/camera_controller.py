@@ -61,8 +61,8 @@ class CameraController(QObject):
         self.theme_signal_manager = ThemeSignalManager.get_instance()
         self.draw_signal_manager = DrawViewSignalManager.get_instance()
         self.camera_signal_manager = CameraSignalManager.get_instance()
-        self.simuation_signal_manager = SimulationSignalManager().get_instance()
-        self.pick_place_signal_manager = PickPlaceSignalManager().get_instance()
+        self.simuation_signal_manager = SimulationSignalManager.get_instance()
+        self.pick_place_signal_manager = PickPlaceSignalManager.get_instance()
 
         self.view = CameraWidget(parent, self.camera_config, init_view_config)
         self._setup_connections()
@@ -187,6 +187,7 @@ class CameraController(QObject):
             self.worker.stop()
             self.worker.deleteLater()
             self.worker = None
+            self.simuation_signal_manager.clear_spheres.emit()
 
         self.view.get_image_handler().set_process_running(False)
         self.view.set_ui_running_state(False)

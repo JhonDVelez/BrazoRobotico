@@ -22,7 +22,9 @@ class SimulationSignalManager(_SignalManager):
     _instance = None
     sphere_pos_from_camera = pyqtSignal(dict)
     sphere_pos_from_pybullet = pyqtSignal(dict)
+    clear_spheres = pyqtSignal()
     release_sphere = pyqtSignal(str)
+    reattach_sphere = pyqtSignal(str)
 
     @classmethod
     def get_instance(cls):

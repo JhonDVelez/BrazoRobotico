@@ -105,7 +105,7 @@ class MainMenuMixin:
         self.connect_action = QAction("Conectar", self)
         self.connect_action.setEnabled(False)
 
-        self.theme_signal_manager = ThemeSignalManager().get_instance()
+        self.theme_signal_manager = ThemeSignalManager.get_instance()
         self.theme_signal_manager.theme_changed.connect(self.change_theme)
 
     def create_main_menu(self):

@@ -146,3 +146,18 @@ class PhysicsWorker(QThread):
             color (str): Identificador de la esfera seleccionada.
         """
         self.physic.release_sphere(color)
+
+    @pyqtSlot(str)
+    def reattach_sphere(self, color: str):
+        """
+        Reasocia una esfera para que vuelva a seguir la camara.
+
+        Args:
+            color (str): Identificador de la esfera.
+        """
+        self.physic.reattach_sphere(color)
+
+    @pyqtSlot()
+    def hide_all_spheres(self):
+        """Oculta todas las esferas que no estan siendo manipuladas."""
+        self.physic.hide_all_spheres()

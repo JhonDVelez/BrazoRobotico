@@ -22,17 +22,21 @@ def pixel_to_camera_ray(pixel, camera_matrix, dist_coeffs, frame_size):
     Returns:
         np.ndarray: Vector unitario (rayo) 3x1 en coordenadas de camara.
     """
+    # Asegurar que sean arreglos de numpy para evitar errores en cv2
+    K = np.asarray(camera_matrix, dtype=np.float64)
+    D = np.asarray(dist_coeffs, dtype=np.float64)
+
     image_point = np.array([[pixel]], dtype=np.float64)
     # UndistortPoints devuelve coordenadas normalizadas (x/z, y/z)
     undistorted = cv2.undistortPoints(
-        image_point, camera_matrix, dist_coeffs, P=camera_matrix)
-    
-    # Para obtener el rayo en coordenadas de camara, necesitamos proyectar 
+        image_point, K, D, P=K)
+
+    # Para obtener el rayo en coordenadas de camara, necesitamos proyectar
     # de nuevo al espacio normalizado (sin la matriz de camara K)
     # o usar K_inv. cv2.undistortPoints con P=None devuelve (x/z, y/z).
     undistorted_norm = cv2.undistortPoints(
-        image_point, camera_matrix, dist_coeffs)
-    
+        image_point, K, D)
+
     x_norm, y_norm = undistorted_norm[0, 0]
     ray = np.array([[x_norm], [y_norm], [1.0]], dtype=np.float64)
     return ray / np.linalg.norm(ray)
@@ -55,23 +59,24 @@ def pixel_to_board_coordinates(pixel, rvec, tvec, camera_matrix, dist_coeffs, fr
         np.ndarray: Vector de posicion 3x1 en el espacio del tablero.
     """
     # 1. Obtener rayo en espacio de camara
-    ray_cam = pixel_to_camera_ray(pixel, camera_matrix, dist_coeffs, frame_size)
-    
+    ray_cam = pixel_to_camera_ray(
+        pixel, camera_matrix, dist_coeffs, frame_size)
+
     # 2. Matrices de transformacion
     rotation_matrix, _ = cv2.Rodrigues(rvec)
     tvec = np.asarray(tvec, dtype=np.float64).reshape(3, 1)
-    
+
     # 3. Transformar centro de camara y rayo al espacio del tablero
     # La posicion de la camara en el espacio del tablero es -R.T @ t
     camera_center_board = -rotation_matrix.T @ tvec
     ray_board = rotation_matrix.T @ ray_cam
-    
+
     if abs(ray_board[2, 0]) < 1e-10:
         return None  # Rayo paralelo al plano
-    
+
     # 4. Calculo de la interseccion rayo-plano (Z = plane_z)
     # P_board = camera_center_board + ray_scale * ray_board
     # P_board[2] = plane_z  => plane_z = camera_center_board[2] + ray_scale * ray_board[2]
     ray_scale = (plane_z - camera_center_board[2, 0]) / ray_board[2, 0]
-    
+
     return camera_center_board + ray_scale * ray_board

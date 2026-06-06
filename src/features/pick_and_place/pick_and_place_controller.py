@@ -12,9 +12,10 @@ Conexiones:
 """
 
 from PyQt6.QtCore import QObject, pyqtSlot, QEvent
+import numpy as np
 from src.services.data.signals import (
     PickPlaceSignalManager, SimulationSignalManager,
-    PhysicalSignalManager, CameraSignalManager
+    PhysicalSignalManager, CameraSignalManager, SearchSignalManager
 )
 from src.features.pick_and_place.pick_and_place_widget import PickAndPlaceWidget
 from src.features.pick_and_place.pick_and_place_worker import PickAndPlaceWorker
@@ -47,6 +48,7 @@ class PickAndPlaceController(QObject):
 
         self.overlay = PickAndPlaceWidget()
         self.worker = PickAndPlaceWorker()
+        self._current_color = None
 
         if camera_widget:
             self.set_camera_widget(camera_widget)
@@ -102,11 +104,15 @@ class PickAndPlaceController(QObject):
                 camera_widget.orig_w, 
                 camera_widget.orig_h
             )
-            # Pasar parametros de camara directamente al pose_data del widget
-            self.overlay._charuco_pose = {
-                'camera_matrix': matrix,
-                'dist_coeffs': dist
-            }
+            
+            # Pasar parametros de camara al pose_data del widget asegurando tipos numpy
+            if self.overlay._charuco_pose is None:
+                self.overlay._charuco_pose = {}
+                
+            self.overlay._charuco_pose.update({
+                'camera_matrix': np.array(matrix, dtype=np.float64) if matrix else None,
+                'dist_coeffs': np.array(dist, dtype=np.float64) if dist else None
+            })
             
             self.overlay.resize(camera_widget.size())
             self._sync_overlay_stack()
@@ -169,10 +175,13 @@ class PickAndPlaceController(QObject):
         Args:
             color (str): Color de la esfera seleccionada por el usuario.
         """
+        self._current_color = color
         self.signal_manager.sphere_selected.emit(color)
         self.sim_signals.change_mode_signal.emit(Modes.KINEMATIC)
         self.sim_signals.release_sphere.emit(color)
         self.signal_manager.set_pick_place_running(True)
+        # Desactivar busqueda de esferas durante el movimiento para evitar ruido
+        SearchSignalManager.get_instance().set_circle(False)
         self.worker.pick(color)
 
     @pyqtSlot(dict)
@@ -184,6 +193,8 @@ class PickAndPlaceController(QObject):
         """
         self.signal_manager.place_requested.emit(coords)
         self.signal_manager.set_pick_place_running(True)
+        # Desactivar busqueda de esferas durante el movimiento
+        SearchSignalManager.get_instance().set_circle(False)
         self.worker.place(coords)
 
     @pyqtSlot(dict)
@@ -203,17 +214,22 @@ class PickAndPlaceController(QObject):
     @pyqtSlot()
     def _on_sequence_completed(self):
         """Maneja la finalizacion exitosa de la secuencia."""
+        # Primero desactivamos el flag de ejecucion para permitir actualizaciones de posicion
         self.signal_manager.set_pick_place_running(False)
         
         # Si terminamos un Pick, pasar a modo Place
         if self.worker.current_state_value == 'idle':
             # Determinar si venimos de un Pick o de un Place
-            # Si el worker tiene una esfera (estaba en lifting antes de idle)
-            # En este punto el worker ya esta en idle.
-            # Podriamos usar una flag en el controller o preguntar al worker.
             if self.overlay._mode == 'pick':
+                # Terminamos Pick, pasamos a Place. NO reactivamos camara aun.
                 self.overlay.set_mode('place')
             else:
+                # Terminamos Place, regresamos a Pick. Reactivamos camara y reasociamos esfera.
+                if self._current_color:
+                    self.sim_signals.reattach_sphere.emit(self._current_color)
+                    self._current_color = None
+                
+                SearchSignalManager.get_instance().set_circle(True)
                 self.overlay.set_mode('pick')
                 
         self.sim_signals.change_mode_signal.emit(Modes.KINEMATIC)
@@ -225,7 +241,15 @@ class PickAndPlaceController(QObject):
         Args:
             reason (str): Descripcion del error.
         """
+        # Desactivamos flag antes de reactivar camara
         self.signal_manager.set_pick_place_running(False)
+        
+        # Reactivar busqueda de esferas y reasociar esfera en caso de fallo
+        if self._current_color:
+            self.sim_signals.reattach_sphere.emit(self._current_color)
+            self._current_color = None
+            
+        SearchSignalManager.get_instance().set_circle(True)
         print(f'[PickAndPlace] Secuencia fallida: {reason}')
 
     def eventFilter(self, watched, event):

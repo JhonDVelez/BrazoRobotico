@@ -56,7 +56,7 @@ class CameraDevices:
             (cam.index, display_name)
             for cam, display_name in zip(unique_cameras, camera_names)
         ]
-        CameraSignalManager().get_instance().available_cameras.emit(results)
+        CameraSignalManager.get_instance().available_cameras.emit(results)
 
     def _get_camera_sysfs_device(self, cam):
         """

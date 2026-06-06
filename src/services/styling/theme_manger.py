@@ -28,7 +28,7 @@ class ThemeManager:
         self.laser_b = QPixmap("img:laser_b.png").scaledToHeight(
             20, Qt.TransformationMode.SmoothTransformation)
 
-        self.theme_signal_manager = ThemeSignalManager().get_instance()
+        self.theme_signal_manager = ThemeSignalManager.get_instance()
 
     def update_theme(self, scheme: Qt.ColorScheme | None):
         """ Se ejecuta cada vez que cambia el tema del sistema

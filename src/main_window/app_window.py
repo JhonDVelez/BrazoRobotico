@@ -126,7 +126,7 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
 
         # Cargar configuracion de busqueda visual
         camera = settings.get("camera", {})
-        search_manager = SearchSignalManager().get_instance()
+        search_manager = SearchSignalManager.get_instance()
         for key, widget in camera.items():
             state = bool(camera[key])
             if key == "charuco":
@@ -208,12 +208,17 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
                 self.toggle_visibility_controls_event)
 
         # Configuracion de deteccion visual
+        search_manager = SearchSignalManager.get_instance()
         if hasattr(self, 'charuco_action'):
             self.charuco_action.toggled.connect(
                 self.toggle_charuco_search)
+            search_manager.charuco_search_changed.connect(
+                self.charuco_action.setChecked)
         if hasattr(self, 'sphere_action'):
             self.sphere_action.toggled.connect(
                 self.toggle_sphere_search)
+            search_manager.circle_search_changed.connect(
+                self.sphere_action.setChecked)
         if hasattr(self, 'camera_calibration_action'):
             self.camera_calibration_action.triggered.connect(
                 self.initiate_camera_calibration)

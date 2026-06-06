@@ -79,8 +79,12 @@ class SimulationController(QObject):
             self.update_sphere_pose_from_camera)
         self.simulation_signal_manager.sphere_pos_from_pybullet.connect(
             self.update_sphere_pose_from_pybullet)
+        self.simulation_signal_manager.clear_spheres.connect(
+            self.clear_spheres)
         self.simulation_signal_manager.release_sphere.connect(
             self.physics_worker.release_sphere)
+        self.simulation_signal_manager.reattach_sphere.connect(
+            self.physics_worker.reattach_sphere)
 
     def init_pybullet_processing(self, root_object):
         """
@@ -152,6 +156,14 @@ class SimulationController(QObject):
             return
         if self.simulation_worker is not None:
             self.physics_worker.update_sphere_initial_positions(poses)
+
+    @pyqtSlot()
+    def clear_spheres(self):
+        """Limpia las esferas de la simulacion si no hay pick and place en curso."""
+        if self.pick_place_signal_manager.is_pick_place_running():
+            return
+        if self.physics_worker:
+            self.physics_worker.hide_all_spheres()
 
     def update_sphere_pose_from_pybullet(self, poses: dict):
         if self.simulation_worker is not None:

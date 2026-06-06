@@ -225,14 +225,12 @@ class MainActionsMixin:
     @pyqtSlot(bool)
     def toggle_charuco_search(self, checked: bool):
         """
-        Alterna la busqueda de patrones ChArUco en la camara.
+        Alterna la busqueda de tablero ChArUco en la camara.
 
         Args:
             checked (bool): True para activar la deteccion.
         """
-        SearchSignalManager().get_instance().set_charuco(checked)
-        ConfigSignalManager.get_instance().request_change(
-            "settings.json", "camera", "charuco", value=checked)
+        SearchSignalManager.get_instance().set_charuco(checked)
 
     @pyqtSlot(bool)
     def toggle_sphere_search(self, checked: bool):
@@ -242,9 +240,7 @@ class MainActionsMixin:
         Args:
             checked (bool): True para activar la deteccion.
         """
-        SearchSignalManager().get_instance().set_circle(checked)
-        ConfigSignalManager.get_instance().request_change(
-            "settings.json", "camera", "circle", value=checked)
+        SearchSignalManager.get_instance().set_circle(checked)
 
     def toggle_sliders_controls(self, checked: bool):
         """

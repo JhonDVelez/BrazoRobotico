@@ -123,6 +123,14 @@ class PickAndPlaceWidget(QWidget):
 
     def _draw_selection_x(self):
         """Dibuja una X sobre la posicion snapped seleccionada."""
+        if not self._charuco_pose:
+            return
+            
+        # Verificar que tengamos todos los datos necesarios para proyectar
+        required = ['rvec', 'tvec', 'camera_matrix', 'dist_coeffs']
+        if not all(k in self._charuco_pose and self._charuco_pose[k] is not None for k in required):
+            return
+
         # 1. Convertir de espacio robot a espacio tablero
         p_robot = np.array([
             self._selected_place['x'],
@@ -229,6 +237,12 @@ class PickAndPlaceWidget(QWidget):
     def _handle_place_click(self, x, y):
         """Calcula la posicion 3D en el tablero y aplica snapping."""
         if not self._charuco_pose:
+            return
+            
+        # Verificar datos de calibracion y pose
+        required = ['rvec', 'tvec', 'camera_matrix', 'dist_coeffs']
+        if not all(k in self._charuco_pose and self._charuco_pose[k] is not None for k in required):
+            print("[PickPlace] Error: Faltan datos de pose o camara para calcular coordenadas")
             return
 
         # 1. Proyectar pixel a coordenadas del tablero (z=0)

@@ -55,8 +55,8 @@ class SlidersWidget(QWidget):
         # Configuracion θ: (label, min_absoluto, max_absoluto)
         # Los limites estan basados en las capacidades mecanicas reales del brazo
         theta_config = [
-            ("θ1", 50, 250), ("θ2", 60, 240), ("θ3", 30, 270),
-            ("θ4", 50, 250), ("θ5", 60, 260), ("θ6", 38, 171)
+            ("θ1", 50, 250), ("θ2", 60, 240), ("θ3", 20, 280),
+            ("θ4", 50, 250), ("θ5", 60, 270), ("θ6", 42, 171)
         ]
 
         for i, (text, s_min, s_max) in enumerate(theta_config):

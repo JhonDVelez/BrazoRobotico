@@ -149,7 +149,7 @@ class CartesianPidCompensator:
         current_position = self.forward_kinematics(q_actual)
         error = target_position - current_position
 
-        if np.all(np.abs(error) < [2.0, 2.0, 2.0]):
+        if np.all(np.abs(error) < [3.0, 3.0, 5.0]):
             self._previous_time = now
             return None, True, current_position, error
 
@@ -166,35 +166,30 @@ class CartesianPidCompensator:
     def _pid_control(self, error: np.ndarray, current_position: np.ndarray,
                      dt: float) -> np.ndarray:
         """Calcula la accion PID cartesiana con anti-windup y soporte Z."""
-        kp_z_mod = self._KP_AXES[2] * 0.9
-        ki_z_mod = self._KI_AXES[2] * 0.4
+        proportional = error * self._KP_AXES   
+        dist_total = np.linalg.norm(error)   
+        umbral = 1.0
+        ALPHA_D = 0.25        
 
-        proportional = error * self._KP_AXES
-        proportional[2] = error[2] * kp_z_mod
-
-        if abs(error[2]) < 15.0:
-            self._integral_error[2] += error[2] * dt
+        if dist_total < umbral*2:
+            self._integral_error *= 0.7
         else:
-            self._integral_error[2] *= 0.5
-        self._integral_error[0:2] += error[0:2] * dt
-        self._integral_error = np.clip(self._integral_error, -20.0, 20.0)
+            self._integral_error += error * dt
+
+        self._integral_error = np.clip(self._integral_error, -30.0, 30.0)
 
         integral = self._integral_error * self._KI_AXES
-        integral[2] = self._integral_error[2] * ki_z_mod
 
         if self._first_iteration:
             derivative = np.zeros(3)
             self._first_iteration = False
         else:
             raw_derivative = (error - self._previous_error) / dt
-            self._filtered_derivative = (
-                0.3 * raw_derivative + 0.7 * self._filtered_derivative
-            )
+            self._filtered_derivative = (ALPHA_D * raw_derivative) + ((1 - ALPHA_D) * self._filtered_derivative)
             derivative = self._filtered_derivative * self._KD_AXES
-            derivative[2] *= 2.0
 
         radius = np.sqrt(current_position[0] ** 2 + current_position[1] ** 2)
-        gravity_support = 8.0 + (0.055 * radius)
+        gravity_support = (0.1373 * radius) - 16.066
         control = proportional + integral + derivative
         control[2] += gravity_support
         return control

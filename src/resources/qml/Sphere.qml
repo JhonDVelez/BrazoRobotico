@@ -6,8 +6,9 @@ Node {
 
     property color modelColor: "white"
     property vector3d modelPosition: Qt.vector3d(0, 0, 0)
-    property vector3d modelRotation: Qt.vector3d(0, 0, 0)
+    property quaternion modelRotationQuaternion: Qt.quaternion(1, 0, 0, 0)
     property string meshSource: "meshes/sphere.mesh"
+    property real sphereRadius: 20.0
 
     // Oculto automáticamente si la posición es 0,0,0
     property bool hideOnZero: true
@@ -17,10 +18,10 @@ Node {
              : true
     Node {
         position: root.modelPosition
-        eulerRotation: root.modelRotation
+        rotation: root.modelRotationQuaternion
         Model {
             source: root.meshSource
-            scale: Qt.vector3d(1, 1, 1)
+            scale: Qt.vector3d(root.sphereRadius / 20.0, root.sphereRadius / 20.0, root.sphereRadius / 20.0)
             eulerRotation: Qt.vector3d(-90, 0, 0)
 
             materials: [

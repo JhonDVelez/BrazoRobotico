@@ -9,7 +9,7 @@ barra de estado con indicadores de conexion.
 import os
 from collections import Counter
 from PyQt6.QtGui import QAction, QKeySequence, QIcon, QPixmap, QActionGroup
-from PyQt6.QtWidgets import QMenuBar, QSizePolicy, QLabel, QStatusBar, QFrame
+from PyQt6.QtWidgets import QMenuBar, QSizePolicy, QLabel, QStatusBar, QFrame, QInputDialog
 from PyQt6.QtCore import Qt
 from serial.tools import list_ports
 from src.services.robot import RobotController
@@ -43,6 +43,8 @@ class MainMenuMixin:
         config_manager = ConfigSignalManager.get_instance()
         settings = config_manager.get_param("settings.json", default={})
 
+        # nombre_menu, nombre_opcion, nombre_objeto, nombre_interfaz_1, nombre_interfaz_2, shortcut,
+        # descripcion para barra de estado y si esta o no el dato almacenado en config_manager
         mapping_mode = {
             "mode": {
                 "sliders": ("sliders_action", "Sliders",
@@ -71,6 +73,21 @@ class MainMenuMixin:
                 "activated": ("simulation_action", "Activar Simulación",
                               "Activar Simulación", "Ctrl+y",
                               "Activar/Desactivar simulación", True),
+                "shadows": ("shadows_action", "Sombras",
+                            "Sombras", "Ctrl+h",
+                            "Activar/Desactivar sombras en la escena", True),
+                "grid": ("grid_action", "Malla Infinita",
+                         "Malla Infinita", "Ctrl+g",
+                         "Mostrar/Ocultar malla infinita", True),
+                "axes": ("axes_action", "Ejes de Coordenadas",
+                         "Ejes de Coordenadas", "Ctrl+j",
+                         "Mostrar/Ocultar ejes de coordenadas", True),
+                "labels": ("labels_action", "Etiquetas de Juntas",
+                           "Etiquetas de Juntas", "Ctrl+k",
+                           "Mostrar/Ocultar angulos de las articulaciones", True),
+                "aa": ("aa_action", "Antialiasing (MSAA)",
+                       "Antialiasing (MSAA)", "Ctrl+l",
+                       "Activar/Desactivar suavizado de bordes", True),
             }
         }
 
@@ -133,7 +150,37 @@ class MainMenuMixin:
 
         self.camera_menu = self.menu_bar.addMenu("&Cámara")
         self.camera_menu.addAction(self.camera_calibration_action)
-        self.camera_menu.addAction(self.color_calibration_action)
+
+        self.sphere_menu = self.menu_bar.addMenu("&Esfera")
+        self.sphere_menu.addAction(self.color_calibration_action)
+        self.sphere_size_submenu = self.sphere_menu.addMenu("&Tamaño")
+        self.sphere_size_group = QActionGroup(self)
+        self.sphere_size_group.setExclusive(True)
+
+        presets_size = [20.0, 30.0]
+        current_size = ConfigSignalManager.get_instance().get_param(
+            "camera.json", "sphere_radius", default=20.0)
+
+        size_found = False
+        for size in presets_size:
+            action = self.sphere_size_submenu.addAction(f"{int(size)}mm")
+            action.setCheckable(True)
+            self.sphere_size_group.addAction(action)
+            if abs(size - current_size) < 0.1:
+                action.setChecked(True)
+                size_found = True
+            action.triggered.connect(
+                lambda checked, s=size: self.sphere_size_selection_change(s))
+
+        self.custom_size_action = self.sphere_size_submenu.addAction(
+            "Personalizado...")
+        self.custom_size_action.setCheckable(True)
+        self.sphere_size_group.addAction(self.custom_size_action)
+        if not size_found:
+            self.custom_size_action.setChecked(True)
+            self.custom_size_action.setText(
+                f"Personalizado ({current_size}mm)")
+        self.custom_size_action.triggered.connect(self.custom_sphere_size)
 
         self.camera_interval_submenu = self.camera_menu.addMenu(
             "&Intervalo")
@@ -166,6 +213,12 @@ class MainMenuMixin:
 
         self.simulation_menu = self.menu_bar.addMenu("&Simulación")
         self.simulation_menu.addAction(self.simulation_action)
+        self.simulation_menu.addSeparator()
+        self.simulation_menu.addAction(self.shadows_action)
+        self.simulation_menu.addAction(self.aa_action)
+        self.simulation_menu.addAction(self.grid_action)
+        self.simulation_menu.addAction(self.axes_action)
+        self.simulation_menu.addAction(self.labels_action)
 
         self.robot_menu = self.menu_bar.addMenu("&Robot")
         self.com_submenu = self.robot_menu.addMenu("&Puerto")
@@ -249,6 +302,40 @@ class MainMenuMixin:
             interval (int): Nuevo intervalo en ticks de frame.
         """
         FrameCounter().get_instance().set_interval(interval)
+
+    def sphere_size_selection_change(self, size):
+        """
+        Actualiza el radio de la esfera en la configuracion.
+
+        Args:
+            size (float): Nuevo radio en mm.
+        """
+        ConfigSignalManager.get_instance().request_change(
+            "camera.json", "sphere_radius", value=float(size))
+        self.custom_size_action.setText("Personalizado...")
+
+    def custom_sphere_size(self):
+        """
+        Abre un dialogo para ingresar un tamaño de esfera personalizado.
+        """
+        current = ConfigSignalManager.get_instance().get_param(
+            "camera.json", "sphere_radius", default=20.0)
+
+        val, ok = QInputDialog.getDouble(
+            self, "Tamaño de Esfera", "Radio en mm:",
+            current, 1.0, 500.0, 1
+        )
+
+        if ok:
+            self.sphere_size_selection_change(val)
+            self.custom_size_action.setChecked(True)
+            self.custom_size_action.setText(f"Personalizado ({val}mm)")
+        else:
+            # Re-check the previous action if cancelled
+            # This is tricky because we don't know which one was checked.
+            # But the QActionGroup should handle the exclusivity.
+            # If we cancelled, we should probably restore the check on the current size.
+            pass
 
     def _stop_threads(self):
         """

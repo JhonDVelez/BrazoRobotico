@@ -4,6 +4,7 @@ Modulo que implementa la logica de la secuencia de colocacion (Place).
 
 import math
 from src.features.pick_and_place.logic.base_executor import BaseExecutor
+from src.services.data.signals import ConfigSignalManager
 
 class PlaceExecutor(BaseExecutor):
     """Ejecutor especializado en la fase de Place."""
@@ -18,7 +19,9 @@ class PlaceExecutor(BaseExecutor):
         y = self.context.place_target_coords['y']
         z = self.context.place_target_coords['z']
 
-        r = 23
+        radius = ConfigSignalManager.get_instance().get_param(
+            "camera.json", "sphere_radius", default=20.0)
+        r = radius + 3.0
         angle = math.atan(x / (y + 100))
         x_comp = x + r * math.sin(1.5708 - angle)
         y_comp = y - r * math.cos(1.5708 - angle)
@@ -53,7 +56,9 @@ class PlaceExecutor(BaseExecutor):
         y = self.context.place_target_coords['y']
         z = self.context.place_target_coords['z']
 
-        r = 23
+        radius = ConfigSignalManager.get_instance().get_param(
+            "camera.json", "sphere_radius", default=20.0)
+        r = radius + 3.0
         angle = math.atan(x / (y + 100))
         x_comp = x + r * math.sin(1.5708 - angle)
         y_comp = y - r * math.cos(1.5708 - angle)

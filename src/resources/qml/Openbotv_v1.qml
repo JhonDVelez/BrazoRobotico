@@ -205,7 +205,7 @@ Model {
                         Model {
                             id: clamp_arm_link_1
                             objectName: "clamp_arm_link_1"
-                            position: Qt.vector3d(1.51373, 29.5679, 5)
+                            position: Qt.vector3d(1.51373, 29.5679, 4.5)
                             source: "meshes/clamp_arm_link_1_mesh.mesh"
                             castsShadows: true
                             receivesShadows: true
@@ -256,5 +256,11 @@ Model {
             ]
         }
     }
-    property alias endEffector: endEffectorTip 
+    property alias endEffector: endEffectorTip
+    property alias joint1: arm1_link_1
+    property alias joint2: arm2_link_1
+    property alias joint3: arm3_link_1
+    property alias joint4: arm4_link_1
+    property alias joint5: clamp_arm_link_1
+    property alias joint6: clamp2_link_1
 }

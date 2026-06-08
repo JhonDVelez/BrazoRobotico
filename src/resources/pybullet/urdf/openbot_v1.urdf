@@ -79,7 +79,7 @@
       <inertia ixx="0.000404" ixy="-1e-06" ixz="-1e-06" iyy="0.000355" iyz="1.1e-05" izz="0.000107"/>
     </inertial>
     <visual>
-      <origin rpy="0 0 0" xyz="-0.000333 -0.013218 -0.155124"/>
+      <origin rpy="0 0 0" xyz="-0.000333 -0.016 -0.155124"/>
       <geometry>
         <mesh filename="meshes/visual/arm2_link_1.obj" scale="0.001 0.001 0.001"/>
       </geometry>
@@ -119,14 +119,14 @@
       <inertia ixx="0.000492" ixy="-2e-06" ixz="3.4e-05" iyy="0.000495" iyz="-9e-06" izz="0.000179"/>
     </inertial>
     <visual>
-      <origin rpy="0 0 0" xyz="-0.003047 0.013326 -0.361226"/>
+      <origin rpy="0 0 0" xyz="-0.003047 0.008 -0.361226"/>
       <geometry>
         <mesh filename="meshes/visual/clamp_arm_link_1.obj" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="silver"/>
     </visual>
     <collision>
-      <origin rpy="0 0 0" xyz="-0.003047 0.013326 -0.361226"/>
+      <origin rpy="0 0 0" xyz="-0.003047 0.007 -0.361226"/>
       <geometry>
         <mesh filename="meshes/collision/clamp_arm_link_1_vhacd.obj" scale="0.001 0.001 0.001"/>
       </geometry>

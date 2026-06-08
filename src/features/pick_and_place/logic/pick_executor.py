@@ -4,6 +4,7 @@ Modulo que implementa la logica de la secuencia de captura (Pick).
 
 import math
 from src.features.pick_and_place.logic.base_executor import BaseExecutor
+from src.services.data.signals import ConfigSignalManager
 
 class PickExecutor(BaseExecutor):
     """Ejecutor especializado en la fase de Pick."""
@@ -27,7 +28,9 @@ class PickExecutor(BaseExecutor):
             return
 
         x, y, z = sphere_pose['position']
-        r = 23
+        radius = ConfigSignalManager.get_instance().get_param(
+            "camera.json", "sphere_radius", default=20.0)
+        r = radius + 3.0
         angle = math.atan(x/(y+100))
         x_comp = x + r*math.sin(1.5708 - angle)
         y_comp = y - r*math.cos(1.5708 - angle)
@@ -79,7 +82,9 @@ class PickExecutor(BaseExecutor):
             return
 
         x, y, z = sphere_pose['position']
-        r = 23
+        radius = ConfigSignalManager.get_instance().get_param(
+            "camera.json", "sphere_radius", default=20.0)
+        r = radius + 3.0
         angle = math.atan(x/(y+100))
         x_comp = x + r*math.sin(1.5708 - angle)
         y_comp = y - r*math.cos(1.5708 - angle)
@@ -87,7 +92,7 @@ class PickExecutor(BaseExecutor):
         self.worker.action_request.emit({
             'type': 'compute_ik',
             'color': self.context.selected_color,
-            'coords': {'x': y_comp, 'y': x_comp, 'z': z/2},
+            'coords': {'x': y_comp, 'y': x_comp, 'z': radius - 10.0},
             'gripper_degrees': self.context.gripper_open,
             'description': f'Calculando IK para esfera {self.context.selected_color}'
         })

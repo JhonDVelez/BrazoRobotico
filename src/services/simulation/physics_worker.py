@@ -161,3 +161,9 @@ class PhysicsWorker(QThread):
     def hide_all_spheres(self):
         """Oculta todas las esferas que no estan siendo manipuladas."""
         self.physic.hide_all_spheres()
+
+    @pyqtSlot(float)
+    def update_sphere_scale(self, radius):
+        """Actualiza el tamaño de las esferas en PyBullet."""
+        if self.physic:
+            self.physic.update_sphere_scale(radius)

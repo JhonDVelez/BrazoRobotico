@@ -48,6 +48,11 @@ DEFAULTS: dict[str, dict] = {
         },
         "simulation": {
             "activated": True,
+            "shadows": True,
+            "grid": True,
+            "axes": False,
+            "labels": False,
+            "aa": True,
         },
         "camera": {
             "charuco": False,
@@ -64,6 +69,7 @@ DEFAULTS: dict[str, dict] = {
     },
     "camera.json": {
         "resolution": {"width": 1280, "height": 720, "fps": 30, },
+        "sphere_radius": 20.0,
         "matrix": [
             [1446.148971641037, 0.0, 636.7973550159369],
             [0.0, 1447.6717541057947, 319.71811920663833],

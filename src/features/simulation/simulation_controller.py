@@ -15,7 +15,7 @@ from PyQt6.QtCore import pyqtSlot, QObject
 from src.services.data.enums import Units, Modes, Domains
 from src.services.simulation import PhysicsWorker
 from src.services.styling.theme_manger import ThemeSignalManager
-from src.services.data.signals import SimulationSignalManager
+from src.services.data.signals import SimulationSignalManager, ConfigSignalManager
 from src.services.data.signals.pick_place import PickPlaceSignalManager
 from src.services.data.timers import GlobalTimer
 from src.features.simulation.simulation_worker import SimulationWorker
@@ -45,15 +45,16 @@ class SimulationController(QObject):
         self.simulation_worker = None
         self._root_object = None
 
-        # Inicializar UI y Fisica
-        self.simulation_widget = SimulationWidget(
-            preloaded_container, self.init_pybullet_processing).get_simulation_widget()
+        # Sincronización de configuración de esfera (Mover arriba para que esté disponible en el callback)
+        self.config_manager = ConfigSignalManager.get_instance()
+        self.config_manager.config_updated.connect(self._on_config_updated)
+
+        # Inicializar Fisica antes que la UI para que esté disponible en init_pybullet_processing
         self.physics_worker = PhysicsWorker(self.robot_id)
 
-        # Sincronizacion de temas
-        self.theme_manager = ThemeSignalManager.get_instance()
-        self.theme_manager.theme_changed.connect(self.change_theme)
-        self.simulation_widget.theme_needed.connect(self._apply_root_theme)
+        # Inicializar UI
+        self.simulation_widget = SimulationWidget(
+            preloaded_container, self.init_pybullet_processing).get_simulation_widget()
 
         # Conexiones de señales globales (Escuchar al DataController)
         self.simulation_signal_manager = SimulationSignalManager.get_instance()
@@ -85,6 +86,8 @@ class SimulationController(QObject):
             self.physics_worker.release_sphere)
         self.simulation_signal_manager.reattach_sphere.connect(
             self.physics_worker.reattach_sphere)
+        self.simulation_signal_manager.sphere_radius_changed.connect(
+            self.physics_worker.update_sphere_scale)
 
     def init_pybullet_processing(self, root_object):
         """
@@ -96,6 +99,25 @@ class SimulationController(QObject):
         self._root_object = root_object
         self.simulation_worker = SimulationWorker(
             root_object, self.robot_id)
+        
+        # Sincronizar radio inicial
+        radius = self.config_manager.get_param("camera.json", "sphere_radius", default=20.0)
+        self.simulation_worker.update_sphere_radius(radius)
+        self.physics_worker.update_sphere_scale(radius)
+        
+        # Sincronizar configuraciones de simulacion iniciales
+        sim_settings = self.config_manager.get_param("settings.json", "simulation", default={})
+        prop_map = {
+            "shadows": "showShadows",
+            "grid": "showGrid",
+            "axes": "showAxes",
+            "labels": "showLabels",
+            "aa": "useAntialiasing"
+        }
+        for config_key, qml_prop in prop_map.items():
+            if config_key in sim_settings:
+                self._root_object.setProperty(qml_prop, sim_settings[config_key])
+        
         self.simulation_worker.start()
 
     def _apply_root_theme(self, dark_t: bool):
@@ -130,6 +152,31 @@ class SimulationController(QObject):
             dark_t (bool): Nuevo estado del tema.
         """
         self.simulation_widget.change_theme(dark_t)
+
+    @pyqtSlot(str, list, object)
+    def _on_config_updated(self, filename: str, keys: list, value: object):
+        """Maneja cambios en la configuracion."""
+        if filename == "camera.json" and "sphere_radius" in keys:
+            radius = float(value)
+            # Notificar cambio a traves del bus global
+            self.simulation_signal_manager.sphere_radius_changed.emit(radius)
+            # Actualizar QML (via SimulationWorker)
+            if self.simulation_worker:
+                self.simulation_worker.update_sphere_radius(radius)
+        
+        elif filename == "settings.json" and "simulation" in keys:
+            if self._root_object:
+                # Mapeo de configuracion a propiedades QML
+                prop_map = {
+                    "shadows": "showShadows",
+                    "grid": "showGrid",
+                    "axes": "showAxes",
+                    "labels": "showLabels",
+                    "aa": "useAntialiasing"
+                }
+                for config_key, qml_prop in prop_map.items():
+                    if config_key in keys:
+                        self._root_object.setProperty(qml_prop, value)
 
     @pyqtSlot(list)
     def update_simulation(self, joint_positions: list):

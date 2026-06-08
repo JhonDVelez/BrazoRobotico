@@ -255,6 +255,16 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         if hasattr(self, 'simulation_action'):
             self.simulation_action.triggered.connect(
                 self.toggle_activation_simulation_event)
+        if hasattr(self, 'shadows_action'):
+            self.shadows_action.triggered.connect(self.toggle_shadows_event)
+        if hasattr(self, 'grid_action'):
+            self.grid_action.triggered.connect(self.toggle_grid_event)
+        if hasattr(self, 'axes_action'):
+            self.axes_action.triggered.connect(self.toggle_axes_event)
+        if hasattr(self, 'labels_action'):
+            self.labels_action.triggered.connect(self.toggle_labels_event)
+        if hasattr(self, 'aa_action'):
+            self.aa_action.triggered.connect(self.toggle_aa_event)
 
         # Control de temas y conexion de hardware
         if hasattr(self, 'theme_action'):

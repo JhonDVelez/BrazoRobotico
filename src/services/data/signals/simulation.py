@@ -25,6 +25,7 @@ class SimulationSignalManager(_SignalManager):
     clear_spheres = pyqtSignal()
     release_sphere = pyqtSignal(str)
     reattach_sphere = pyqtSignal(str)
+    sphere_radius_changed = pyqtSignal(float)
 
     @classmethod
     def get_instance(cls):

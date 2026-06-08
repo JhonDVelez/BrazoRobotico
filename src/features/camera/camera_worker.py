@@ -17,7 +17,7 @@ import numpy as np
 import cv2
 from PyQt6.QtCore import QThread, pyqtSignal, QThreadPool, pyqtSlot
 from src.services.vision import ChArUcoDetection, CircleDetection, CameraConnection, PoseEstimation, DetectionDrawer
-from src.services.data.signals import CameraSignalManager, SearchSignalManager, DrawViewSignalManager
+from src.services.data.signals import CameraSignalManager, SearchSignalManager, DrawViewSignalManager, ConfigSignalManager
 from src.services.data.timers import FrameCounter
 
 
@@ -55,7 +55,7 @@ class CameraWorker(QThread):
         self.results = {}
         self.max_buffer = 3
         self.last_roi = None
-        self.sphere_radius = 20.0
+        self.sphere_radius = camera_config.get("sphere_radius", 30.0)
         self.custom_origin = (180.0, 0.0, 0.0)
 
         # Inyección de configuración
@@ -74,8 +74,11 @@ class CameraWorker(QThread):
         self.camera_signal_manager = CameraSignalManager.get_instance()
         self.search_signal_manager = SearchSignalManager.get_instance()
         self.draw_view_signal_manager = DrawViewSignalManager.get_instance()
+        self.config_signal_manager = ConfigSignalManager.get_instance()
         self.frame_counter = FrameCounter.get_instance()
         self.frame_counter.process_frame_signal.connect(self._on_process_frame)
+        self.config_signal_manager.config_updated.connect(
+            self._on_config_updated)
         self.pick_place_active = False
         self.latest_circles = {}
 
@@ -182,6 +185,15 @@ class CameraWorker(QThread):
         Slot que habilita el procesamiento de vision pesada para el siguiente frame.
         """
         self._process_frame = True
+
+    @pyqtSlot(str, list, object)
+    def _on_config_updated(self, filename: str, keys: list, value: object):
+        """
+        Actualiza el radio de la esfera si cambia en la configuracion.
+        """
+        if filename == "camera.json" and "sphere_radius" in keys:
+            with self.lock:
+                self.sphere_radius = float(value)
 
     @pyqtSlot(int, object)
     def on_charuco_done(self, fid: int, data: dict):

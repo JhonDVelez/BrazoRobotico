@@ -7,7 +7,7 @@ definidos en el motor grafico de Qt (QML/Quick3D).
 """
 
 from PyQt6.QtCore import QThread, QObject
-from PyQt6.QtGui import QVector3D
+from PyQt6.QtGui import QVector3D, QQuaternion
 
 
 class SimulationWorker(QThread):
@@ -77,35 +77,44 @@ class SimulationWorker(QThread):
                 elif direction == "x":
                     motor.setProperty("eulerRotation", QVector3D(angle, 0, 0))
 
+    def update_sphere_radius(self, radius):
+        """
+        Actualiza el radio de las esferas en la escena QML.
+
+        Args:
+            radius (float): Nuevo radio en mm.
+        """
+        self.root_object.setProperty("sphereRadius", float(radius))
+
     def update_sphere_pose_simulation(self, poses: dict):
         """
         Actualiza la posicion visual de las esferas de color en la escena 3D.
 
         Args:
-            poses (dict): Diccionario {color: [x, y, z]} con coordenadas en mm.
+            poses (dict): Diccionario {color: dict} con coordenadas y orientacion.
         """
-        import numpy as np
         for color, properties in self.colors.items():
             pos_prop, rot_prop = properties
             if color in poses:
                 data = poses.get(color, {})
-                pose = data.get('position', (0, 0, 0))
-                orientation = data.get('orientation', (0, 0, 0))
+                pose = data.get('position')
+                orientation = data.get('orientation')
 
                 if pose is not None:
                     # Mapeo de coordenadas cartesianas al espacio local de la escena QML
                     # UI(x,y,z) -> QML(x, y_up, z)
-                    # En PyBullet unificamos el suelo a +100
-                    # print(f'sim: {pose}')
                     self.root_object.setProperty(
                         pos_prop, QVector3D(pose[0], pose[1], pose[2]))
 
-                if orientation is not None:
-                    # Convertir orientacion de radianes (PyBullet) a grados (QML)
-                    # La esfera en Blender tiene offset de -90 en X
-                    rot_deg = np.rad2deg(orientation)
-                    self.root_object.setProperty(
-                        rot_prop, QVector3D(rot_deg[0], rot_deg[1], rot_deg[2]))
+                if orientation is not None and len(orientation) == 4:
+                    # PyBullet entrega [x, y, z, w]. QQuaternion espera (w, x, y, z)
+                    quat = QQuaternion(
+                        orientation[3],
+                        orientation[0],
+                        orientation[1],
+                        orientation[2]
+                    )
+                    self.root_object.setProperty(rot_prop, quat)
             else:
                 # Ocultar o resetear esferas no detectadas
                 self.root_object.setProperty(pos_prop, QVector3D(0, 0, 0))

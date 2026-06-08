@@ -14,6 +14,7 @@ import math
 import pybullet as p
 from PyQt6.QtCore import pyqtSignal, QDir
 from PyQt6.QtWidgets import QWidget
+from src.services.data.signals import ConfigSignalManager
 
 
 class RobotArmPhysics(QWidget):
@@ -48,10 +49,49 @@ class RobotArmPhysics(QWidget):
         self.spheres = {}
         self.released_spheres = set()
         self.missing_counters = {}
+
+        self.sphere_visual_path = sphere_visual_path
+        self.sphere_collision_path = sphere_collision_path
+        self.col_id = None
+        self.vis_id = None
+
+        # Inicializar con el radio por defecto (20mm)
+        self.update_sphere_scale(20.0)
+
+    def update_sphere_scale(self, radius_mm: float):
+        """
+        Actualiza el tamaño de las esferas en PyBullet.
+
+        Args:
+            radius_mm (float): Nuevo radio en mm.
+        """
+        scale = radius_mm / 20.0
+        mesh_scale = [scale, scale, scale]
+
+        # Crear nuevas formas de colision y visuales
         self.col_id = p.createCollisionShape(
-            shapeType=p.GEOM_MESH, fileName=sphere_collision_path, meshScale=[1, 1, 1])
+            shapeType=p.GEOM_MESH,
+            fileName=self.sphere_collision_path,
+            meshScale=mesh_scale
+        )
         self.vis_id = p.createVisualShape(
-            shapeType=p.GEOM_MESH, fileName=sphere_visual_path, meshScale=[1, 1, 1], rgbaColor=[1, 0.5, 0, 1])
+            shapeType=p.GEOM_MESH,
+            fileName=self.sphere_visual_path,
+            meshScale=mesh_scale,
+            rgbaColor=[1, 0.5, 0, 1]
+        )
+
+        # Si ya existen esferas, debemos recrearlas o actualizar su forma
+        # En PyBullet no es trivial cambiar la forma de un cuerpo existente,
+        # lo mas seguro es eliminarlas y dejar que update_spheres las recree
+        if hasattr(self, 'spheres') and self.spheres:
+            for color, body_id in list(self.spheres.items()):
+                p.removeBody(body_id)
+            self.spheres.clear()
+            self.missing_counters.clear()
+            # Las esferas liberadas tambien deben ser recreadas si es posible,
+            # pero por ahora las removemos para evitar inconsistencias fisicas.
+            self.released_spheres.clear()
 
     def get_robot_id(self) -> int:
         """Obtiene el ID del robot en el motor de fisicas de PyBullet.
@@ -154,7 +194,8 @@ class RobotArmPhysics(QWidget):
         # Incrementar contadores para esferas no detectadas
         for color in list(self.spheres.keys()):
             if color not in detected_colors and color not in self.released_spheres:
-                self.missing_counters[color] = self.missing_counters.get(color, 0) + 1
+                self.missing_counters[color] = self.missing_counters.get(
+                    color, 0) + 1
                 if self.missing_counters[color] >= 5:
                     self.hide_sphere(self.spheres[color])
 
@@ -166,12 +207,18 @@ class RobotArmPhysics(QWidget):
                 self.missing_counters[color] = 5
 
     def create_sphere(self, color, posicion):
-        # Convertir mm a metros y mapear ejes
+        # Mapeo mm a metros alineado con UI rotada 180
+        # Py_X = UI_X, Py_Y = -UI_Z, Py_Z = UI_Y
         x, y, z = posicion
         pos = [y * 0.001, x * 0.001, z * 0.001]
 
+        # Calcular masa proporcional al volumen (base 20mm -> 0.05kg)
+        radius = ConfigSignalManager.get_instance().get_param(
+            "camera.json", "sphere_radius", default=20.0)
+        mass = 0.05 * (radius / 20.0)**3
+
         body_id = p.createMultiBody(
-            baseMass=0.05,
+            baseMass=mass,
             baseCollisionShapeIndex=self.col_id,
             baseVisualShapeIndex=self.vis_id,
             basePosition=pos
@@ -194,22 +241,24 @@ class RobotArmPhysics(QWidget):
         sphere_state = {}
         for color, id in self.spheres.items():
             position, orientation = p.getBasePositionAndOrientation(id)
-            # print(position)
             # Mapeo inverso: Metros a mm y swap de ejes para UI
+            # UI(x,y,z) -> PyBullet(-x,z,y)
             pos = [
-                -position[0] * 1000,  # UI_X = Py_X
-                position[2] * 1000,  # UI_Y = Py_Z Hacia arriba
-                position[1] * 1000  # UI_Z = Py_Y
+                position[0] * 1000,  # UI_X = -Py_X
+                position[2] * 1000,  # UI_Y = Py_Z (Vertical)
+                -position[1] * 1000   # UI_Z = Py_Y
             ]
-            # print(f'get: {pos}')
-            rot = p.getEulerFromQuaternion(orientation)
-            rot = [
-                -rot[0],
-                rot[2],
-                rot[1]
+
+            # Mapeo de cuaternion (x, y, z, w) siguiendo el cambio de base
+            quat = [
+                orientation[0],  # UI_qx = -Py_qx
+                orientation[2],  # UI_qy = Py_qz
+                -orientation[1],  # UI_qz = Py_qy
+                orientation[3]   # w se mantiene
             ]
+
             sphere_state[color] = {
-                'position': pos, 'orientation': rot}
+                'position': pos, 'orientation': quat}
         return sphere_state
 
     def set_sphere_position(self, id, new_pos):

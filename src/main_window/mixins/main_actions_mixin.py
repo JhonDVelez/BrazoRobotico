@@ -223,6 +223,26 @@ class MainActionsMixin:
                                                           "activated", value=checked)
 
     @pyqtSlot(bool)
+    def toggle_shadows_event(self, checked: bool):
+        ConfigSignalManager.get_instance().request_change("settings.json", "simulation", "shadows", value=checked)
+
+    @pyqtSlot(bool)
+    def toggle_grid_event(self, checked: bool):
+        ConfigSignalManager.get_instance().request_change("settings.json", "simulation", "grid", value=checked)
+
+    @pyqtSlot(bool)
+    def toggle_axes_event(self, checked: bool):
+        ConfigSignalManager.get_instance().request_change("settings.json", "simulation", "axes", value=checked)
+
+    @pyqtSlot(bool)
+    def toggle_labels_event(self, checked: bool):
+        ConfigSignalManager.get_instance().request_change("settings.json", "simulation", "labels", value=checked)
+
+    @pyqtSlot(bool)
+    def toggle_aa_event(self, checked: bool):
+        ConfigSignalManager.get_instance().request_change("settings.json", "simulation", "aa", value=checked)
+
+    @pyqtSlot(bool)
     def toggle_charuco_search(self, checked: bool):
         """
         Alterna la busqueda de tablero ChArUco en la camara.

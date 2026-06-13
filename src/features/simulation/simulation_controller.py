@@ -95,6 +95,11 @@ class SimulationController(QObject):
             self.physics_worker.reattach_sphere)
         self.simulation_signal_manager.sphere_radius_changed.connect(
             self.physics_worker.update_sphere_scale)
+        
+        # Nuevas conexiones para orquestación vía DataController
+        self.simulation_signal_manager.start_simulation.connect(self.start_simulation)
+        self.simulation_signal_manager.pause_simulation.connect(self.pause_simulation)
+        self.simulation_signal_manager.stop_simulation.connect(self.stop_simulation)
 
         # Nuevas conexiones para orquestación vía DataController
         self.simulation_signal_manager.start_simulation.connect(

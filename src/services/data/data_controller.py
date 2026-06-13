@@ -82,7 +82,7 @@ class DataController(QObject):
     @pyqtSlot(str, list, object)
     def _on_config_change_requested(self, filename: str, keys: list, value: object):
         """Persiste cambios de configuracion."""
-        config_manager.set_value(filename, *keys, value=value)
+        config_manager.set_value(filename, keys, value)
         self.config_signals.update_param(filename, keys, value)
 
     def _setup_global_connections(self):

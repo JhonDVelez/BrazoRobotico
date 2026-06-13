@@ -10,6 +10,7 @@ import sys
 import re
 import json
 from pathlib import Path
+from PyQt6.QtCore import QStandardPaths
 
 
 def get_app_dir() -> Path:
@@ -31,8 +32,26 @@ def get_app_dir() -> Path:
 
 
 APP_DIR = get_app_dir()
-CONFIG_DIR = APP_DIR / "config"
 GRAPH_DIR = APP_DIR / "graphs"
+
+
+def get_config_dir() -> Path:
+    """
+    Determina la ruta del directorio de configuracion del usuario.
+
+    Usa QStandardPaths para obtener la carpeta Documents localizada
+    del sistema operativo (~/Documents en ingles, ~/Documentos en espanol, etc.).
+    El directorio final es: ~/Documents/OpenBotVControlLab/config/
+
+    Returns:
+        Path: Ruta absoluta al directorio de configuracion.
+    """
+    docs = QStandardPaths.writableLocation(
+        QStandardPaths.StandardLocation.DocumentsLocation)
+    return Path(docs) / "OpenBotVControlLab" / "config"
+
+
+CONFIG_DIR = get_config_dir()
 
 
 # Valores por defecto de cada archivo de configuración para asegurar integridad
@@ -230,13 +249,13 @@ def get(filename: str, *keys, default=None):
         return default
 
 
-def set_value(filename: str, *keys: str, value) -> None:
+def set_value(filename: str, keys: list[str], value) -> None:
     """
     Modifica o crea un valor en cualquier nivel de profundidad del JSON.
 
     Args:
         filename (str): Archivo a modificar.
-        *keys (str): Secuencia de llaves anidadas. La ultima es la clave final.
+        keys (list[str]): Lista de llaves anidadas. La ultima es la clave final.
         value (any): Nuevo valor a asignar.
     """
     data = load(filename)

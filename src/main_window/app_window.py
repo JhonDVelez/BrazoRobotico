@@ -169,8 +169,16 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         self.camera_devices.get_cameras()
         self.setCentralWidget(container)
 
-        self.resize(1280, 720)
-        self.center_window()
+        # Restaurar geometria desde config
+        settings = config_manager.load("settings.json")
+        win_cfg = settings.get("window", {})
+        if win_cfg.get("maximized"):
+            self.showMaximized()
+        else:
+            w = win_cfg.get("width", 1280)
+            h = win_cfg.get("height", 720)
+            self.resize(w, h)
+            self.center_window()
 
     def _on_external_theme_changed(self, is_dark: bool):
         """
@@ -185,7 +193,7 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         """
         Persiste cambios de configuracion solicitados via ConfigSignalManager.
         """
-        config_manager.set_value(filename, *keys, value=value)
+        config_manager.set_value(filename, keys, value)
         self.config_manager.update_param(filename, keys, value)
 
     def setup_connections(self):
@@ -307,6 +315,16 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         msg.exec()
 
         if msg.clickedButton() == si_btn:
+            # Guardar geometria de ventana
+            is_max = self.isMaximized()
+            if not is_max:
+                config_manager.set_value(
+                    "settings.json", ["window", "width"], self.width())
+                config_manager.set_value(
+                    "settings.json", ["window", "height"], self.height())
+            config_manager.set_value(
+                "settings.json", ["window", "maximized"], is_max)
+
             # Detencion segura de procesos
             if hasattr(self, "calibration_window"):
                 if hasattr(self.calibration_window, "calibration_interface"):

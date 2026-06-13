@@ -61,7 +61,7 @@ class SimulationController(QObject):
         self.pick_place_signal_manager = PickPlaceSignalManager.get_instance()
         self.simulation_signal_manager.update_pybullet_signal.connect(
             self.physics_worker.update_target)
-        
+
         # Conexiones de feedback local del worker hacia el bus global
         self.physics_worker.model_updated.connect(
             self.simulation_signal_manager.model_position_signal.emit)
@@ -70,9 +70,16 @@ class SimulationController(QObject):
 
         # Orquestación de Timers para el worker
         self.global_timer = GlobalTimer.get_instance()
-        self.global_timer.update_tick.connect(self.physics_worker.update_simulation)
-        self.global_timer.model_tick.connect(self.physics_worker.update_3d_model)
-        self.global_timer.sync_simulation_tick.connect(self.physics_worker.update_graphs)
+        self.global_timer.update_tick.connect(
+            self.physics_worker.update_simulation)
+        self.global_timer.model_tick.connect(
+            self.physics_worker.update_3d_model)
+        self.global_timer.sync_simulation_tick.connect(
+            self.physics_worker.update_graphs)
+
+        # Manejo de tema
+        self.theme_manager = ThemeSignalManager().get_instance()
+        self.theme_manager.theme_changed.connect(self._apply_root_theme)
 
         self.simulation_signal_manager.update_robot_signal.connect(
             self.update_simulation)
@@ -89,6 +96,14 @@ class SimulationController(QObject):
         self.simulation_signal_manager.sphere_radius_changed.connect(
             self.physics_worker.update_sphere_scale)
 
+        # Nuevas conexiones para orquestación vía DataController
+        self.simulation_signal_manager.start_simulation.connect(
+            self.start_simulation)
+        self.simulation_signal_manager.pause_simulation.connect(
+            self.pause_simulation)
+        self.simulation_signal_manager.stop_simulation.connect(
+            self.stop_simulation)
+
     def init_pybullet_processing(self, root_object):
         """
         Callback para inicializar el worker visual una vez cargado el objeto raiz QML.
@@ -99,14 +114,16 @@ class SimulationController(QObject):
         self._root_object = root_object
         self.simulation_worker = SimulationWorker(
             root_object, self.robot_id)
-        
+
         # Sincronizar radio inicial
-        radius = self.config_manager.get_param("camera.json", "sphere_radius", default=20.0)
+        radius = self.config_manager.get_param(
+            "camera.json", "sphere_radius", default=20.0)
         self.simulation_worker.update_sphere_radius(radius)
         self.physics_worker.update_sphere_scale(radius)
-        
+
         # Sincronizar configuraciones de simulacion iniciales
-        sim_settings = self.config_manager.get_param("settings.json", "simulation", default={})
+        sim_settings = self.config_manager.get_param(
+            "settings.json", "simulation", default={})
         prop_map = {
             "shadows": "showShadows",
             "grid": "showGrid",
@@ -116,8 +133,9 @@ class SimulationController(QObject):
         }
         for config_key, qml_prop in prop_map.items():
             if config_key in sim_settings:
-                self._root_object.setProperty(qml_prop, sim_settings[config_key])
-        
+                self._root_object.setProperty(
+                    qml_prop, sim_settings[config_key])
+
         self.simulation_worker.start()
 
     def _apply_root_theme(self, dark_t: bool):
@@ -163,7 +181,7 @@ class SimulationController(QObject):
             # Actualizar QML (via SimulationWorker)
             if self.simulation_worker:
                 self.simulation_worker.update_sphere_radius(radius)
-        
+
         elif filename == "settings.json" and "simulation" in keys:
             if self._root_object:
                 # Mapeo de configuracion a propiedades QML

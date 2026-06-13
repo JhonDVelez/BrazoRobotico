@@ -26,6 +26,13 @@ class SimulationSignalManager(_SignalManager):
     release_sphere = pyqtSignal(str)
     reattach_sphere = pyqtSignal(str)
     sphere_radius_changed = pyqtSignal(float)
+    start_simulation = pyqtSignal()
+    pause_simulation = pyqtSignal(bool)
+    stop_simulation = pyqtSignal()
+    
+    start_request = pyqtSignal()
+    pause_request = pyqtSignal(bool)
+    stop_request = pyqtSignal()
 
     @classmethod
     def get_instance(cls):

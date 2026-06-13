@@ -15,7 +15,7 @@ View3D {
     property real effectorY: robot.endEffector.scenePosition.y
     property real effectorX: robot.endEffector.scenePosition.x
     property real effectorZ: robot.endEffector.scenePosition.z
-    property real sceneEffectorX: effectorX
+    property real sceneEffectorX: effectorX - 100
     property real sceneEffectorY: effectorY - 90
     property real sceneEffectorZ: effectorZ
     property url boardTexture: "maps/boardTexture.png"

@@ -15,7 +15,7 @@ from PyQt6.QtCore import QObject
 from src.features.sliders.sliders_widget import SlidersWidget
 from src.features.sliders.sliders_worker import SlidersWorker
 from src.services.data.enums import Modes
-from src.services.data.signals import SimulationSignalManager
+from src.services.data.signals import SlidersSignalManager
 
 
 class SlidersController(QObject):
@@ -26,11 +26,9 @@ class SlidersController(QObject):
     del robot, asegurando que los comandos manuales tengan prioridad sobre otros
     modos cuando el usuario interactua con ellos.
 
-    Attributes:
-        sliders_status (list): Estado compartido de los 6 motores.
+    El estado articular vigente lo mantiene el DataController (fuente de verdad
+    unica); este controlador solo publica intencion en su bus propio.
     """
-    # Estado compartido para compatibilidad con servicios de datos reactivos
-    sliders_status = [150, 150, 150, 150, 150, 150]
 
     def __init__(self, parent=None):
         """
@@ -65,22 +63,22 @@ class SlidersController(QObject):
             index (int): Indice del motor modificado (0-5).
             value (int): Nuevo valor de angulo (0-300).
         """
-        # Cambiar modo global a SLIDERS mediante el manager de simulación (actúa como bus de UI)
-        SimulationSignalManager.get_instance().change_mode_signal.emit(Modes.SLIDERS)
+        # Cambiar modo global a SLIDERS mediante el bus propio de la feature.
+        # El DataController escucha y orquesta el resto del sistema.
+        SlidersSignalManager.get_instance().change_mode_signal.emit(Modes.SLIDERS)
         
         # Actualizar el buffer interno del worker
         self._worker.update_single_value(index, value)
 
     def _update_shared_status(self, status):
         """
-        Actualiza el buffer estatico y notifica al sistema de forma reactiva.
+        Notifica al sistema el nuevo objetivo de forma reactiva.
 
         Args:
             status (list): Vector completo de posiciones articulares.
         """
-        SlidersController.sliders_status = status
-        # Notificar el nuevo objetivo al bus global. El DataController orquestará el resto.
-        SimulationSignalManager.get_instance().update_target_signal.emit(status)
+        # Notificar el nuevo objetivo al bus propio. El DataController orquestará el resto.
+        SlidersSignalManager.get_instance().update_target_signal.emit(status)
 
     # --- API Pública ---
 
@@ -99,16 +97,6 @@ class SlidersController(QObject):
         """
         self._worker.reset_to_defaults()
         self._widget.reset_ui()
-
-    @classmethod
-    def get_sliders_state(cls) -> list:
-        """
-        API estática para obtener el estado actual de los sliders.
-
-        Returns:
-            list: Posiciones actuales.
-        """
-        return cls.sliders_status
 
     def set_external_values(self, values: list):
         """

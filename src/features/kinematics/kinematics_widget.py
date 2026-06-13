@@ -9,7 +9,7 @@ Conexiones:
     - Soporta layouts dinamicos (horizontal/vertical) para adaptarse a la UI principal.
 """
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QLabel, QSpinBox, QPushButton, QSizePolicy
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QSpinBox, QPushButton, QSizePolicy
 from PyQt6.QtCore import QSize, pyqtSignal
 
 
@@ -52,7 +52,7 @@ class KinematicsWidget(QWidget):
         self._labels = {}
         self._spins = {}
 
-        # Configuracion de ejes: (Etiqueta, Minimo, Maximo)
+        # Configuración de ejes: (Etiqueta, Minimo, Maximo)
         axes_config = [("X", 0, 200), ("Y", -200, 200), ("Z", 0, 520)]
         self._keys = ["x", "y", "z"]
 
@@ -73,11 +73,18 @@ class KinematicsWidget(QWidget):
             self.container.addWidget(spin, i, 1)
 
         self.coordinates_button = QPushButton("Enviar")
+        self.coordinates_button.setObjectName("send_kinematics")
         self.coordinates_button.setMinimumHeight(40)
         self.coordinates_button.clicked.connect(self.send_clicked)
+        self.coordinates_button.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         self.main_layout.addWidget(self.holder_widget)
-        self.main_layout.addWidget(self.coordinates_button)
+        h = QHBoxLayout()
+        h.addStretch()
+        h.addWidget(self.coordinates_button)
+        h.addStretch()
+        self.main_layout.addLayout(h)
 
     def set_horizontal_layout(self):
         """
@@ -127,3 +134,8 @@ class KinematicsWidget(QWidget):
         for key, val in coords.items():
             if key in self._spins:
                 self._spins[key].setValue(val)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+
+        self.coordinates_button.setFixedWidth(self.width() // 2)

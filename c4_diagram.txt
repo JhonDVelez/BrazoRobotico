@@ -1,158 +1,134 @@
 workspace "Brazo Robotico" "Control de brazo robótico con gemelo digital" {
-    !identifiers hierarchical
     model {
         user = person "Estudiante/Ingeniero" "Opera el brazo robótico y visualiza la telemetría y simulación 3D a través de la interfaz." {
             tags "User"
         }
         camera = element "Cámara" "Camera" "Cámara web conectada mediante USB"
         robot = element "OpenBotV v1" "Robot" "Microcontrolador OpenCM 9.04 conectado mediante USB"
-        
         softwareSystem = softwareSystem "Sistema Brazo Robotico" "Sistema integral de control, visión artificial y simulación física." {
             tags "App"
-            
-            # --- Nivel 3: Componentes ---
-            mainWindow = container "Main Window (App Orchestrator)" "Orquesta la inicialización y el montaje de los mixins de UI." "Python/PyQt6" {
-                initMixin = component "MainInitMixin" "Lógica de ensamblaje y creación de instancias."
-                actionsMixin = component "MainActionsMixin" "Gestión de eventos y lógica de botones de la barra de herramientas."
-                menuMixin = component "MainMenuMixin" "Configuración de menús y submenús."
-                tags "UI"
+
+            # ============================================================
+            #  C2 - CONTENEDORES
+            # ============================================================
+            mainWindow = container "Main Window (App Orchestrator)" "Ensambla mixins de UI, crea el DataController y los controladores de features y servicios." "Python/PyQt6"
+
+            uiFeatures = container "Features (Capa de Funcionalidades)" "Módulos funcionales (patrón Controller/Widget/Worker) que capturan la intención del usuario y publican en el bus de señales." "Python/PyQt6" {
+                kinematicsUI = component "Kinematics Feature" "Control por coordenadas cartesianas usando cinemática inversa. Resuelve IK a petición del flujo Pick and Place."
+                slidersUI = component "Sliders Feature" "Control manual de articulaciones mediante deslizadores."
+                simulationUI = component "Simulation Feature" "Visualización 3D del gemelo digital; integra Quick3D con el motor de física." "QML/Quick3D"
+                cameraUI = component "Camera Feature" "Gestiona el flujo de video; el controlador es el único puente del worker hacia el bus."
+                graphUI = component "Graph Feature" "Representación gráfica de telemetría en tiempo real."
+                pickAndPlaceUI = component "Pick And Place Feature" "Secuencia de selección y colocación de objetos mediante máquina de estados."
+                calibrationUI = component "Calibration/Color Window" "Ventanas independientes de calibración de cámara y detección de color."
+                tags "Features"
             }
-            
-            uiFeatures = container "UI Features (Features Layer)" "Módulos funcionales que gestionan la interacción del usuario y visualización." "Python/PyQt6" {
-                kinematics = component "Kinematics Controller" "Orquesta el cálculo de cinemática inversa y seguimiento de trayectorias."
-                sliders = component "Sliders Controller" "Orquesta el control manual de articulaciones mediante sliders."
-                simulationController = component "Simulation Controller" "Orquesta la vista QML/Quick3D y el worker de física PyBullet."
-                cameraController = component "Camera Controller" "Orquesta el flujo de video y la delegación de tareas de visión artificial."
-                cameraWorker = component "Camera Worker" "Hilo dedicado a la captura de frames y despacho de tareas OpenCV."
-                graphController = component "Graph Controller" "Orquesta la visualización de telemetría en tiempo real."
-                calibrationController = component "Calibration Controller" "Orquesta las herramientas de calibración de cámara y detección de color."
-                tags "UI"
-            }
-            
-            dataSync = container "Data Management (Sync Manager)" "Núcleo de sincronización. Normaliza y despacha datos entre la UI y los servicios de ejecución." "Python/PyQt6" {
-                dataController = component "DataController" "Orquestador central (Mediador) que sincroniza Features y Servicios."
-                configManager = component "ConfigManager" "Gestión de persistencia de configuraciones y calibraciones." {
+
+            dataMgmt = container "Data Management (Sync Manager)" "Núcleo de sincronización. Único orquestador cross-feature; normaliza y despacha datos entre la UI y los servicios de ejecución." "Python/PyQt6" {
+                dataController = component "DataController" "Mediador reactivo (Cerebro). Escucha los buses de las features, aplica la lógica del gemelo digital y comanda los servicios." {
+                    tags "Data"
+                }
+                signalManagers = component "Signal Managers" "Bus reactivo Pub/Sub con un gestor por dominio: Simulation, Physical, Camera, Search, DrawView, PickPlace, Sliders, Kinematics, Theme y Config."
+                configManager = component "ConfigManager" "Persistencia de configuración (settings, calibraciones de cámara) en archivos JSON." {
                     tags "configManager"
                 }
-                signalManagers = component "Signal Managers" "Bus de señales global (Singleton) para comunicación inter-controller."
+                timers = component "Timers" "GlobalTimer (tick de sincronización sim/robot) y FrameCounter (cadencia de visión)."
                 tags "Core"
             }
-            
-            robotService = container "Robot Service" "Gestión de la comunicación y control del hardware físico." "Python/Serial" {
-                robotController = component "Robot Controller" "Fachada que encapsula la comunicación serie y compensación."
-                robotWorker = component "Robot Worker" "Worker asíncrono que maneja el protocolo binario serie."
-                tags "Execution"
-            }
-            
-            visionService = container "Vision Service" "Algoritmos de visión computacional para detección y estimación de pose." "OpenCV" {
-                poseEstimation = component "Pose Estimation" "Cálculo de coordenadas 3D a partir de la imagen."
-                detectionAlgs = component "Detection Algorithms" "Algoritmos de detección de ChArUco, círculos y elipses."
-                tags "Service"
-            }
-            
-            simulationService = container "Simulation Service" "Motor de física PyBullet y sincronización del gemelo digital." "Python/PyBullet" {
-                physicsEngine = component "Physics Engine" "Motor PyBullet para cálculo de colisiones y cinemática."
-                physicsWorker = component "Physics Worker" "Worker asíncrono que ejecuta el loop de física."
-                tags "Service"
-            }
-            
-            deviceService = container "Device Service" "Monitoreo de estado de hardware conectado." "Python" {
-                deviceMonitor = component "Device Monitor" "Detección plug-and-play de cámaras y puertos seriales."
-                tags "Infrastructure"
+
+            backServices = container "Services (Capa de Ejecución)" "Motores de ejecución sin lógica de orquestación; reciben comandos y devuelven telemetría." "Python" {
+                robotService = component "Robot Service" "Comunicación serial bidireccional con el OpenCM 9.04 (envío de PWM, lectura de telemetría)." "Python/Serial"
+                simulationService = component "Simulation Service" "Motor de física PyBullet y sincronización del gemelo digital." "Python/PyBullet"
+                visionService = component "Vision Service" "Algoritmos de visión: detección ChArUco, segmentación de esferas y estimación de pose 3D." "Python/OpenCV"
+                deviceService = component "Device Service" "Monitoreo plug-and-play de cámaras USB y puertos serie."
+                stylingUiService = component "Styling/UI Service" "Temas claro/oscuro y componentes visuales de realimentación (toasts, diálogos)."
+                tags "Services"
             }
 
-            # --- Nivel 4: Código (Estructura de Clases y Señales) ---
-            # Nota: Representado mediante componentes detallados para propósitos de Tesis
-            
-            mainWindow -> uiFeatures.sliders "Instancia"
-            mainWindow -> uiFeatures.kinematics "Instancia"
-            mainWindow -> uiFeatures.cameraController "Instancia"
-            mainWindow -> uiFeatures.simulationController "Instancia"
-            
-            # Detalle del Mediador (DataController Internals)
-            dataSync.dataController -> dataSync.signalManagers "Suscripción reactiva (Slots)"
-            dataSync.dataController -> dataSync.configManager "Carga/Guarda JSON"
-            
-            # Detalle de la Encapsulación de Servicios
-            uiFeatures.simulationController -> simulationService.physicsWorker "Encapsula (QThread)"
-            robotService.robotController -> robotService.robotWorker "Encapsula (QThread)"
-            
-            # Detalle de la Capa de Visión
-            uiFeatures.cameraController -> uiFeatures.cameraWorker "Instancia y gestiona (QThread)"
-            uiFeatures.cameraWorker -> visionService "Delega procesamiento de frames"
-            visionService -> uiFeatures.cameraWorker "Retorna resultados"
-            uiFeatures.cameraWorker -> uiFeatures.cameraController "Notifica mediante señales locales"
-            uiFeatures.cameraController -> dataSync.signalManagers "Publica poses en el bus global"
-            
-            # Despacho de Datos (DataController -> Execution)
-            dataSync.dataController -> dataSync.signalManagers "Despacha comandos sincronizados"
-            dataSync.signalManagers -> robotService.robotController "Ordena movimiento físico"
-            dataSync.signalManagers -> simulationService.physicsWorker "Ordena actualización de simulación"
-            
-            # Jerarquía Interna (Aislamiento de Workers)
-            robotService.robotController -> robotService.robotWorker "Comanda mediante señales locales"
-            uiFeatures.simulationController -> simulationService.physicsWorker "Comanda mediante señales locales"
-            robotService.robotWorker -> robot "Lectura/Escritura Serial"
-            
-            # Feedback Loop
-            robotService.robotWorker -> robotService.robotController "Reporta telemetría (Local)"
-            robotService.robotController -> dataSync.signalManagers "Publica feedback en bus global"
-            dataSync.signalManagers -> dataSync.dataController "Escucha feedback para Digital Twin"
-            dataSync.dataController -> uiFeatures.graphController "Actualiza telemetría visual"
-            
-            # Configuración
-            dataSync.dataController -> dataSync.configManager "Persiste estado"
-            deviceService -> uiFeatures.cameraController "Notifica cambios en dispositivos"
+            # ============================================================
+            #  RELACIONES
+            # ============================================================
+
+            # --- Contexto (C1) ---
+            user -> mainWindow "Usa la aplicación"
+            camera -> cameraUI "Proporciona el video una vez seleccionada la cámara"
+            robot -> robotService "Lectura/escritura de ángulos de motores y temperaturas"
+
+            # --- Ensamblaje (Main Window) ---
+            mainWindow -> uiFeatures "Inicializa y ensambla los controladores"
+            mainWindow -> dataController "Crea el orquestador central"
+            mainWindow -> robotService "Inicializa la conexión serial"
+
+            # --- Flujo de Comandos (Features -> DataController, vía bus propio) ---
+            slidersUI -> dataController "Publica ángulos y cambio de modo (SlidersSignalManager)"
+            kinematicsUI -> dataController "Publica objetivos cartesianos y cambio de modo (KinematicsSignalManager)"
+            pickAndPlaceUI -> dataController "Solicita movimientos, IK y control de búsqueda (PickPlaceSignalManager)"
+            cameraUI -> dataController "Publica poses y detecciones; solicita limpiar esferas (CameraSignalManager)"
+
+            # --- Orquestación cross-feature mediada por el DataController ---
+            dataController -> kinematicsUI "Rutea solicitudes de cinemática inversa"
+            dataController -> pickAndPlaceUI "Devuelve resultados de IK y detecciones de esferas"
+            dataController -> simulationUI "Actualiza el estado visual 3D"
+            dataController -> graphUI "Envía datos para visualización de gráficos"
+
+            # --- Infraestructura interna del Sync Manager ---
+            dataController -> signalManagers "Se suscribe y despacha sobre los buses de dominio"
+            dataController -> configManager "Lectura/escritura de configuración y calibraciones"
+            dataController -> timers "Recibe ticks de sincronización"
+
+            # --- DataController <-> Servicios de Ejecución ---
+            dataController -> robotService "Comanda el brazo físico (Modo Físico)"
+            dataController -> simulationService "Sincroniza el gemelo digital (Modo Simulación)"
+            robotService -> dataController "Retorna telemetría del hardware"
+            simulationService -> dataController "Retorna telemetría de simulación"
+
+            # --- Flujo de Visión (el Camera Feature posee el worker) ---
+            cameraUI -> visionService "Envía frames para procesamiento"
+            visionService -> cameraUI "Devuelve ChArUco, esferas y poses 3D detectadas"
+
+            # --- Simulación 3D ---
+            simulationUI -> simulationService "Usa el motor de física PyBullet"
+
+            # --- Dispositivos (plug-and-play) ---
+            camera -> deviceService "Configura y actualiza lista de dispositivos de video"
+            robot -> deviceService "Configura y actualiza lista de puertos COM"
+            deviceService -> cameraUI "Reporta cámaras disponibles"
+            deviceService -> robotService "Reporta puertos seriales activos"
+
+            # --- Estilo / UI transversal ---
+            stylingUiService -> uiFeatures "Provee temas y componentes de realimentación"
         }
     }
-
     views {
+        # ---- C1: Contexto ----
         systemContext softwareSystem "SystemContext" {
             include *
+            description "Contexto del sistema: usuario, cámara USB y robot físico."
+            # autoLayout
         }
 
+        # ---- C2: Contenedores ----
         container softwareSystem "Containers" {
             include *
-            description "Diagrama de contenedores: Separación entre UI (Features), Sincronización (Data Management) y Ejecución (Services)."
+            description "Separación en cuatro capas: Main Window, Features, Data Management (Sync Manager) y Services."
+            # autoLayout
         }
 
-        component softwareSystem.uiFeatures "UIFeaturesComponents" {
+        # ---- C3: Componentes (uno por contenedor) ----
+        component uiFeatures "UIFeaturesComponents" {
             include *
-            description "Capa de Features: Controladores que gestionan la interacción y visualización local."
+            description "Features de usuario. Cada una sigue el patrón Controller/Widget/Worker y publica en su bus de dominio."
+            # autoLayout
         }
-
-        component softwareSystem.dataSync "DataSyncComponents" {
+        component dataMgmt "DataManagementComponents" {
             include *
-            description "Capa de Sincronización: El DataController actúa como el mediador central entre todos los controladores."
+            description "Núcleo de sincronización: el DataController media sobre los buses, la configuración y los temporizadores."
+            # autoLayout
         }
-        
-        component softwareSystem.mainWindow "MainWindowComponents" {
+        component backServices "ServicesComponents" {
             include *
-            description "Estructura interna de la Ventana Principal basada en Mixins."
-        }
-        
-        component softwareSystem.robotService "RobotServiceComponents" {
-            include *
-            description "Capa de Ejecución Física: Aislamiento del worker serial tras una fachada de controlador."
-        }
-
-        dynamic softwareSystem "Sequence_MoveCommand" "Muestra el flujo de una orden de movimiento desde la UI hasta el Robot." {
-            uiFeatures.sliders -> dataSync.signalManagers "1: Emite update_target_signal"
-            dataSync.signalManagers -> dataSync.dataController "2: Captura señal en slot"
-            dataSync.dataController -> dataSync.dataController "3: Normaliza unidades y sincroniza buffer"
-            dataSync.dataController -> dataSync.signalManagers "4: Emite send_to_robot"
-            dataSync.signalManagers -> robotService.robotController "5: Captura señal en slot"
-            robotService.robotController -> robotService.robotWorker "6: Encola comando vía señal local"
-            robotService.robotWorker -> robot "7: Envía trama binaria vía Serial"
-        }
-
-        dynamic softwareSystem "Sequence_DigitalTwin" "Muestra la sincronización del Gemelo Digital durante el feedback físico." {
-            robot -> robotService.robotWorker "1: Retorna telemetría (Bytes)"
-            robotService.robotWorker -> robotService.robotController "2: Emite data_received (Local)"
-            robotService.robotController -> dataSync.signalManagers "3: Publica feedback en bus global"
-            dataSync.signalManagers -> dataSync.dataController "4: Actualiza estado del Digital Twin"
-            dataSync.dataController -> dataSync.signalManagers "5: Emite update_pybullet_signal"
-            dataSync.signalManagers -> simulationService.physicsWorker "6: Actualiza posición en motor de física"
+            description "Motores de ejecución: robot, simulación física, visión, dispositivos y estilo."
+            # autoLayout
         }
 
         styles {
@@ -164,30 +140,29 @@ workspace "Brazo Robotico" "Control de brazo robótico con gemelo digital" {
                 shape Window
             }
             element "User" {
+                metadata true
                 shape person
-                background #08427b
-                color #ffffff
             }
-            element "UI" {
+            element "Features" {
                 background #1168bd
-                color #ffffff
+                color #F5F5F5
             }
             element "configManager" {
                 shape folder
                 background #FFD561
                 color #4D4D4D
             }
-            element "Core" {
+            element "Data" {
                 background #cf1c1c
-                color #ffffff
+                color #F5F5F5
             }
-            element "Service" {
+            element "Core" {
+                background #8a1c8a
+                color #F5F5F5
+            }
+            element "Services" {
                 background #207a2c
-                color #ffffff
-            }
-            element "Execution" {
-                background #333333
-                color #ffffff
+                color #F5F5F5
             }
         }
     }

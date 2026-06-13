@@ -15,6 +15,8 @@ from .camera import CameraSignalManager
 from .theme import ThemeSignalManager
 from .config import ConfigSignalManager
 from .pick_place import PickPlaceSignalManager
+from .sliders import SlidersSignalManager
+from .kinematics import KinematicsSignalManager
 
 __all__ = [
     '_SignalManager',
@@ -25,5 +27,7 @@ __all__ = [
     'CameraSignalManager',
     'ThemeSignalManager',
     'ConfigSignalManager',
-    'PickPlaceSignalManager'
+    'PickPlaceSignalManager',
+    'SlidersSignalManager',
+    'KinematicsSignalManager'
 ]

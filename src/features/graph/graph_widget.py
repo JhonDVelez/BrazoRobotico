@@ -27,8 +27,10 @@ class GraphWidget(QWidget):
 
     Attributes:
         mode_changed (pyqtSignal): Emite True si se selecciona el modo Angular.
+        resize_requested (pyqtSignal): Emite el nuevo ancho del widget.
     """
     mode_changed = pyqtSignal(bool)  # True if angular
+    resize_requested = pyqtSignal(int)  # new width
 
     def __init__(self, parent=None):
         """
@@ -178,3 +180,10 @@ class GraphWidget(QWidget):
             ImageHandler: Manejador de placeholder.
         """
         return self._image_handler
+
+    def resizeEvent(self, event):
+        """
+        Notifica cambios de tamano para reajustar la disposicion de las graficas.
+        """
+        super().resizeEvent(event)
+        self.resize_requested.emit(self.width())

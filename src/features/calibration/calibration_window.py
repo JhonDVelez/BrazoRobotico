@@ -79,7 +79,8 @@ class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
         # Dimensiones adaptativas y posicionamiento centralizado
         screen = QApplication.primaryScreen()
         screen_geometry = screen.geometry()
-        self.resize(int(screen_geometry.width()*0.66), int(screen_geometry.height()*0.66))
+        self.resize(int(screen_geometry.width()*0.66),
+                    int(screen_geometry.height()*0.66))
         x = (screen_geometry.width() - self.width()) // 2
         y = (screen_geometry.height() - self.height()) // 2
         self.move(x, y)
@@ -89,7 +90,7 @@ class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
         Inicializa servicios globales de tema y monitoreo de hardware camara.
         """
         self.theme_manager = ThemeManager(self)
-        self.theme_manager._load_current_theme()
+        self.theme_manager.load_current_theme()
 
         self._camera_devices = CameraDevices()
         self._device_monitor = get_device_monitor(
@@ -104,9 +105,11 @@ class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
         Establece las conexiones de eventos reactivos de la ventana.
         """
         if hasattr(self, 'theme_action'):
-            self.theme_action.triggered.connect(self.theme_manager.toggle_theme_event)
+            self.theme_action.triggered.connect(
+                self.theme_manager.toggle_theme_event)
 
-        self._theme_signal_manager.theme_changed.connect(self._on_theme_changed)
+        self._theme_signal_manager.theme_changed.connect(
+            self._on_theme_changed)
 
     def _on_theme_changed(self, is_dark: bool):
         """

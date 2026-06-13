@@ -9,4 +9,5 @@ graphify-out/
 *$py.class
 *.pylintrc
 AGENTS.md
+CLAUDE.md
 .env

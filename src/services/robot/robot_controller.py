@@ -40,6 +40,9 @@ class RobotController(QObject):
 
         # Conexiones Globales (SignalManager -> Controller)
         self._signal_manager.send_to_robot.connect(self.move_to)
+        self._signal_manager.start_service.connect(self.start_service)
+        self._signal_manager.stop_service.connect(self.stop_service)
+        
         self._on_connection_changed(self._worker.get_is_connected())
 
     def _on_data_received(self, positions, temperatures):

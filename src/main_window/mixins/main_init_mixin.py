@@ -12,9 +12,10 @@ from PyQt6.QtWidgets import QVBoxLayout, QGridLayout, QSplitter, QGroupBox, QApp
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QSizePolicy, QToolBar
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QSize, Qt
+import PyQt6Ads as ads
 from src.services.data.enums import Modes, Units, Domains
 from src.services.data import DataController
-from src.services.data.signals import ConfigSignalManager
+from src.services.data.signals import ConfigSignalManager, ThemeSignalManager
 from src.services.robot import RobotController
 from src.features.camera import CameraController
 from src.features.sliders import SlidersController
@@ -33,100 +34,118 @@ class MainInitMixin:
     (camara, simulacion, graficos, sliders, cinematica).
     """
 
-    def setup_ui(self, main_widget):
+    def setup_ui(self, dummy_widget=None):
         """
-        Configura la UI completa en el widget proporcionado.
+        Configura la UI dinámica basada en PyQt6-Ads.
 
-        Crea los splitters horizontal y vertical, los group boxes para
-        los paneles y establece las politicas de tamano iniciales.
-
-        Args:
-            main_widget (QWidget): Widget contenedor principal.
+        Crea los contenedores acoplables para el modelo, cámara, gráficas y controles.
+        La gestión del layout ahora reside exclusivamente en el CDockManager.
         """
-        self.main_widget = main_widget
-        self.main_widget.setObjectName("MainWidget")
-        self.main_widget.setMinimumSize(QSize(400, 400))
-        self.main_widget.resize(QSize(1280, 720))
+        # Inicializar el Dock Manager. No establecemos Central Widget manualmente
+        # para evitar conflictos que causan el borrado de objetos en C++.
+        # ads.CDockManager.setConfigFlags(
+        #     ads.CDockManager.eConfigFlag.DefaultOpaqueConfig)
+        ads.CDockManager.setConfigFlag(
+            ads.CDockManager.eConfigFlag.DisableTabTextEliding, True)
+        ads.CDockManager.setConfigFlag(
+            ads.CDockManager.eConfigFlag.AlwaysShowTabs, False)
+        ads.CDockManager.setConfigFlag(
+            ads.CDockManager.eConfigFlag.HideSingleCentralWidgetTitleBar, True)
+        ads.CDockManager.setConfigFlag(
+            ads.CDockManager.eConfigFlag.DockAreaDynamicTabsMenuButtonVisibility, True)
 
-        sizePolicy = QSizePolicy(
-            QSizePolicy.Policy.Preferred,
-            QSizePolicy.Policy.Preferred
-        )
-        sizePolicy.setHorizontalStretch(3)
-        sizePolicy.setVerticalStretch(3)
-        self.main_widget.setSizePolicy(sizePolicy)
+        self.dock_manager = ads.CDockManager(self.inner_window)
+        self.dock_manager.setObjectName("dockManager")
 
-        self.gridLayout = QGridLayout(self.main_widget)
-        self.gridLayout.setObjectName("gridLayout")
-        self.gridLayout.setContentsMargins(5, 5, 5, 5)
-
-        self.barContentLayout = QHBoxLayout()
-        self.barContentLayout.setObjectName("barContentLayout")
-        self.barContentLayout.setContentsMargins(0, 0, 0, 0)
-        self.barContentLayout.setSpacing(0)
-
-        self.contentSplitter = QSplitter(parent=self.main_widget)
-        self.contentSplitter.setOrientation(Qt.Orientation.Horizontal)
-        self.contentSplitter.setObjectName("contentSplitter")
-        self.contentSplitter.setHandleWidth(8)
-        self.contentSplitter.setContentsMargins(0, 0, 0, 0)
-
-        self.visualSplitter = QSplitter(parent=self.contentSplitter)
-        self.visualSplitter.setOrientation(Qt.Orientation.Vertical)
-        self.visualSplitter.setObjectName("visualSplitter")
-        self.visualSplitter.setHandleWidth(8)
-        self.visualSplitter.setContentsMargins(0, 0, 0, 0)
-
-        self.controlSplitter = QSplitter(parent=self.contentSplitter)
-        self.controlSplitter.setOrientation(Qt.Orientation.Vertical)
-        self.controlSplitter.setObjectName("ControlslSplitter")
-        self.controlSplitter.setHandleWidth(8)
-        self.controlSplitter.setContentsMargins(0, 0, 0, 0)
+        # Resolver el enum de áreas para la versión 4.5.0
+        Area = ads.DockWidgetArea
 
         box_size_policy = QSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
-        self.modelBox = QGroupBox(parent=self.visualSplitter)
+        # 1. Dock del Modelo 3D
+        self.modelDock = ads.CDockWidget("Visualización 3D")
+        self.modelDock.setObjectName("modelDock")
+        self.modelBox = QGroupBox(self.inner_window)
         self.modelBox.setTitle("")
         self.modelBox.setObjectName("modelBox")
-        self.modelBox.setContentsMargins(0, 0, 0, 0)
+        # Forzamos eliminación de bordes nativos también vía código
+        self.modelBox.setFlat(True)
         self.modelBox.setSizePolicy(box_size_policy)
-
-        self.cameraBox = QGroupBox(parent=self.visualSplitter)
+        self.modelDock.setWidget(self.modelBox)
+        self.dock_manager.addDockWidget(
+            Area.LeftDockWidgetArea, self.modelDock)
+        self._configure_dock_title_bar(self.modelDock)
+        # 2. Dock de la Cámara
+        self.cameraDock = ads.CDockWidget("Cámara en Vivo")
+        self.cameraDock.setObjectName("cameraDock")
+        self.cameraBox = QGroupBox(self.inner_window)
         self.cameraBox.setTitle("")
         self.cameraBox.setObjectName("cameraBox")
-        self.cameraBox.setContentsMargins(0, 0, 0, 0)
+        self.cameraBox.setFlat(True)
         self.cameraBox.setSizePolicy(box_size_policy)
+        self.cameraDock.setWidget(self.cameraBox)
+        self.dock_manager.addDockWidget(
+            Area.BottomDockWidgetArea, self.cameraDock, self.modelDock.dockAreaWidget())
+        self._configure_dock_title_bar(self.cameraDock)
 
-        self.graphsBox = QGroupBox(parent=self.controlSplitter)
+        # 3. Dock de Gráficas
+        self.graphsDock = ads.CDockWidget("Telemetría y Gráficas")
+        self.graphsDock.setObjectName("graphsDock")
+        self.graphsBox = QGroupBox(self.inner_window)
         self.graphsBox.setTitle("")
         self.graphsBox.setObjectName("graphsBox")
-        self.graphsBox.setContentsMargins(0, 0, 0, 0)
-        box_size_policy.setHorizontalStretch(0)
-        box_size_policy.setVerticalStretch(0)
+        self.graphsBox.setFlat(True)
         self.graphsBox.setSizePolicy(box_size_policy)
+        self.graphsDock.setWidget(self.graphsBox)
+        self.dock_manager.addDockWidget(
+            Area.RightDockWidgetArea, self.graphsDock)
+        self._configure_dock_title_bar(self.graphsDock)
 
-        self.controlsBox = QGroupBox(parent=self.controlSplitter)
+        # 4. Dock de Controles
+        self.controlsDock = ads.CDockWidget("Panel de Control")
+        self.controlsDock.setObjectName("controlsDock")
+        self.controlsBox = QGroupBox(self.inner_window)
         self.controlsBox.setTitle("")
-        self.controlsBox.setAlignment(
-            Qt.AlignmentFlag.AlignBottom |
-            Qt.AlignmentFlag.AlignLeading |
-            Qt.AlignmentFlag.AlignLeft
-        )
         self.controlsBox.setObjectName("controlsBox")
+        self.controlsBox.setFlat(True)
         self.controlsBox.setSizePolicy(box_size_policy)
 
         self.verticalLayout_2 = QVBoxLayout(self.controlsBox)
         self.verticalLayout_2.setSpacing(0)
         self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout_2.setObjectName("verticalLayout_2")
 
-        self.barContentLayout.addWidget(self.contentSplitter)
-        self.gridLayout.addLayout(self.barContentLayout, 0, 0, 1, 1)
+        self.controlsDock.setWidget(self.controlsBox)
+        self.dock_manager.addDockWidget(
+            Area.BottomDockWidgetArea, self.controlsDock, self.graphsDock.dockAreaWidget())
+        self._configure_dock_title_bar(self.controlsDock)
 
-        self.contentSplitter.setSizes([400, 500])
-        self.visualSplitter.setSizes([100, 100])
-        self.controlSplitter.setSizes([300, 100])
+        # Configurar proporciones iniciales si es posible (ADS maneja esto de forma interna tras el layout)
+        # ADS no usa setSizes como QSplitter, se basa en factores de estiramiento y jerarquía de áreas.
+        for i, dock in self.dock_manager.dockWidgetsMap().items():
+            self._configure_dock_title_bar(dock)
+            dock.topLevelChanged.connect(
+                lambda floating, d=dock: self._on_dock_floating_changed(d))
+
+    def _configure_dock_title_bar(self, dock):
+        """Apply title bar margins and button object names to a dock widget."""
+        area = dock.dockAreaWidget()
+        if area is None:
+            return
+        title = area.titleBar()
+        area.layout().setContentsMargins(0, 0, 0, 0)
+        dock.layout().setContentsMargins(0, 0, 0, 0)
+        undock_btn = title.button(ads.TitleBarButton.TitleBarButtonUndock)
+        if undock_btn is not None:
+            undock_btn.setObjectName("undockBtn")
+            undock_btn.setVisible(True)
+        close_btn = title.button(ads.TitleBarButton.TitleBarButtonClose)
+        if close_btn is not None:
+            close_btn.setObjectName("closeBtn")
+
+    def _on_dock_floating_changed(self, dock):
+        """Re-apply title bar config when a dock is docked (floating=False) or undocked (floating=True)."""
+        self._configure_dock_title_bar(dock)
 
     def init_camera(self):
         """
@@ -204,33 +223,30 @@ class MainInitMixin:
         )
         self.toolbar_spacer.setObjectName("toolbar_spacer")
 
-        self.sim_view_icon = QIcon(os.path.join("icons:armView.png"))
-        self.camera_view_icon = QIcon(os.path.join("icons:cameraView.png"))
-        self.graphs_view_icon = QIcon(os.path.join("icons:graphView.png"))
-        self.controls_view_icon = QIcon(
-            os.path.join("icons:controlsView.png"))
+        self.toolbar_signal_manager = ThemeSignalManager.get_instance()
+        is_dark = self.toolbar_signal_manager.get_current_theme() == Qt.ColorScheme.Dark
 
         self.model_action = self.actions_toolbar.addAction(
-            self.sim_view_icon, "Vista de simulación")
+            self.toolbar_signal_manager.get_toolbar_icon('sim_view', is_dark), "Vista de simulación")
         self.model_action.setObjectName("simulation_view_button")
         self.model_action.setStatusTip(
             "Mostrar/Ocultar el modelo 3D de la simulación")
         self.model_action.setCheckable(True)
 
         self.camera_action = self.actions_toolbar.addAction(
-            self.camera_view_icon, "Vista de cámara")
+            self.toolbar_signal_manager.get_toolbar_icon('camera_view', is_dark), "Vista de cámara")
         self.camera_action.setObjectName("camera_view_button")
         self.camera_action.setStatusTip("Mostrar/Ocultar la cámara")
         self.camera_action.setCheckable(True)
 
         self.graphs_action = self.actions_toolbar.addAction(
-            self.graphs_view_icon, "Vista de gráficas")
+            self.toolbar_signal_manager.get_toolbar_icon('graphs_view', is_dark), "Vista de gráficas")
         self.graphs_action.setObjectName("graph_view_button")
         self.graphs_action.setStatusTip("Mostrar/Ocultar las gráficas")
         self.graphs_action.setCheckable(True)
 
         self.controls_action = self.actions_toolbar.addAction(
-            self.controls_view_icon, "Vista de controles")
+            self.toolbar_signal_manager.get_toolbar_icon('controls_view', is_dark), "Vista de controles")
         self.controls_action.setObjectName("controls_view_button")
         self.controls_action.setStatusTip("Mostrar/Ocultar los controles")
         self.controls_action.setCheckable(True)
@@ -244,8 +260,10 @@ class MainInitMixin:
         self.actions_toolbar.addWidget(self.toolbar_spacer)
         self.actions_toolbar.addSeparator()
 
-        self.charuco_icon = QIcon(os.path.join("icons:gridSearch.png"))
-        self.sphere_icon = QIcon(os.path.join("icons:geometrySearch.png"))
+        self.charuco_icon = self.toolbar_signal_manager.get_toolbar_icon(
+            'charuco', is_dark)
+        self.sphere_icon = self.toolbar_signal_manager.get_toolbar_icon(
+            'sphere', is_dark)
 
         self.charuco_action = self.actions_toolbar.addAction(
             self.charuco_icon, "Tablero ChArUco")
@@ -271,26 +289,21 @@ class MainInitMixin:
 
         self.actions_toolbar.addSeparator()
 
-        self.start_icon = QIcon(os.path.join("icons:play.png"))
-        self.pause_icon = QIcon(os.path.join("icons:pause.png"))
-        self.stop_icon = QIcon(os.path.join("icons:stop.png"))
-        self.reset_icon = QIcon(os.path.join("icons:refresh.png"))
-
         self.start_action = self.actions_toolbar.addAction(
-            self.start_icon, "Iniciar")
+            self.toolbar_signal_manager.get_toolbar_icon('start', is_dark), "Iniciar")
         self.start_action.setObjectName("start_button")
         self.start_action.setStatusTip("Iniciar la ejecución")
         self.start_action.setCheckable(True)
 
         self.pause_action = self.actions_toolbar.addAction(
-            self.pause_icon, "Pausar")
+            self.toolbar_signal_manager.get_toolbar_icon('pause', is_dark), "Pausar")
         self.pause_action.setObjectName("pause_button")
         self.pause_action.setStatusTip("Pausar la ejecución")
         self.pause_action.setEnabled(False)
         self.pause_action.setCheckable(True)
 
         self.stop_action = self.actions_toolbar.addAction(
-            self.stop_icon, "Detener")
+            self.toolbar_signal_manager.get_toolbar_icon('stop', is_dark), "Detener")
         self.stop_action.setObjectName("stop_button")
         self.stop_action.setStatusTip("Detener la ejecución")
         self.stop_action.setEnabled(False)
@@ -298,7 +311,7 @@ class MainInitMixin:
         self.stop_action.setChecked(True)
 
         self.reset_action = self.actions_toolbar.addAction(
-            self.reset_icon, "Reiniciar")
+            self.toolbar_signal_manager.get_toolbar_icon('reset', is_dark), "Reiniciar")
         self.reset_action.setObjectName("reset_button")
         self.reset_action.setStatusTip("Reiniciar los valores")
 
@@ -354,8 +367,6 @@ class MainInitMixin:
             graph_layout = QVBoxLayout(self.graphsBox)
             graph_layout.setContentsMargins(0, 0, 0, 0)
             self.graphsBox.setLayout(graph_layout)
-
-        self.graphsBox.setStyleSheet("""padding: 0px;""")
 
         self.graph_controller = GraphController(
             self, self.kinematics_controller.get_worker())

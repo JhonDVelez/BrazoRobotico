@@ -15,7 +15,7 @@ from PyQt6.QtCore import QObject, pyqtSlot, QEvent
 import numpy as np
 from src.services.data.signals import (
     PickPlaceSignalManager, SimulationSignalManager,
-    PhysicalSignalManager, CameraSignalManager, SearchSignalManager
+    PhysicalSignalManager, CameraSignalManager
 )
 from src.features.pick_and_place.pick_and_place_widget import PickAndPlaceWidget
 from src.features.pick_and_place.pick_and_place_worker import PickAndPlaceWorker
@@ -178,10 +178,11 @@ class PickAndPlaceController(QObject):
         self._current_color = color
         self.signal_manager.sphere_selected.emit(color)
         self.sim_signals.change_mode_signal.emit(Modes.KINEMATIC)
-        self.sim_signals.release_sphere.emit(color)
+        self.signal_manager.release_sphere_request.emit(color)
         self.signal_manager.set_pick_place_running(True)
-        # Desactivar busqueda de esferas durante el movimiento para evitar ruido
-        SearchSignalManager.get_instance().set_circle(False)
+        # Desactivar busqueda de esferas durante el movimiento para evitar ruido.
+        # Ruteado por el DataController hacia SearchSignalManager.
+        self.signal_manager.search_circle_request.emit(False)
         self.worker.pick(color)
 
     @pyqtSlot(dict)
@@ -193,8 +194,9 @@ class PickAndPlaceController(QObject):
         """
         self.signal_manager.place_requested.emit(coords)
         self.signal_manager.set_pick_place_running(True)
-        # Desactivar busqueda de esferas durante el movimiento
-        SearchSignalManager.get_instance().set_circle(False)
+        # Desactivar busqueda de esferas durante el movimiento.
+        # Ruteado por el DataController hacia SearchSignalManager.
+        self.signal_manager.search_circle_request.emit(False)
         self.worker.place(coords)
 
     @pyqtSlot(dict)
@@ -226,10 +228,10 @@ class PickAndPlaceController(QObject):
             else:
                 # Terminamos Place, regresamos a Pick. Reactivamos camara y reasociamos esfera.
                 if self._current_color:
-                    self.sim_signals.reattach_sphere.emit(self._current_color)
+                    self.signal_manager.reattach_sphere_request.emit(self._current_color)
                     self._current_color = None
-                
-                SearchSignalManager.get_instance().set_circle(True)
+
+                self.signal_manager.search_circle_request.emit(True)
                 self.overlay.set_mode('pick')
                 
         self.sim_signals.change_mode_signal.emit(Modes.KINEMATIC)
@@ -246,10 +248,10 @@ class PickAndPlaceController(QObject):
         
         # Reactivar busqueda de esferas y reasociar esfera en caso de fallo
         if self._current_color:
-            self.sim_signals.reattach_sphere.emit(self._current_color)
+            self.signal_manager.reattach_sphere_request.emit(self._current_color)
             self._current_color = None
-            
-        SearchSignalManager.get_instance().set_circle(True)
+
+        self.signal_manager.search_circle_request.emit(True)
         print(f'[PickAndPlace] Secuencia fallida: {reason}')
 
     def eventFilter(self, watched, event):

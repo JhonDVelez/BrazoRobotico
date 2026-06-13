@@ -13,6 +13,7 @@ Conexiones:
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
                              QLabel, QSlider, QSpinBox, QSizePolicy)
 from PyQt6.QtCore import Qt, QSize, pyqtSignal
+from src.services.ui.flow_layout import FlowLayout
 
 
 class SlidersWidget(QWidget):
@@ -41,69 +42,60 @@ class SlidersWidget(QWidget):
 
     def __setup_ui(self):
         """
-        Configura la cuadricula de controles y aplica las restricciones de hardware.
+        Configura el layout fluido de controles y aplica las restricciones de hardware.
         """
         self.setObjectName("sliders_widget")
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setContentsMargins(5, 5, 5, 5)
 
         self.container_widget = QWidget()
-        self.grid_layout = QGridLayout(self.container_widget)
-        self.grid_layout.setContentsMargins(0, 0, 0, 0)
-        self.grid_layout.setSpacing(10)
-
+        self.flow_layout = FlowLayout(self.container_widget, spacing=10)
+        
         # Configuracion θ: (label, min_absoluto, max_absoluto)
-        # Los limites estan basados en las capacidades mecanicas reales del brazo
         theta_config = [
             ("θ1", 50, 250), ("θ2", 60, 240), ("θ3", 20, 280),
             ("θ4", 50, 250), ("θ5", 60, 270), ("θ6", 42, 171)
         ]
 
         for i, (text, s_min, s_max) in enumerate(theta_config):
-            row, col = i // 3, i % 3
-
             group_widget = QWidget()
+            group_widget.setMinimumWidth(200) # Tamaño mínimo para que no se colapse demasiado
             group_layout = QHBoxLayout(group_widget)
-            group_layout.setContentsMargins(0, 0, 0, 0)
+            group_layout.setContentsMargins(2, 2, 2, 2)
+            group_layout.setSpacing(5)
 
-            # Etiqueta de identificacion de la articulacion
+            # Etiqueta de identificacion
             label = QLabel(text)
-            label.setFixedSize(30, 30)
+            label.setFixedSize(25, 30)
             group_layout.addWidget(label)
 
             # Slider para control rapido
             slider = QSlider(Qt.Orientation.Horizontal)
             slider.setRange(s_min, s_max)
             slider.setValue(150)
-            slider.setMaximumSize(QSize(400, 30))
+            slider.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            slider.setMinimumWidth(100)
             group_layout.addWidget(slider)
 
-            # SpinBox para control de precision (Muestra valor relativo al centro 150)
+            # SpinBox para control de precision
             spin = QSpinBox()
             spin.setRange(s_min - 150, s_max - 150)
             spin.setValue(0)
-            spin.setFixedSize(60, 30)
+            spin.setFixedSize(55, 30)
             group_layout.addWidget(spin)
 
-            # Sincronización interna del Widget (Slider <-> SpinBox)
-            slider.valueChanged.connect(
-                lambda val, s=spin: self._sync_spin(s, val))
-            spin.valueChanged.connect(
-                lambda val, s=slider: self._sync_slider(s, val))
+            # Sincronización interna
+            slider.valueChanged.connect(lambda val, s=spin: self._sync_spin(s, val))
+            spin.valueChanged.connect(lambda val, s=slider: self._sync_slider(s, val))
+            slider.valueChanged.connect(lambda val, idx=i: self.value_changed.emit(idx, val))
+            spin.valueChanged.connect(lambda val, idx=i: self.value_changed.emit(idx, val + 150))
 
-            # Notificación al controlador (desde ambos widgets se normaliza a 0-300)
-            slider.valueChanged.connect(
-                lambda val, idx=i: self.value_changed.emit(idx, val))
-            spin.valueChanged.connect(
-                lambda val, idx=i: self.value_changed.emit(idx, val + 150))
-
-            self.grid_layout.addWidget(group_widget, row, col)
+            self.flow_layout.addWidget(group_widget)
             self._controls.append({"slider": slider, "spinbox": spin})
 
         self.main_layout.addWidget(self.container_widget)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Expanding)
-        self.setMinimumSize(120, 160)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+        self.setMinimumSize(220, 100)
 
     def _sync_spin(self, spin, value):
         """

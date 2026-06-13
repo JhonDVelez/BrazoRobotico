@@ -78,7 +78,8 @@ class ColorWindow(FramelessMainWindow, ColorMenuMixin):
         # Dimensionamiento relativo a la pantalla
         screen = QApplication.primaryScreen()
         screen_geometry = screen.geometry()
-        self.resize(int(screen_geometry.width() * 0.75), int(screen_geometry.height() * 0.75))
+        self.resize(int(screen_geometry.width() * 0.75),
+                    int(screen_geometry.height() * 0.75))
         x = (screen_geometry.width() - self.width()) // 2
         y = (screen_geometry.height() - self.height()) // 2
         self.move(x, y)
@@ -88,7 +89,7 @@ class ColorWindow(FramelessMainWindow, ColorMenuMixin):
         Inicializa los servicios de tema y monitoreo de dispositivos.
         """
         self.theme_manager = ThemeManager(self)
-        self.theme_manager._load_current_theme()
+        self.theme_manager.load_current_theme()
 
         self._camera_devices = CameraDevices()
         self._device_monitor = get_device_monitor(
@@ -101,8 +102,10 @@ class ColorWindow(FramelessMainWindow, ColorMenuMixin):
         Establece las conexiones para el cambio de tema y eventos de UI.
         """
         if hasattr(self, 'theme_action'):
-            self.theme_action.triggered.connect(self.theme_manager.toggle_theme_event)
-        self._theme_signal_manager.theme_changed.connect(self._on_theme_changed)
+            self.theme_action.triggered.connect(
+                self.theme_manager.toggle_theme_event)
+        self._theme_signal_manager.theme_changed.connect(
+            self._on_theme_changed)
 
     def _on_theme_changed(self, is_dark: bool):
         """

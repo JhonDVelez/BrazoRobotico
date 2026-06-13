@@ -23,6 +23,11 @@ class PhysicalSignalManager(_SignalManager):
     is_connected = False
     send_to_robot = pyqtSignal(list)
     data_received = pyqtSignal(list, list)
+    start_service = pyqtSignal()
+    stop_service = pyqtSignal()
+    
+    start_request = pyqtSignal()
+    stop_request = pyqtSignal()
 
     _instance = None
 

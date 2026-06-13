@@ -78,7 +78,7 @@ class PickAndPlaceWidget(QWidget):
                 background-color: #F0F0F0;
             }
         """)
-        self.reset_button.setIcon(QIcon('icons:refresh.png'))
+        self.reset_button.setIcon(QIcon('icons:refresh_l.png'))
         self.reset_button.hide()
         self.reset_button.clicked.connect(self._on_reset_clicked)
 
@@ -90,18 +90,14 @@ class PickAndPlaceWidget(QWidget):
         self._selected_color = None
         self._selected_place = None
         self._hide_confirm_button()
-        
+
         if mode == 'place':
             self.reset_button.show()
         else:
             self.reset_button.hide()
-        
+
         self.mode_changed.emit(mode)
         self.update()
-
-    def update_charuco_pose(self, pose_data):
-        """Actualiza la pose del tablero necesaria para el modo Place."""
-        self._charuco_pose = pose_data
 
     def _on_reset_clicked(self):
         self.set_mode('pick')
@@ -125,7 +121,7 @@ class PickAndPlaceWidget(QWidget):
         """Dibuja una X sobre la posicion snapped seleccionada."""
         if not self._charuco_pose:
             return
-            
+
         # Verificar que tengamos todos los datos necesarios para proyectar
         required = ['rvec', 'tvec', 'camera_matrix', 'dist_coeffs']
         if not all(k in self._charuco_pose and self._charuco_pose[k] is not None for k in required):
@@ -137,9 +133,9 @@ class PickAndPlaceWidget(QWidget):
             self._selected_place['y'],
             self._selected_place['z']
         ]).reshape(3, 1)
-        
+
         p_board = p_robot + self._custom_origin
-        
+
         # 2. Proyectar de tablero a imagen
         img_points, _ = cv2.projectPoints(
             p_board.reshape(1, 1, 3),
@@ -148,34 +144,36 @@ class PickAndPlaceWidget(QWidget):
             self._charuco_pose['camera_matrix'],
             self._charuco_pose['dist_coeffs']
         )
-        
+
         orig_x, orig_y = img_points.flatten()
-        
+
         # 3. Mapear de imagen original a coordenadas de este widget
         camera_widget = self.parent()
         if not hasattr(camera_widget, "get_pixmap_geometry"):
             return
-            
+
         mapping = camera_widget.get_pixmap_geometry()
         if mapping[0] is None:
             return
-            
+
         x_off, y_off, disp_w, disp_h, pixmap_w, pixmap_h = mapping
         scale_x = pixmap_w / self.orig_w
         scale_y = pixmap_h / self.orig_h
-        
+
         ui_x = orig_x * scale_x + x_off
         ui_y = orig_y * scale_y + y_off
-        
+
         # 4. Dibujar
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         pen = QPen(QColor(255, 0, 0), 3)
         painter.setPen(pen)
-        
+
         size = 10
-        painter.drawLine(int(ui_x - size), int(ui_y - size), int(ui_x + size), int(ui_y + size))
-        painter.drawLine(int(ui_x - size), int(ui_y + size), int(ui_x + size), int(ui_y - size))
+        painter.drawLine(int(ui_x - size), int(ui_y - size),
+                         int(ui_x + size), int(ui_y + size))
+        painter.drawLine(int(ui_x - size), int(ui_y + size),
+                         int(ui_x + size), int(ui_y - size))
 
     def update_detected_circles(self, circles_2d: dict):
         """Actualiza los datos de las esferas detectadas en 2D."""
@@ -238,11 +236,12 @@ class PickAndPlaceWidget(QWidget):
         """Calcula la posicion 3D en el tablero y aplica snapping."""
         if not self._charuco_pose:
             return
-            
+
         # Verificar datos de calibracion y pose
         required = ['rvec', 'tvec', 'camera_matrix', 'dist_coeffs']
         if not all(k in self._charuco_pose and self._charuco_pose[k] is not None for k in required):
-            print("[PickPlace] Error: Faltan datos de pose o camara para calcular coordenadas")
+            print(
+                "[PickPlace] Error: Faltan datos de pose o camara para calcular coordenadas")
             return
 
         # 1. Proyectar pixel a coordenadas del tablero (z=0)
@@ -261,15 +260,15 @@ class PickAndPlaceWidget(QWidget):
 
         # 2. Aplicar offset del origen personalizado
         p_final = p_board - self._custom_origin
-        
+
         fx, fy, fz = p_final.flatten()
 
         # 3. Snapping a la rejilla de 30mm
         snap_x = round(fx / 30.0) * 30.0
         snap_y = round(fy / 30.0) * 30.0
-        
+
         self._selected_place = {'x': snap_x, 'y': snap_y, 'z': 0.0}
-        
+
         self.confirm_button.setText(f"Ir a ({int(snap_x)}, {int(snap_y)})")
         self.confirm_button.adjustSize()
         self._position_confirm_button()
@@ -294,7 +293,7 @@ class PickAndPlaceWidget(QWidget):
         btn_x = max(0, (self.width() - cw) // 2)
         btn_y = self.height() - 50
         self.confirm_button.move(btn_x, btn_y)
-        
+
         # Posicionar reset button en esquina inferior izquierda
         self.reset_button.move(10, self.height() - 40)
 
@@ -309,7 +308,7 @@ class PickAndPlaceWidget(QWidget):
         elif self._mode == 'place' and self._selected_place:
             self.place_requested.emit(self._selected_place)
             self._hide_confirm_button()
-            self.reset_button.hide() # Ocultar durante el proceso de place
+            self.reset_button.hide()  # Ocultar durante el proceso de place
 
     def hideEvent(self, event):
         """Limpia la seleccion temporal al desactivar el modo."""

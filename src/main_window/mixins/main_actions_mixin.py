@@ -7,7 +7,10 @@ y la inicializacion de ventanas de calibracion.
 """
 
 from PyQt6.QtCore import pyqtSlot
-from src.services.data.signals import SearchSignalManager, ConfigSignalManager
+from src.services.data.signals import (
+    SearchSignalManager, ConfigSignalManager,
+    SimulationSignalManager, PhysicalSignalManager
+)
 
 
 class MainActionsMixin:
@@ -30,7 +33,8 @@ class MainActionsMixin:
         Deshabilita el boton de inicio y habilita pausa/stop.
         """
         if self.hab_simulation:
-            self.simulation_controller.start_simulation()
+            # Solicitar inicio vía DataController (Bus Global)
+            SimulationSignalManager.get_instance().start_request.emit()
 
         self.simulation_action.setEnabled(False)
 
@@ -41,9 +45,7 @@ class MainActionsMixin:
         self.com_submenu.setEnabled(True)
 
         if self.connected_to_robot:
-            self.robot_controller.request_processing.connect(
-                self.robot_service.move_to)
-            self.robot_service.start_service()
+            PhysicalSignalManager.get_instance().start_request.emit()
 
         self.graph_controller.start()
 
@@ -63,16 +65,16 @@ class MainActionsMixin:
         Detiene el servicio del robot si esta conectado.
         Habilita el boton de inicio y deshabilita pausa.
         """
-        if self.simulation_controller is not None:
-            self.simulation_controller.pause_simulation()
+        SimulationSignalManager.get_instance().pause_request.emit(True)
 
         self.camera_controller.pause_video()
         self.camera_paused = True
 
         self.graph_controller.pause()
 
+        # El RobotController manejara la pausa si escucha el bus, o podemos enviar stop
         if self.connected_to_robot:
-            self.robot_service.stop_service()
+            PhysicalSignalManager.get_instance().stop_request.emit()
 
         self.pause_action.setEnabled(False)
         self.pause_action.setChecked(True)
@@ -85,8 +87,8 @@ class MainActionsMixin:
 
         Restaura el estado de reposo de la interfaz.
         """
-        if self.simulation_controller is not None and self.hab_simulation:
-            self.simulation_controller.stop_simulation()
+        if self.hab_simulation:
+            SimulationSignalManager.get_instance().stop_request.emit()
 
         self.simulation_action.setEnabled(True)
         self.model_action.setEnabled(True)
@@ -94,6 +96,9 @@ class MainActionsMixin:
         self.camera_controller.stop_video()
 
         self.graph_controller.stop()
+
+        if self.connected_to_robot:
+            PhysicalSignalManager.get_instance().stop_request.emit()
 
         self.start_action.setEnabled(True)
         self.start_action.setChecked(False)
@@ -113,74 +118,50 @@ class MainActionsMixin:
     @pyqtSlot(bool)
     def toggle_visibility_camera_event(self, checked: bool):
         """
-        Alterna la visibilidad del panel de camara.
+        Alterna la visibilidad del dock de la camara.
 
         Args:
             checked (bool): True para mostrar el panel.
         """
-        self.cameraBox.setVisible(checked)
+        self.cameraDock.toggleView(checked)
         ConfigSignalManager.get_instance().request_change(
             "settings.json", "content", "camera", value=checked)
-        self.check_handle_visibility()
 
     @pyqtSlot(bool)
     def toggle_visibility_model_event(self, checked: bool):
         """
-        Alterna la visibilidad del panel del modelo 3D.
+        Alterna la visibilidad del dock del modelo 3D.
 
         Args:
             checked (bool): True para mostrar el panel.
         """
-        self.modelBox.setVisible(checked)
+        self.modelDock.toggleView(checked)
         ConfigSignalManager.get_instance().request_change(
             "settings.json", "content", "model", value=checked)
-        self.check_handle_visibility()
 
     @pyqtSlot(bool)
     def toggle_visibility_graphs_event(self, checked: bool):
         """
-        Alterna la visibilidad del panel de graficos.
+        Alterna la visibilidad del dock de graficos.
 
         Args:
             checked (bool): True para mostrar el panel.
         """
-        self.graphsBox.setVisible(checked)
+        self.graphsDock.toggleView(checked)
         ConfigSignalManager.get_instance().request_change(
             "settings.json", "content", "graphs", value=checked)
-        self.check_handle_visibility()
 
     @pyqtSlot(bool)
     def toggle_visibility_controls_event(self, checked: bool):
         """
-        Alterna la visibilidad del panel de controles.
+        Alterna la visibilidad del dock de controles.
 
         Args:
             checked (bool): True para mostrar el panel.
         """
-        self.controlsBox.setVisible(checked)
+        self.controlsDock.toggleView(checked)
         ConfigSignalManager.get_instance().request_change(
             "settings.json", "content", "controls", value=checked)
-        self.check_handle_visibility()
-
-    def check_handle_visibility(self):
-        """
-        Ajusta el handle del splitter segun la visibilidad de las secciones.
-
-        Oculta el handle cuando solo hay una seccion visible.
-        """
-        visible_1 = any(
-            self.contentSplitter.widget(0).widget(j).isVisible()
-            for j in range(self.contentSplitter.widget(0).count())
-        )
-
-        visible_2 = any(
-            self.contentSplitter.widget(1).widget(j).isVisible()
-            for j in range(self.contentSplitter.widget(1).count())
-        )
-        has_both = visible_1 and visible_2
-
-        self.contentSplitter.setHandleWidth(8 if has_both else 0)
-        self.contentSplitter.handle(1).setEnabled(has_both)
 
     def initiate_camera_calibration(self):
         """

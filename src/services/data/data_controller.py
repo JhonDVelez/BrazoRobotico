@@ -16,7 +16,9 @@ from PyQt6.QtCore import QObject, pyqtSlot
 from src.services.data import config_manager
 from src.services.data.signals import (
     PhysicalSignalManager, PickPlaceSignalManager,
-    SimulationSignalManager, ConfigSignalManager
+    SimulationSignalManager, ConfigSignalManager,
+    CameraSignalManager, SlidersSignalManager, KinematicsSignalManager,
+    SearchSignalManager
 )
 from src.services.data.enums import Modes, Units
 from src.services.data.timers import GlobalTimer
@@ -50,6 +52,10 @@ class DataController(QObject):
         self.phys_signals = PhysicalSignalManager.get_instance()
         self.pick_signals = PickPlaceSignalManager.get_instance()
         self.config_signals = ConfigSignalManager.get_instance()
+        self.cam_signals = CameraSignalManager.get_instance()
+        self.sliders_signals = SlidersSignalManager.get_instance()
+        self.kin_signals = KinematicsSignalManager.get_instance()
+        self.search_signals = SearchSignalManager.get_instance()
 
         # Inicialización de configuración (una sola vez)
         if not DataController._config_initialized:
@@ -89,10 +95,16 @@ class DataController(QObject):
             self.update_target_positions)
         self.phys_signals.update_target_signal.connect(
             self.update_target_positions)
+        self.sliders_signals.update_target_signal.connect(
+            self.update_target_positions)
+        self.kin_signals.update_target_signal.connect(
+            self.update_target_positions)
 
         # Escuchar cambios de modo
         self.sim_signals.change_mode_signal.connect(self.set_mode)
         self.phys_signals.change_mode_signal.connect(self.set_mode)
+        self.sliders_signals.change_mode_signal.connect(self.set_mode)
+        self.kin_signals.change_mode_signal.connect(self.set_mode)
 
         # --- Feedback desde Servicios (Ejecucion) ---
         # Feedback de Simulacion -> Actualizacion de UI
@@ -102,6 +114,42 @@ class DataController(QObject):
 
         # Feedback de Robot Fisico -> Actualizacion de UI y Sincronizacion
         self.phys_signals.data_received.connect(self._on_physical_feedback)
+
+        # Bridge Pick and Place -> Simulation
+        self.pick_signals.release_sphere_request.connect(
+            self.sim_signals.release_sphere.emit)
+        self.pick_signals.reattach_sphere_request.connect(
+            self.sim_signals.reattach_sphere.emit)
+
+        # Bridge Pick and Place -> Search (control de busqueda de esferas)
+        self.pick_signals.search_circle_request.connect(
+            self.search_signals.set_circle)
+
+        # Bridge cinematica inversa: Pick and Place <-> Kinematics.
+        # Ninguna feature conoce a la otra; el DataController media el dialogo.
+        self.pick_signals.inverse_kinematics_requested.connect(
+            self.kin_signals.inverse_kinematics_requested.emit)
+        self.kin_signals.inverse_kinematics_ready.connect(
+            self.pick_signals.inverse_kinematics_ready.emit)
+
+        # Bridge Camera (vision) -> Simulation / Pick and Place
+        self.cam_signals.clear_spheres_request.connect(
+            self.sim_signals.clear_spheres.emit)
+        self.cam_signals.poses_from_camera.connect(
+            self.sim_signals.sphere_pos_from_camera.emit)
+        self.cam_signals.poses_from_camera.connect(
+            self.pick_signals.poses_from_camera.emit)
+        self.cam_signals.spheres_detected_2d.connect(
+            self.pick_signals.spheres_detected_2d.emit)
+
+        # Bridge Simulation Control
+        self.sim_signals.start_request.connect(self.sim_signals.start_simulation.emit)
+        self.sim_signals.pause_request.connect(self.sim_signals.pause_simulation.emit)
+        self.sim_signals.stop_request.connect(self.sim_signals.stop_simulation.emit)
+
+        # Bridge Robot Control
+        self.phys_signals.start_request.connect(self.phys_signals.start_service.emit)
+        self.phys_signals.stop_request.connect(self.phys_signals.stop_service.emit)
 
     @pyqtSlot()
     def _handle_sync_tick(self):

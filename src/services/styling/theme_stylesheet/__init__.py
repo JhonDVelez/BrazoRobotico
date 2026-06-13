@@ -2,5 +2,5 @@
     variables llamadas STYLE_SHEET
 """
 
-from .dark import STYLE_SHEET as dark_style
-from .light import STYLE_SHEET as light_style
+from .dark import STYLE_SHEET as dark_style, ADS_STYLE_SHEET as ADS_DARK_STYLE
+from .light import STYLE_SHEET as light_style, ADS_STYLE_SHEET as ADS_LIGHT_STYLE

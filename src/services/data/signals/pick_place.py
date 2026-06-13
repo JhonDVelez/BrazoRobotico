@@ -18,6 +18,12 @@ class PickPlaceSignalManager(QObject):
     target_reached = pyqtSignal(list)
     state_changed = pyqtSignal(bool)
     pick_place_running_changed = pyqtSignal(bool)
+    release_sphere_request = pyqtSignal(str)
+    reattach_sphere_request = pyqtSignal(str)
+    clear_spheres_request = pyqtSignal()
+    # Peticion de (des)activar la busqueda de esferas en la camara.
+    # Sender PickAndPlaceController, receiver DataController -> SearchSignalManager.
+    search_circle_request = pyqtSignal(bool)
 
     @classmethod
     def get_instance(cls):

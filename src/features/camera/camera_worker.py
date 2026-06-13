@@ -7,8 +7,10 @@ mediante un QThreadPool, y la emision de resultados procesados para su visualiza
 
 Conexiones:
     - Escucha a `FrameCounter` para determinar cuando procesar un frame semantico.
-    - Utiliza `SearchSignalManager` para conocer que detecciones realizar.
-    - Emite posiciones 3D a traves de `SimulationSignalManager`.
+    - El estado de busqueda (ChArUco/esferas) y de overlays lo inyecta el
+      CameraController mediante slots locales; el worker no accede al bus global.
+    - Emite resultados de deteccion mediante señales locales (`charuco_detected`)
+      que el controlador puentea hacia el bus global.
     - Reporta frames procesados mediante `frame_ready` para la UI.
 """
 
@@ -17,7 +19,6 @@ import numpy as np
 import cv2
 from PyQt6.QtCore import QThread, pyqtSignal, QThreadPool, pyqtSlot
 from src.services.vision import ChArUcoDetection, CircleDetection, CameraConnection, PoseEstimation, DetectionDrawer
-from src.services.data.signals import CameraSignalManager, SearchSignalManager, DrawViewSignalManager, ConfigSignalManager
 from src.services.data.timers import FrameCounter
 
 
@@ -36,8 +37,10 @@ class CameraWorker(QThread):
     frame_ready = pyqtSignal(object)  # numpy BGR frame or UMat
     error_occurred = pyqtSignal(str)
     sphere_ready = pyqtSignal(dict)
+    charuco_detected = pyqtSignal(int, object)  # (frame_id, data) -> bus via controller
 
-    def __init__(self, camera_index: int = 0, camera_config: dict = None, is_calibration: bool = False):
+    def __init__(self, camera_index: int = 0, camera_config: dict = None, is_calibration: bool = False,
+                 search_state: tuple = (False, False), view_state: tuple = (False, False)):
         """
         Inicializa el worker de camara con la configuracion proporcionada.
 
@@ -45,6 +48,8 @@ class CameraWorker(QThread):
             camera_index (int): Indice de la camara en el sistema (0, 1, etc.).
             camera_config (dict, optional): Configuracion de matriz, distorsion y colores.
             is_calibration (bool): Indica si se opera en modo calibracion (sin vision pesada).
+            search_state (tuple): Estado inicial (charuco, circle) de las busquedas.
+            view_state (tuple): Estado inicial (charuco, circle) de los overlays.
         """
         super().__init__()
         self.frame_id = 0
@@ -71,14 +76,13 @@ class CameraWorker(QThread):
         self.camera = CameraConnection(
             camera_index, self.camera_config, is_calibration)
 
-        self.camera_signal_manager = CameraSignalManager.get_instance()
-        self.search_signal_manager = SearchSignalManager.get_instance()
-        self.draw_view_signal_manager = DrawViewSignalManager.get_instance()
-        self.config_signal_manager = ConfigSignalManager.get_instance()
+        # Estado inyectado por el controlador (sin acceso al bus global).
+        # Protegido por self.lock para lectura/escritura entre hilos.
+        self._search_state = tuple(search_state)
+        self._view_state = tuple(view_state)
+
         self.frame_counter = FrameCounter.get_instance()
         self.frame_counter.process_frame_signal.connect(self._on_process_frame)
-        self.config_signal_manager.config_updated.connect(
-            self._on_config_updated)
         self.pick_place_active = False
         self.latest_circles = {}
 
@@ -108,7 +112,8 @@ class CameraWorker(QThread):
                     self._emit_frame_ready(frame)
                     continue
                 elif self._process_frame:
-                    charuco_state, circle_state = self.search_signal_manager.get_state()
+                    with self.lock:
+                        charuco_state, circle_state = self._search_state
                     self.frame_id += 1
                     if charuco_state:
                         self.thread_pool.start(ChArUcoDetection(
@@ -121,7 +126,7 @@ class CameraWorker(QThread):
 
                     self._process_frame = False
 
-                view = self.draw_view_signal_manager.get_state()
+                view = self.draw_view_state()
                 self.thread_pool.start(DetectionDrawer(
                     frame, self.results.get(
                         self.frame_id-1), view, self.custom_origin,
@@ -186,14 +191,50 @@ class CameraWorker(QThread):
         """
         self._process_frame = True
 
-    @pyqtSlot(str, list, object)
-    def _on_config_updated(self, filename: str, keys: list, value: object):
+    def draw_view_state(self) -> tuple:
         """
-        Actualiza el radio de la esfera si cambia en la configuracion.
+        Obtiene el estado actual de overlays de forma thread-safe.
+
+        Returns:
+            tuple: (charuco_visible, circle_visible).
         """
-        if filename == "camera.json" and "sphere_radius" in keys:
-            with self.lock:
-                self.sphere_radius = float(value)
+        with self.lock:
+            return self._view_state
+
+    @pyqtSlot(bool, bool)
+    def set_search_state(self, charuco: bool, circle: bool):
+        """
+        Actualiza el estado de busqueda inyectado por el controlador.
+
+        Args:
+            charuco (bool): True para buscar el tablero ChArUco.
+            circle (bool): True para buscar esferas de color.
+        """
+        with self.lock:
+            self._search_state = (charuco, circle)
+
+    @pyqtSlot(bool, bool)
+    def set_view_state(self, charuco: bool, circle: bool):
+        """
+        Actualiza el estado de overlays inyectado por el controlador.
+
+        Args:
+            charuco (bool): True para dibujar la cuadricula ChArUco.
+            circle (bool): True para dibujar la geometria de esferas.
+        """
+        with self.lock:
+            self._view_state = (charuco, circle)
+
+    @pyqtSlot(float)
+    def set_sphere_radius(self, radius: float):
+        """
+        Actualiza el radio de la esfera usado en la estimacion de pose.
+
+        Args:
+            radius (float): Nuevo radio en milimetros.
+        """
+        with self.lock:
+            self.sphere_radius = float(radius)
 
     @pyqtSlot(int, object)
     def on_charuco_done(self, fid: int, data: dict):
@@ -208,7 +249,7 @@ class CameraWorker(QThread):
             entry = self.results.setdefault(
                 fid, {"charuco": None, "circles": None, "poses": None})
             entry["charuco"] = data
-            self.camera_signal_manager.charuco_done.emit(fid, data)
+            self.charuco_detected.emit(fid, data)
             if data and data.get("roi") is not None:
                 self.last_roi = data["roi"]
             else:

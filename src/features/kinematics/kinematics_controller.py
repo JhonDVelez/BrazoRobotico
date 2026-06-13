@@ -16,7 +16,7 @@ from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 from src.features.kinematics.kinematics_widget import KinematicsWidget
 from src.features.kinematics.kinematics_worker import KinematicsWorker
 from src.services.data.signals import (
-    PhysicalSignalManager, PickPlaceSignalManager, SimulationSignalManager
+    PhysicalSignalManager, KinematicsSignalManager
 )
 from src.services.data.enums import Modes
 from src.services.data.utils import rad_to_deg
@@ -31,12 +31,8 @@ class KinematicsController(QObject):
 
     Attributes:
         status_updated (pyqtSignal): Emite el nuevo vector de posiciones de servos.
-        kinematics_status (list): Estado compartido de las articulaciones.
     """
     status_updated = pyqtSignal(list)
-
-    # Estado compartido (estático para compatibilidad con el flujo de datos reactivo)
-    kinematics_status = [150, 150, 150, 150, 150, 150]
 
     def __init__(self, parent=None):
         """
@@ -68,8 +64,9 @@ class KinematicsController(QObject):
         self.kinematics_worker.commands_ready.connect(
             self._update_shared_status)
 
-        # Pick and Place -> Cinematica (calculo aislado en este feature)
-        PickPlaceSignalManager.get_instance().inverse_kinematics_requested.connect(
+        # IK del flujo Pick and Place mediada por el DataController.
+        # Kinematics escucha en su propio bus; no conoce a PickPlace.
+        KinematicsSignalManager.get_instance().inverse_kinematics_requested.connect(
             self._on_inverse_kinematics_requested
         )
 
@@ -80,8 +77,9 @@ class KinematicsController(QObject):
         Cambia el modo de operacion a KINEMATIC y establece el objetivo
         en el worker para el seguimiento de la trayectoria.
         """
-        # Cambiar modo de operación global (bus de UI)
-        SimulationSignalManager.get_instance().change_mode_signal.emit(
+        # Cambiar modo de operación global mediante el bus propio de la feature.
+        # El DataController escucha y orquesta el resto del sistema.
+        KinematicsSignalManager.get_instance().change_mode_signal.emit(
             Modes.KINEMATIC)
 
         coords = self.kinematics_widget.get_coordinates()
@@ -122,7 +120,7 @@ class KinematicsController(QObject):
     @pyqtSlot(dict)
     def _on_inverse_kinematics_requested(self, request: dict):
         """
-        Atiende solicitudes de cinematica inversa del flujo Pick and Place.
+        Atiende solicitudes de cinematica inversa ruteadas por el DataController.
 
         Args:
             request (dict): Contiene `color`, `coords` y `gripper_degrees`.
@@ -141,32 +139,22 @@ class KinematicsController(QObject):
             np.abs(q_deg[3] + 150.0),
             float(gripper_degrees + 150.0)
         ]
-        PickPlaceSignalManager.get_instance().inverse_kinematics_ready.emit({
+        # Publicar el resultado en el bus propio. El DataController lo rutea a PickPlace.
+        KinematicsSignalManager.get_instance().inverse_kinematics_ready.emit({
             'color': request.get('color'),
             'target': target
         })
 
     def _update_shared_status(self, status):
         """
-        Actualiza el estado interno y notifica a los suscriptores del sistema.
+        Notifica el nuevo estado articular a los suscriptores del sistema.
 
         Args:
             status (list): Vector de posiciones de servos.
         """
-        KinematicsController.kinematics_status = status
         self.status_updated.emit(status)
-        # Notificar el nuevo objetivo al bus global. El DataController orquestará el resto.
-        SimulationSignalManager.get_instance().update_target_signal.emit(status)
-
-    @classmethod
-    def get_kinematics_state(cls):
-        """
-        API estática para acceder al ultimo estado cinematico calculado.
-
-        Returns:
-            list: Posiciones actuales de los servos.
-        """
-        return cls.kinematics_status
+        # Notificar el nuevo objetivo al bus propio. El DataController orquestará el resto.
+        KinematicsSignalManager.get_instance().update_target_signal.emit(status)
 
     def get_widget(self):
         """

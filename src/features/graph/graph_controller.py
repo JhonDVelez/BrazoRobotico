@@ -48,6 +48,7 @@ class GraphController(QObject):
         self._cartesian_worker = GraphWorker(display_window=1000, graphs_amount=3)
 
         # 3. Controladores de Plot individuales
+        self._current_cols = 0 # Para evitar re-layouts innecesarios
         self._angular_plots = []
         self._cartesian_plots = []
         self._setup_plots()
@@ -61,10 +62,10 @@ class GraphController(QObject):
 
     def _setup_plots(self):
         """
-        Inicializa y configura los controladores para cada grafica individual.
-
-        Lee la configuracion de rejilla desde `graphics.json` para posicionar
-        adecuadamente los plots en los layouts angulares y cartesianos.
+        Inicializa los controladores para cada grafica individual.
+        
+        No los agrega al layout inmediatamente; delega esta tarea a _rearrange_plots
+        para permitir una disposicion responsiva.
         """
         config_manager = ConfigSignalManager.get_instance()
         config = config_manager.get_param("graphics.json", "grid", default={})
@@ -72,13 +73,9 @@ class GraphController(QObject):
         # Angular (6 motores)
         labels_ang = [f"motor {i+1}" for i in range(6)]
         for i in range(6):
-            row, col = i // 2, i % 2
             plot_cfg = [i, "angle", config.get("angle")[i][0:2], config.get("angle")[i][2]]
             pc = PlotController(labels_ang[i], [-200, 200], 1000, plot_cfg, self._widget)
             pc.get_widget().plot_item.setLabel("left", "Ángulo (°)")
-            if row == 2: pc.get_widget().plot_item.setLabel("bottom", "Tiempo (s)")
-
-            self._widget.get_angular_layout().addWidget(pc.get_widget(), row, col)
             self._angular_plots.append(pc)
 
         # Cartesiano (X, Y, Z)
@@ -88,10 +85,58 @@ class GraphController(QObject):
             plot_cfg = [i, "position", config.get("position")[i][0:2], config.get("position")[i][2]]
             pc = PlotController(labels_cart[i], y_ranges[i], 1000, plot_cfg, self._widget)
             pc.get_widget().plot_item.setLabel("left", "Posición (mm)")
-            pc.get_widget().plot_item.setLabel("bottom", "Tiempo (s)")
-
-            self._widget.get_cartesian_layout().addWidget(pc.get_widget(), i, 0)
             self._cartesian_plots.append(pc)
+
+        # Disposición inicial
+        self._rearrange_plots(self._widget.width())
+
+    def _rearrange_plots(self, width):
+        """
+        Calcula y ajusta la cantidad de columnas en los layouts segun el ancho.
+        
+        Args:
+            width (int): Ancho actual del widget de graficas.
+        """
+        # Determinar columnas basadas en el ancho (umbral de 350px por plot)
+        new_cols = max(1, width // 350)
+        if new_cols > 3: new_cols = 3 # Limite maximo de columnas
+        
+        if new_cols == self._current_cols:
+            return
+            
+        self._current_cols = new_cols
+        
+        # Limpiar layouts sin destruir los widgets
+        ang_layout = self._widget.get_angular_layout()
+        while ang_layout.count():
+            item = ang_layout.takeAt(0)
+            if item.widget():
+                item.widget().hide() # Ocultar temporalmente
+
+        cart_layout = self._widget.get_cartesian_layout()
+        while cart_layout.count():
+            item = cart_layout.takeAt(0)
+            if item.widget():
+                item.widget().hide()
+
+        # Re-agregar Angular plots
+        for i, pc in enumerate(self._angular_plots):
+            row, col = i // new_cols, i % new_cols
+            widget = pc.get_widget()
+            self._widget.get_angular_layout().addWidget(widget, row, col)
+            widget.show()
+            # Solo mostrar etiqueta de tiempo en la fila inferior
+            show_time = (i >= len(self._angular_plots) - new_cols)
+            widget.plot_item.setLabel("bottom", "Tiempo (s)" if show_time else "")
+
+        # Re-agregar Cartesian plots
+        cart_cols = min(new_cols, 2)
+        for i, pc in enumerate(self._cartesian_plots):
+            row, col = i // cart_cols, i % cart_cols
+            widget = pc.get_widget()
+            self._widget.get_cartesian_layout().addWidget(widget, row, col)
+            widget.show()
+            widget.plot_item.setLabel("bottom", "Tiempo (s)")
 
     def __setup_connections(self):
         """
@@ -116,6 +161,7 @@ class GraphController(QObject):
 
         # UI -> Visibilidad de paneles
         self._widget.mode_changed.connect(self._on_mode_changed)
+        self._widget.resize_requested.connect(self._rearrange_plots)
 
         # Cambio de Tema visual
         ThemeSignalManager.get_instance().theme_changed.connect(self._widget.get_image_handler().update_theme)

@@ -183,7 +183,7 @@ class CompletePreloader:
         )
 
         try:
-            p.connect(p.GUI)
+            p.connect(p.DIRECT)
             p.setGravity(0, 0, -9.81)
             p.setTimeStep(1./240.)
 
@@ -261,6 +261,11 @@ if __name__ == '__main__':
         myappid = 'laser.openbotv.control.lab'  # string único
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
+    if sys.platform == "linux":
+        # Forzar xcb en Linux para evitar errores EGL/Wayland con NVIDIA+Qt6
+        os.environ["QT_QPA_PLATFORM"] = "xcb"
+
+    os.environ["QT_LOGGING_RULES"] = "qt.qpa.services=false"
     os.environ["QSG_RHI_BACKEND"] = "opengl"
 
     surf_format = QSurfaceFormat()
@@ -328,12 +333,11 @@ if __name__ == '__main__':
             Qt.GlobalColor.white
         )
         window = MainWindow(preloaded_container, pybullet_robot)
-        window.setWindowTitle("OpenBotv Control Lab")
+        window.setWindowTitle("OpenBotv-Control-Lab")
         preloader.cleanup_preload_resources()
 
         window.showMaximized()
         window.raise_()
         window.activateWindow()
-        window.check_handle_visibility()
         splash.finish(window)
     sys.exit(app.exec())

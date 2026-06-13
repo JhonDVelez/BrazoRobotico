@@ -49,7 +49,7 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
             self.config_manager.set_all_config(filename, data)
         self.config_manager.change_requested.connect(
             self._on_config_change_requested)
-        
+
         # Orquestador Central de Datos e Inter-Controladores
         self.data_controller = DataController()
 
@@ -88,9 +88,9 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         self.inner_window.setWindowFlags(Qt.WindowType.Widget)
         self.inner_window.setObjectName("inner_window")
         container_layout.addWidget(self.inner_window)
-        self.content = QWidget()
-        self.setup_ui(self.content)
-        self.inner_window.setCentralWidget(self.content)
+
+        # setup_ui ahora gestiona los docks directamente en inner_window
+        self.setup_ui()
 
         # Inicializacion de servicios y controladores (definidos en Mixins)
         self.create_status_bar()
@@ -112,17 +112,21 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         content = settings.get("content", {})
         mode = settings.get('mode', {})
         mapping_content = {
-            "camera": (self.cameraBox, self.camera_action, True),
-            "model": (self.modelBox, self.model_action, True),
-            "graphs": (self.graphsBox, self.graphs_action, True),
-            "controls": (self.controlsBox, self.controls_action, not mode.get("pick_place", False)),
+            "camera": (self.cameraDock, self.camera_action, True),
+            "model": (self.modelDock, self.model_action, True),
+            "graphs": (self.graphsDock, self.graphs_action, True),
+            "controls": (self.controlsDock, self.controls_action, not mode.get("pick_place", False)),
         }
 
-        for key, (widget, action, enable) in mapping_content.items():
+        for key, (dock, action, enable) in mapping_content.items():
             if key in content:
-                widget.setVisible(bool(content[key]))
-                action.setChecked(bool(content[key]))
+                state = bool(content[key])
+                dock.toggleView(state)
+                action.setChecked(state)
                 action.setEnabled(bool(enable))
+
+            # Sincronizar dock -> action (por si se cierra desde el botón 'X' del dock)
+            dock.visibilityChanged.connect(action.setChecked)
 
         # Cargar configuracion de busqueda visual
         camera = settings.get("camera", {})
@@ -149,11 +153,11 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
                 widget.setVisible(state)
                 if key == 'sliders' and not state:
                     self.kinematics_controller.get_widget().set_horizontal_layout()
-        self.theme_manager.toggle_theme_event()
 
         # Conectar señal al cambio de tema del sistema
         QApplication.instance().styleHints().colorSchemeChanged.connect(
             self.theme_manager.update_theme)
+        self.theme_manager.load_current_theme()
 
         # Instalar monitor de dispositivos (Cámaras y Puertos COM)
         self.camera_devices = CameraDevices()

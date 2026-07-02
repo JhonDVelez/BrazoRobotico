@@ -1,16 +1,16 @@
 """
-Modulo que gestiona la interfaz visual del modulo de camara.
+Módulo que gestiona la interfaz visual del módulo de cámara.
 
-Este modulo define la clase CameraWidget, la cual organiza los elementos graficos
-para la visualizacion del flujo de video, la seleccion de dispositivos y el control
-de overlays (cuadricula y geometria) sobre la imagen.
+Este módulo define la clase CameraWidget, la cual organiza los elementos gráficos
+para la visualización del flujo de video, la selección de dispositivos y el control
+de overlays (cuadrícula y geometría) sobre la imagen.
 
 Conexiones:
-    - Utiliza `ImageHandler` para gestionar la transicion entre imagenes estaticas y dinmicas.
-    - Integra `CameraSelectorWidget` para la eleccion de hardware.
+    - Utiliza `ImageHandler` para gestionar la transición entre imágenes estáticas y dinámicas.
+    - Integra `CameraSelectorWidget` para la elección de hardware.
     - Muestra notificaciones temporales mediante `ToastLabel`.
 """
-
+from typing import Optional
 import numpy as np
 from PyQt6.QtWidgets import QSizePolicy, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QWidget
 from PyQt6.QtCore import Qt, QSize, pyqtSignal
@@ -22,35 +22,37 @@ from src.services.ui.toast_label import ToastLabel
 
 class CameraWidget(QWidget):
     """
-    Widget para la visualizacion y control de la camara en la interfaz.
+    Widget para la visualización y control de la cámara en la interfaz.
 
-    Administra un layout que superpone botones de control sobre la visualizacion
-    del video y gestiona la seleccion de camaras disponibles.
+    Administra un layout que superpone botones de control sobre la visualización
+    del video y gestiona la selección de cámaras disponibles.
 
     Attributes:
-        video_toggled (pyqtSignal): Señal emitida al presionar el boton de video.
-        grid_toggled (pyqtSignal): Señal emitida al alternar la cuadricula.
-        geometry_toggled (pyqtSignal): Señal emitida al alternar la geometria.
-        camera_changed (pyqtSignal): Señal que envia el indice de la camara seleccionada.
+        video_toggled (pyqtSignal): Señal emitida al presionar el botón de video.
+        grid_toggled (pyqtSignal): Señal emitida al alternar la cuadrícula.
+        geometry_toggled (pyqtSignal): Señal emitida al alternar la geometría.
+        camera_changed (pyqtSignal): Señal que envía el índice de la cámara seleccionada.
     """
     video_toggled = pyqtSignal()
     grid_toggled = pyqtSignal()
     geometry_toggled = pyqtSignal()
     camera_changed = pyqtSignal(int)
 
-    def __init__(self, parent=None, camera_config: dict = {}, view_config: dict = {"charuco": False, "circle": False}):
+    def __init__(self, parent=None, camera_config: Optional[dict] = None,
+                 view_config: Optional[dict] = None) -> None:
         """
-        Inicializa el widget de camara con la configuracion de vista inicial.
+        Inicializa el widget de cámara con la configuración de vista inicial.
 
         Args:
             parent (QWidget, optional): Widget padre.
-            camera_config (dict): Configuracion inicial de visibilidad de overlays.
+            camera_config (dict): Configuración inicial de visibilidad de overlays.
         """
         super().__init__(parent)
-        self.camera_config = camera_config
+        self.camera_config = camera_config or {}
         window_config = self.camera_config.get("window", {})
         self.orig_w = window_config.get("width", 1280)
         self.orig_h = window_config.get("height", 720)
+        view_config = view_config or {"charuco": False, "circle": False}
         self.charuco_view = view_config.get("charuco", False)
         self.sphere_view = view_config.get("circle", False)
         self.__setup_ui()
@@ -75,7 +77,7 @@ class CameraWidget(QWidget):
         self.image_label = QLabel()
         self.image_label.setScaledContents(False)
         self.image_label.setSizePolicy(size_policy)
-        self.image_label.setMinimumSize(QSize(160, 120))
+        self.image_label.setMinimumSize(QSize(500, 375))
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.main_layout.addWidget(self.image_label)
 
@@ -91,7 +93,7 @@ class CameraWidget(QWidget):
         buttons_layout.setContentsMargins(10, 10, 10, 0)
         buttons_layout.setSpacing(0)
 
-        # Panel de botones izquierdo (Video, Grid, Geometria)
+        # Panel de botones izquierdo (Video, Grid, Geometría)
         self.camera_buttons_panel = QWidget(self.buttons_widget)
         self.camera_buttons_panel.setObjectName("camera_buttons_panel")
         camera_buttons_layout = QHBoxLayout(self.camera_buttons_panel)
@@ -134,7 +136,7 @@ class CameraWidget(QWidget):
         controls_width = 30 * 3 + 5 * 2
         self.camera_buttons_panel.setFixedSize(controls_width, 30)
 
-        # Panel del selector central (Combo box de camaras)
+        # Panel del selector central (Combo box de cámaras)
         self.camera_selector = CameraSelectorWidget()
         self.camera_selector_panel = QWidget(self.buttons_widget)
         self.camera_selector_panel.setFixedHeight(30)
@@ -166,7 +168,7 @@ class CameraWidget(QWidget):
         self.toast.setAttribute(
             Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
-    def __setup_connections(self):
+    def __setup_connections(self) -> None:
         """
         Conecta las señales de los componentes visuales con los slots internos.
         """
@@ -175,21 +177,21 @@ class CameraWidget(QWidget):
         self.geometry_button.clicked.connect(self.geometry_toggled)
         self.camera_selector.currentIndexChanged.connect(self.camera_changed)
 
-    def get_image_handler(self):
+    def get_image_handler(self) -> ImageHandler:
         """
-        Retorna el manejador de imagenes del widget.
+        Retorna el manejador de imágenes del widget.
 
         Returns:
-            ImageHandler: Instancia del manejador de imagenes.
+            ImageHandler: Instancia del manejador de imágenes.
         """
         return self.image_handler
 
-    def set_ui_running_state(self, is_running):
+    def set_ui_running_state(self, is_running) -> None:
         """
-        Actualiza el estado visual de los controles segun si el video esta activo.
+        Actualiza el estado visual de los controles según si el video está activo.
 
         Args:
-            is_running (bool): True si el video esta en ejecucion.
+            is_running (bool): True si el video está en ejecución.
         """
         self.video_button.setIcon(
             self.camera_off_icon if is_running else self.camera_on_icon)
@@ -200,13 +202,13 @@ class CameraWidget(QWidget):
             self.camera_selector_panel.show()
             self.camera_buttons_spacer.show()
 
-    def set_available_cameras(self, cameras, selected_name=None):
+    def set_available_cameras(self, cameras, selected_name=None) -> None:
         """
-        Actualiza la lista de camaras disponibles en el selector.
+        Actualiza la lista de cámaras disponibles en el selector.
 
         Args:
-            cameras (list): Lista de tuplas (indice, nombre_pantalla).
-            selected_name (str, optional): Nombre de la camara a seleccionar por defecto.
+            cameras (list): Lista de tuplas (índice, nombre_pantalla).
+            selected_name (str, optional): Nombre de la cámara a seleccionar por defecto.
         """
         self.camera_selector.blockSignals(True)
         self.camera_selector.clear()
@@ -224,7 +226,7 @@ class CameraWidget(QWidget):
         self.camera_selector.setCurrentIndex(selected_index)
         self.camera_selector.blockSignals(False)
 
-    def update_frame(self, frame):
+    def update_frame(self, frame) -> None:
         """
         Actualiza el frame visualizado en la interfaz.
 
@@ -236,19 +238,19 @@ class CameraWidget(QWidget):
                 frame, np.ndarray) else ImageHandler.umat_to_pixmap(frame)
             self.image_handler.set_video_image(pixmap)
 
-    def get_pixmap_geometry(self):
+    def get_pixmap_geometry(self) -> tuple[None, None, None, None, None, None] | tuple[int, int, int, int, int, int]:
         """
-        Retorna la geometria visible del pixmap para mapear clics externos.
+        Retorna la geometría visible del pixmap para mapear clics externos.
 
         Returns:
-            tuple: Offsets, tamano visual y tamano del pixmap escalado.
+            tuple: Offsets, tamaño visual y tamaño del pixmap escalado.
         """
         pixmap = self.image_label.pixmap()
         if not pixmap or pixmap.isNull():
             return None, None, None, None, None, None
         label_size = self.image_label.size()
         pix_size = pixmap.size()
-        if pix_size.width() == 0 or pix_size.height() == 0:
+        if not pix_size.width() or not pix_size.height():
             return None, None, None, None, None, None
         scaled = pix_size.scaled(
             label_size, Qt.AspectRatioMode.KeepAspectRatio)
@@ -256,9 +258,9 @@ class CameraWidget(QWidget):
         y_off = (label_size.height() - scaled.height()) // 2
         return x_off, y_off, scaled.width(), scaled.height(), pixmap.width(), pixmap.height()
 
-    def resizeEvent(self, event):
+    def resizeEvent(self, event) -> None:
         """
-        Ajusta la posicion del panel de botones y el toast al redimensionar.
+        Ajusta la posición del panel de botones y el toast al redimensionar.
 
         Args:
             event (QResizeEvent): Evento de redimensionamiento.

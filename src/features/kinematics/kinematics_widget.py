@@ -1,12 +1,12 @@
 """
-Modulo que define la interfaz visual para el control cartesiano.
+Módulo que define la interfaz visual para el control cartesiano.
 
-Este modulo contiene la clase KinematicsWidget, la cual permite al usuario
+Este módulo contiene la clase KinematicsWidget, la cual permite al usuario
 ingresar las coordenadas X, Y, Z deseadas para el efector final del robot.
 
 Conexiones:
     - Emite `send_clicked` para notificar al controlador que se desea mover el robot.
-    - Soporta layouts dinamicos (horizontal/vertical) para adaptarse a la UI principal.
+    - Soporta layouts dinámicos (horizontal/vertical) para adaptarse a la UI principal.
 """
 
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QSpinBox, QPushButton, QSizePolicy
@@ -15,10 +15,10 @@ from PyQt6.QtCore import QSize, pyqtSignal
 
 class KinematicsWidget(QWidget):
     """
-    Widget para la entrada de coordenadas cinematicas (X, Y, Z).
+    Widget para la entrada de coordenadas cinemáticas (X, Y, Z).
 
-    Organiza campos de entrada numerica (QSpinBox) y permite la alternancia
-    entre una disposicion vertical (por defecto) y una horizontal segun el
+    Organiza campos de entrada numérica (QSpinBox) y permite la alternancia
+    entre una disposición vertical (por defecto) y una horizontal según el
     espacio disponible en la ventana principal.
 
     Attributes:
@@ -28,7 +28,7 @@ class KinematicsWidget(QWidget):
 
     def __init__(self, parent=None):
         """
-        Inicializa el widget cinematico y su interfaz.
+        Inicializa el widget cinemático y su interfaz.
 
         Args:
             parent (QWidget, optional): Widget padre.
@@ -38,7 +38,7 @@ class KinematicsWidget(QWidget):
 
     def __setup_ui(self):
         """
-        Configura los componentes de entrada y el boton de envio.
+        Configura los componentes de entrada y el botón de envío.
         """
         self.setObjectName("kinematics_widget")
         self.main_layout = QVBoxLayout(self)

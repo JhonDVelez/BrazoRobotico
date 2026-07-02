@@ -1,9 +1,9 @@
 """
-Paquete de la feature de camara para captura y visualizacion de video.
+Paquete de la feature de cámara para captura y visualización de video.
 
 Proporciona los componentes Worker-Widget-Controller para gestionar
-el feed de video, la seleccion de dispositivos y la transmision de
-frames hacia otros modulos (calibracion, deteccion, etc).
+el feed de video, la selección de dispositivos y la transmisión de
+frames hacia otros módulos (calibración, detección, etc).
 """
 from .camera_controller import CameraController
 

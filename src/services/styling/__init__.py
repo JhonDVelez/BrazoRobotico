@@ -1,5 +1,5 @@
 """
-Paquete de gestion de temas y estilos de la interfaz.
+Paquete de gestión de temas y estilos de la interfaz.
 
 Proporciona ThemeManager (cambio entre tema claro/oscuro) y las
 hojas de estilo QSS personalizadas para cada tema.

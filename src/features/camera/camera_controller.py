@@ -1,16 +1,16 @@
 """
-Modulo que controla el flujo de trabajo de la camara y su interaccion con la UI.
+Módulo que controla el flujo de trabajo de la cámara y su interacción con la UI.
 
-Este modulo define la clase CameraController, la cual gestiona la inicializacion
-del video, el cambio de camaras disponibles, y el control de visibilidad de
-capas de vision (grid y geometria).
+Este módulo define la clase CameraController, la cual gestiona la inicialización
+del video, el cambio de cámaras disponibles, y el control de visibilidad de
+capas de visión (grid y geometría).
 
 Conexiones:
     - Escucha eventos de `CameraWidget` (toggle video, grid, etc.).
     - Gestiona el ciclo de vida del `CameraWorker`.
     - Sincroniza estados de dibujo con `DrawViewSignalManager`.
     - Envía datos de posición de las esferas al sistema de pick and place
-    - Actualiza el estado de conexion en el componente padre.
+    - Actualiza el estado de conexión en el componente padre.
 """
 
 from PyQt6.QtCore import pyqtSlot, pyqtSignal, QObject
@@ -21,31 +21,33 @@ from src.services.data.signals import (
     CameraSignalManager, ConfigSignalManager,
     SearchSignalManager
 )
+from src.services.ui.notification_manager import NotificationManager
+from src.services.data.enums.types import NotificationType
 
 
 class CameraController(QObject):
     """
-    Controlador central para el modulo de camara.
+    Controlador central para el modulo de cámara.
 
-    Administra la logica de negocio relacionada con la captura de video,
-    la seleccion de dispositivos y el dibujo de overlays en la interfaz.
+    Administra la lógica de negocio relacionada con la captura de video,
+    la selección de dispositivos y el dibujo de overlays en la interfaz.
 
     Attributes:
-        status_changed (pyqtSignal): Emite el nombre de la camara o estado (str).
-        active_state_changed (pyqtSignal): Emite True si la camara esta encendida.
+        status_changed (pyqtSignal): Emite el nombre de la cámara o estado (str).
+        active_state_changed (pyqtSignal): Emite True si la cámara esta encendida.
         worker_created (pyqtSignal): Emite la instancia del nuevo CameraWorker.
     """
     status_changed = pyqtSignal(str)
     active_state_changed = pyqtSignal(bool)
     worker_created = pyqtSignal(object)
 
-    def __init__(self, parent, is_calibration=False):
+    def __init__(self, parent, is_calibration=False) -> None:
         """
-        Inicializa el controlador de camara.
+        Inicializa el controlador de cámara.
 
         Args:
             parent (QWidget): Widget padre para UI y estados.
-            is_calibration (bool): Indica si se debe operar en modo calibracion.
+            is_calibration (bool): Indica si se debe operar en modo calibración.
         """
         super().__init__()
         self.parent = parent
@@ -54,7 +56,7 @@ class CameraController(QObject):
         self.worker = None
 
         self.config_manager = ConfigSignalManager.get_instance()
-        self.camera_config = self.config_manager.get_param(
+        self.camera_config: dict = self.config_manager.get_param(
             "camera.json", default={})
         init_view_config = self.config_manager.get_param(
             "settings.json", "camera", "view", default={})
@@ -65,6 +67,8 @@ class CameraController(QObject):
 
         self.view = CameraWidget(parent, self.camera_config, init_view_config)
         self._setup_connections()
+
+        self.noti_manager = NotificationManager.get_instance()
 
     def _setup_connections(self):
         """
@@ -80,7 +84,7 @@ class CameraController(QObject):
         self.camera_signal_manager.available_cameras.connect(
             self.view.set_available_cameras)
 
-        # Puente estado global -> worker activo (busqueda, overlays y radio de
+        # Puente estado global -> worker activo (búsqueda, overlays y radio de
         # esfera). Conectado una sola vez; los slots verifican que exista worker.
         self.search_signal_manager.charuco_search_changed.connect(
             self._on_search_state_changed)
@@ -91,10 +95,10 @@ class CameraController(QObject):
 
     def _on_camera_changed(self, index):
         """
-        Actualiza el indice de camara seleccionado desde el widget.
+        Actualiza el índice de cámara seleccionado desde el widget.
 
         Args:
-            index (int): Indice de la seleccion en el QComboBox.
+            index (int): Índice de la selección en el QComboBox.
         """
         camera_data = self.view.camera_selector.itemData(index)
         if camera_data:
@@ -102,7 +106,7 @@ class CameraController(QObject):
 
     def toggle_grid(self):
         """
-        Alterna la visibilidad de la cuadricula (grid) de calibracion.
+        Alterna la visibilidad de la cuadrícula (grid) de calibración.
         """
         grid_enabled = not self.draw_signal_manager.get_state()[0]
         self.draw_signal_manager.set_charuco(grid_enabled)
@@ -112,7 +116,7 @@ class CameraController(QObject):
 
     def toggle_geometry(self):
         """
-        Alterna la visibilidad de las geometrias (esferas) detectadas.
+        Alterna la visibilidad de las geometrías (esferas) detectadas.
         """
         circle_enabled = not self.draw_signal_manager.get_state()[1]
         self.draw_signal_manager.set_circle(circle_enabled)
@@ -131,7 +135,7 @@ class CameraController(QObject):
     @pyqtSlot(bool)
     def _on_search_state_changed(self, _checked: bool):
         """
-        Reenvia el estado de busqueda actual al worker activo.
+        Reenvía el estado de búsqueda actual al worker activo.
 
         Args:
             _checked (bool): Valor emitido por la señal (no usado; se relee el estado completo).
@@ -143,10 +147,10 @@ class CameraController(QObject):
     @pyqtSlot(str, list, object)
     def _on_config_updated(self, filename: str, keys: list, value: object):
         """
-        Reenvia al worker el cambio de radio de esfera desde la configuracion.
+        Reenvía al worker el cambio de radio de esfera desde la configuración.
 
         Args:
-            filename (str): Archivo de configuracion modificado.
+            filename (str): Archivo de configuración modificado.
             keys (list): Llaves anidadas del parametro.
             value (object): Nuevo valor.
         """
@@ -155,7 +159,7 @@ class CameraController(QObject):
 
     def toggle_video(self):
         """
-        Invierte el estado de ejecucion del video (Start/Stop).
+        Invierte el estado de ejecución del video (Start/Stop).
         """
         if self.worker and self.worker.isRunning():
             self.stop_video()
@@ -166,7 +170,7 @@ class CameraController(QObject):
         """
         Inicia el flujo de video creando un nuevo CameraWorker.
 
-        Valida la seleccion de camara y conecta señales de frame y error.
+        Valida la selección de cámara y conecta señales de frame y error.
         """
         if self.worker is not None:
             self.stop_video()
@@ -187,7 +191,7 @@ class CameraController(QObject):
                                        view_state=self.draw_signal_manager.get_state())
             self.worker.sphere_ready.connect(self.on_sphere_ready)
 
-            # Puente worker -> bus global (el controlador es el unico que toca el bus).
+            # Puente worker -> bus global (el controlador es el único que toca el bus).
             self.worker.charuco_detected.connect(
                 self.camera_signal_manager.charuco_done.emit)
 
@@ -210,8 +214,10 @@ class CameraController(QObject):
             self.status_changed.emit(camera_name or "Cámara conectada")
             self.active_state_changed.emit(True)
 
-        except Exception as e:
-            print(f"Error al iniciar video: {e}")
+        except (OSError, RuntimeError, ValueError) as e:
+            print(f"[DEBUG] Error al iniciar video ({type(e).__name__}): {e}")
+            self.noti_manager.notify(
+                f"Error al iniciar video: {e}", NotificationType.DIALOG_ERROR, self.view)
             self._on_video_error(str(e))
 
     def stop_video(self):
@@ -225,12 +231,14 @@ class CameraController(QObject):
                 # Desconectar todas las conexiones de las señales (seguro y limpio)
                 self.worker.frame_ready.disconnect()
                 self.worker.sphere_ready.disconnect()
-            except Exception:
+            except RuntimeError:
+                # Señal ya desconectada o worker destruido — esperado en algunos flujos
                 pass
 
             try:
                 self.worker.error_occurred.disconnect()
-            except Exception:
+            except RuntimeError:
+                # Señal ya desconectada — esperado en algunos flujos
                 pass
 
             self.worker.stop()
@@ -269,17 +277,18 @@ class CameraController(QObject):
 
     def _on_video_error(self, message):
         """
-        Maneja errores criticos durante la captura de video.
+        Maneja errores críticos durante la captura de video.
 
         Args:
-            message (str): Descripcion del error.
+            message (str): Descripción del error.
         """
-        print(f"Error de video: {message}")
+        self.noti_manager.notify(
+            f"Error de video: {message}", NotificationType.TOAST_ERROR)
         self.stop_video()
 
     def _set_camera_connection_status(self, text: str):
         """
-        Actualiza el label de estado de la camara en el widget padre.
+        Actualiza el label de estado de la cámara en el widget padre.
 
         Args:
             text (str): Texto a mostrar (e.g. 'Cámara conectada').
@@ -289,7 +298,7 @@ class CameraController(QObject):
 
     def get_widget(self):
         """
-        Retorna el widget de interfaz de la camara.
+        Retorna el widget de interfaz de la cámara.
 
         Returns:
             CameraWidget: Instancia del widget visual.
@@ -315,6 +324,6 @@ class CameraController(QObject):
                     'position': data.pop('position')}
 
         # Notificar detecciones 2D al bus propio de la camara.
-        # El DataController las re-publica hacia pick and place y simulacion.
+        # El DataController las re-publica hacia pick and place y simulación.
         self.camera_signal_manager.spheres_detected_2d.emit(circles)
         self.camera_signal_manager.poses_from_camera.emit(poses)

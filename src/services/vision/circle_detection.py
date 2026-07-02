@@ -1,9 +1,9 @@
 """
-Modulo de deteccion de esferas de color mediante segmentacion HSV.
+Módulo de detección de esferas de color mediante segmentación HSV.
 
 Proporciona CircleDetection, un QRunnable que procesa un frame y
-detecta las esferas mas grandes de cada color configurado, devolviendo
-su centro, radio, area y circularidad.
+detecta las esferas más grandes de cada color configurado, devolviendo
+su centro, radio, área y circularidad.
 
 Conexiones:
     - Ejecutado por un QThreadPool.
@@ -17,12 +17,12 @@ import cv2
 
 
 class CircleDetection(QRunnable):
-    """Tarea ejecutable para detectar esferas de color por segmentacion HSV.
+    """Tarea ejecutable para detectar esferas de color por segmentación HSV.
 
-    Detecta la esfera mas grande de cada color en el frame usando
+    Detecta la esfera más grande de cada color en el frame usando
     rangos HSV predefinidos o personalizados. Aplica operaciones
-    morfologicas para limpiar la mascara y calcula centro, radio,
-    area y circularidad de cada objeto detectado.
+    morfológicas para limpiar la máscara y calcula centro, radio,
+    área y circularidad de cada objeto detectado.
 
     Attributes:
         COLORES (dict): Rangos HSV por defecto para cada color.
@@ -36,15 +36,15 @@ class CircleDetection(QRunnable):
         "morado":   (130, 94, 117, 180, 255, 255),
     }
 
-    def __init__(self, frame_umat: cv2.UMat, frame_id: int, roi: np.ndarray, hsv_colors: dict, detection_callback, error_callback) -> None:
+    def __init__(self, frame_umat: cv2.UMat, frame_id: int, roi: np.ndarray | None, hsv_colors: dict | None, detection_callback, error_callback) -> None:
         """
         Args:
             frame_umat (cv2.UMat): Frame como UMat para procesamiento OpenCL.
-            frame_id (int): Identificador unico del frame.
-            roi (np.ndarray): Poligono de region de interes (mascara).
+            frame_id (int): Identificador único del frame.
+            roi (np.ndarray): Polígono de región de interés (máscara).
             hsv_colors (dict): Rangos HSV personalizados o None para usar predeterminados.
-            detection_callback (callable): Funcion para reportar resultados.
-            error_callback (callable): Funcion para reportar errores.
+            detection_callback (callable): Función para reportar resultados.
+            error_callback (callable): Función para reportar errores.
         """
         super().__init__()
         self.show_geometry = False
@@ -56,11 +56,11 @@ class CircleDetection(QRunnable):
         self.error_callback = error_callback
 
     def run(self):
-        """Detecta la esfera mas grande de cada color en el frame.
+        """Detecta la esfera más grande de cada color en el frame.
 
-        Aplica mascara de ROI si esta definida, convierte a HSV,
-        segmenta por rango de color, aplica morfologia, encuentra
-        contornos y calcula propiedades geometricas.
+        Aplica máscara de ROI si está definida, convierte a HSV,
+        segmenta por rango de color, aplica morfología, encuentra
+        contornos y calcula propiedades geométricas.
 
         Callback:
             dict con forma:
@@ -136,6 +136,6 @@ class CircleDetection(QRunnable):
                         }
             self.detection_callback(
                 self.frame_id, resultados if resultados else None)
-        except Exception as e:
+        except (cv2.error, ValueError, AttributeError) as e:
             self.error_callback(
-                f"Error al detectar esfera: {e} (CircleDetection)")
+                f"Error al detectar esfera: {type(e).__name__}: {e} (CircleDetection)")

@@ -1,13 +1,13 @@
 """
-Modulo que define la interfaz de control manual por articulacion.
+Módulo que define la interfaz de control manual por articulación.
 
-Este modulo contiene la clase SlidersWidget, la cual organiza los 6 mandos
-individuales (θ1 a θ6) para el control directo de los servos del brazo robotico,
-permitiendo ajustes tanto finos (SpinBox) como rapidos (Slider).
+Este módulo contiene la clase SlidersWidget, la cual organiza los 6 mandos
+individuales (θ1 a θ6) para el control directo de los servos del brazo robótico,
+permitiendo ajustes tanto finos (SpinBox) como rápidos (Slider).
 
 Conexiones:
-    - Emite `value_changed` con el indice del motor y el valor absoluto (0-300).
-    - Mantiene una sincronizacion bidireccional entre sliders y cajas numericas.
+    - Emite `value_changed` con el índice del motor y el valor absoluto (0-300).
+    - Mantiene una sincronización bidireccional entre sliders y cajas numéricas.
 """
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
@@ -20,8 +20,8 @@ class SlidersWidget(QWidget):
     """
     Widget encargado de la interfaz visual de los controles deslizantes (θ1-θ6).
 
-    Organiza los controles en una cuadricula de 2 filas y 3 columnas, aplicando
-    limites fisicos de seguridad especificos para cada articulacion del robot.
+    Organiza los controles en una cuadrícula de 2 filas y 3 columnas, aplicando
+    límites físicos de seguridad específicos para cada articulación del robot.
 
     Attributes:
         value_changed (pyqtSignal): Emite (indice_motor, valor_absoluto) donde
@@ -51,7 +51,7 @@ class SlidersWidget(QWidget):
         self.container_widget = QWidget()
         self.flow_layout = FlowLayout(self.container_widget, spacing=10)
         
-        # Configuracion θ: (label, min_absoluto, max_absoluto)
+        # Configuración θ: (label, min_absoluto, max_absoluto)
         theta_config = [
             ("θ1", 50, 250), ("θ2", 60, 240), ("θ3", 20, 280),
             ("θ4", 50, 250), ("θ5", 60, 270), ("θ6", 42, 171)
@@ -64,12 +64,12 @@ class SlidersWidget(QWidget):
             group_layout.setContentsMargins(2, 2, 2, 2)
             group_layout.setSpacing(5)
 
-            # Etiqueta de identificacion
+            # Etiqueta de identificación
             label = QLabel(text)
             label.setFixedSize(25, 30)
             group_layout.addWidget(label)
 
-            # Slider para control rapido
+            # Slider para control rápido
             slider = QSlider(Qt.Orientation.Horizontal)
             slider.setRange(s_min, s_max)
             slider.setValue(150)
@@ -77,7 +77,7 @@ class SlidersWidget(QWidget):
             slider.setMinimumWidth(100)
             group_layout.addWidget(slider)
 
-            # SpinBox para control de precision
+            # SpinBox para control de precisión
             spin = QSpinBox()
             spin.setRange(s_min - 150, s_max - 150)
             spin.setValue(0)
@@ -95,11 +95,11 @@ class SlidersWidget(QWidget):
 
         self.main_layout.addWidget(self.container_widget)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
-        self.setMinimumSize(220, 100)
+        self.setMinimumSize(625, 90)
 
     def _sync_spin(self, spin, value):
         """
-        Actualiza el spinbox basandose en el valor absoluto del slider.
+        Actualiza el spinbox basándose en el valor absoluto del slider.
 
         Args:
             spin (QSpinBox): Widget a actualizar.
@@ -111,7 +111,7 @@ class SlidersWidget(QWidget):
 
     def _sync_slider(self, slider, value):
         """
-        Actualiza el slider basandose en el valor relativo del spinbox.
+        Actualiza el slider basándose en el valor relativo del spinbox.
 
         Args:
             slider (QSlider): Widget a actualizar.
@@ -127,7 +127,7 @@ class SlidersWidget(QWidget):
         """
         Actualiza forzosamente todos los widgets con una nueva lista de valores.
 
-        Bloquea señales para evitar bucles de retroalimentacion con el controlador.
+        Bloquea señales para evitar bucles de realimentación con el controlador.
 
         Args:
             values (list): Lista de 6 valores absolutos (rango 0-300).

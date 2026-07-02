@@ -1,14 +1,14 @@
 """
 Controlador principal para el servicio de robot.
 
-Actua como la unica interfaz entre la logica de negocio (Features)
+Actúa como la única interfaz entre la lógica de negocio (Features)
 y el procesamiento de hardware (Worker). Implementa el patron
 de fachada para ocultar la complejidad del worker y compensador.
 
 Conexiones:
-    - Combina RobotWorker (comunicacion serial) y RobotCompensator
-      (procesamiento) bajo una unica interfaz.
-    - Utiliza PhysicalSignalManager para reportar estado de conexion.
+    - Combina RobotWorker (comunicación serial) y RobotCompensator
+      (procesamiento) bajo una única interfaz.
+    - Utiliza PhysicalSignalManager para reportar estado de conexión.
 """
 
 from PyQt6.QtCore import QObject
@@ -18,9 +18,9 @@ from src.services.data.signals import PhysicalSignalManager
 
 
 class RobotController(QObject):
-    """Controlador principal que orquesta la comunicacion con el robot.
+    """Controlador principal que orquesta la comunicación con el robot.
 
-    Gestiona el ciclo de vida del worker serial y expone metodos
+    Gestiona el ciclo de vida del worker serial y expone métodos
     de alto nivel para mover el robot y consultar su estado.
 
     Args:
@@ -74,7 +74,7 @@ class RobotController(QObject):
     def move_to(self, positions: list):
         """API publica para mover el robot.
 
-        Valida que las posiciones esten en el rango permitido (0-300)
+        Valida que las posiciones estén en el rango permitido (0-300)
         y encola el comando en el worker.
 
         Args:
@@ -89,13 +89,13 @@ class RobotController(QObject):
         """Inicia el hilo del worker.
 
         El worker comienza a procesar comandos de la cola y
-        a recibir telemetria del robot.
+        a recibir telemetría del robot.
         """
         self._worker.start()
 
     def stop_service(self):
         """Detiene el hilo del worker.
 
-        Detiene el ciclo de comunicacion y cierra el puerto serial.
+        Detiene el ciclo de comunicación y cierra el puerto serial.
         """
         self._worker.stop()

@@ -2,8 +2,8 @@
 Paquete de mixins para la ventana principal.
 
 Agrupa los mixins que definen el comportamiento y la estructura de la
-interfaz principal, incluyendo acciones, inicializacion, menu y barra
-de titulo personalizada.
+interfaz principal, incluyendo acciones, inicialización, menú y barra
+de título personalizada.
 """
 
 from src.main_window.mixins.main_actions_mixin import MainActionsMixin

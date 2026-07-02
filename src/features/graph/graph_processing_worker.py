@@ -1,13 +1,13 @@
 """
-Modulo para el procesamiento asincrono de datos cinematicos para graficos.
+Módulo para el procesamiento asíncrono de datos cinemáticos para gráficos.
 
-Este modulo define la clase GraphProcessingWorker, un hilo que descarga al
-hilo de la interfaz de usuario de calculos pesados como la cinematica directa,
-asegurando una visualizacion fluida de las trayectorias cartesianas.
+Este módulo define la clase GraphProcessingWorker, un hilo que descarga al
+hilo de la interfaz de usuario de cálculos pesados como la cinemática directa,
+asegurando una visualización fluida de las trayectorias cartesianas.
 
 Conexiones:
-    - Inyecta el servicio de cinematica (KinematicsWorker).
-    - Utiliza colas de prioridad baja (tamaño 1) para procesar solo el ultimo dato.
+    - Inyecta el servicio de cinemática (KinematicsWorker).
+    - Utiliza colas de prioridad baja (tamaño 1) para procesar solo el último dato.
     - Emite `sim_result_ready` y `phy_result_ready` con los puntos 3D calculados.
 """
 
@@ -18,25 +18,25 @@ from PyQt6.QtCore import pyqtSignal, QThread
 
 class GraphProcessingWorker(QThread):
     """
-    Worker encargado de procesar calculos pesados fuera del hilo de la interfaz.
+    Worker encargado de procesar cálculos pesados fuera del hilo de la interfaz.
 
-    Recibe angulos articulares, ejecuta la cinematica directa y emite posiciones
+    Recibe ángulos articulares, ejecuta la cinemática directa y emite posiciones
     cartesianas para ser graficadas. Gestiona colas independientes para los
-    datos de simulacion y los datos fisicos reales.
+    datos de simulación y los datos físicos reales.
 
     Attributes:
-        sim_result_ready (pyqtSignal): Emite una lista [x, y, z] de la simulacion.
-        phy_result_ready (pyqtSignal): Emite ([x, y, z], temps) del robot fisico.
+        sim_result_ready (pyqtSignal): Emite una lista [x, y, z] de la simulación.
+        phy_result_ready (pyqtSignal): Emite ([x, y, z], temps) del robot físico.
     """
     sim_result_ready = pyqtSignal(list)
     phy_result_ready = pyqtSignal(list, list) # pos_data, temp_data
 
     def __init__(self, kinematics_service):
         """
-        Inicializa el worker de procesamiento con el servicio de cinematica.
+        Inicializa el worker de procesamiento con el servicio de cinemática.
 
         Args:
-            kinematics_service (KinematicsWorker): Instancia para el calculo de CD.
+            kinematics_service (KinematicsWorker): Instancia para el cálculo de CD.
         """
         super().__init__()
         # Inyectamos el servicio de cinemática (CD) desde el controlador
@@ -47,13 +47,13 @@ class GraphProcessingWorker(QThread):
 
     def push_sim_angles(self, angles: np.ndarray):
         """
-        Agrega angulos de simulacion a la cola para su procesamiento asincrono.
+        Agrega ángulos de simulación a la cola para su procesamiento asíncrono.
 
-        Mantiene solo el dato mas reciente descartando los anteriores si la
-        cola esta llena.
+        Mantiene solo el dato más reciente descartando los anteriores si la
+        cola está llena.
 
         Args:
-            angles (np.ndarray): Vector de 4 angulos en radianes.
+            angles (np.ndarray): Vector de 4 ángulos en radianes.
         """
         try:
             self._sim_queue.get_nowait()
@@ -66,10 +66,10 @@ class GraphProcessingWorker(QThread):
 
     def push_phy_angles(self, angles: np.ndarray, temp_data: list):
         """
-        Agrega angulos fisicos y telemetria a la cola para su procesamiento.
+        Agrega ángulos físicos y telemetría a la cola para su procesamiento.
 
         Args:
-            angles (np.ndarray): Vector de angulos reales.
+            angles (np.ndarray): Vector de ángulos reales.
             temp_data (list): Datos de temperatura de los servos.
         """
         try:
@@ -108,7 +108,7 @@ class GraphProcessingWorker(QThread):
 
     def stop(self):
         """
-        Detiene la ejecucion del hilo de forma segura.
+        Detiene la ejecución del hilo de forma segura.
         """
         self._running = False
         self.wait()
@@ -116,9 +116,9 @@ class GraphProcessingWorker(QThread):
     # Getters / Setters
     def is_running(self):
         """
-        Verifica si el worker esta ejecutando su bucle.
+        Verifica si el worker está ejecutando su bucle.
 
         Returns:
-            bool: True si esta en ejecucion.
+            bool: True si está en ejecución.
         """
         return self._running

@@ -1,9 +1,9 @@
 """
-Paquete de servicios de vision artificial y deteccion.
+Paquete de servicios de visión artificial y detección.
 
-Proporciona herramientas para control de camara, deteccion de
-tableros ChArUco, deteccion de esferas de color por segmentacion
-HSV, dibujo de resultados sobre el frame y estimacion de pose 3D.
+Proporciona herramientas para control de cámara, detección de
+tableros ChArUco, detección de esferas de color por segmentación
+HSV, dibujo de resultados sobre el frame y estimación de pose 3D.
 """
 
 from src.services.vision.camera_connection import CameraConnection

@@ -1,14 +1,14 @@
 """
-Modulo que orquesta el flujo de control cinematico del robot.
+Módulo que orquesta el flujo de control cinemático del robot.
 
-Este modulo define la clase KinematicsController, la cual actua como el puente
+Este módulo define la clase KinematicsController, la cual actúa como el puente
 entre la entrada de coordenadas cartesianas del usuario (KinematicsWidget)
-y el motor de calculo y control realimentado (KinematicsWorker).
+y el motor de cálculo y control realimentado (KinematicsWorker).
 
 Conexiones:
     - Escucha eventos de clic del widget para iniciar trayectorias.
-    - Sincroniza la telemetria real del robot con el worker cinematico.
-    - Emite actualizaciones de estado a los managers de simulacion y hardware.
+    - Sincroniza la telemetría real del robot con el worker cinemático.
+    - Emite actualizaciones de estado a los managers de simulación y hardware.
 """
 
 import numpy as np
@@ -24,9 +24,9 @@ from src.services.data.utils import rad_to_deg
 
 class KinematicsController(QObject):
     """
-    Controlador para el modulo de cinematica del brazo robotico.
+    Controlador para el módulo de cinemática del brazo robótico.
 
-    Gestiona la ejecucion de la cinematica inversa y el mantenimiento del
+    Gestiona la ejecución de la cinemática inversa y el mantenimiento del
     estado deseado del robot cuando se opera en modo cartesiano.
 
     Attributes:
@@ -36,7 +36,7 @@ class KinematicsController(QObject):
 
     def __init__(self, parent=None):
         """
-        Inicializa el controlador y arranca el hilo del worker cinematico.
+        Inicializa el controlador y arranca el hilo del worker cinemático.
 
         Args:
             parent (QWidget, optional): Widget padre.
@@ -52,7 +52,7 @@ class KinematicsController(QObject):
         """
         Configura las señales internas y globales para el feature.
         """
-        # UI -> Controlador (Peticion de movimiento)
+        # UI -> Controlador (Petición de movimiento)
         self.kinematics_widget.send_clicked.connect(self.execute_kinematics)
 
         # Telemetria -> Worker (Retroalimentacion para control de lazo cerrado)
@@ -72,7 +72,7 @@ class KinematicsController(QObject):
 
     def execute_kinematics(self):
         """
-        Inicia el proceso de calculo cinematico basado en la entrada de la UI.
+        Inicia el proceso de cálculo cinemático basado en la entrada de la UI.
 
         Cambia el modo de operacion a KINEMATIC y establece el objetivo
         en el worker para el seguimiento de la trayectoria.
@@ -88,7 +88,7 @@ class KinematicsController(QObject):
         self.kinematics_worker.set_target(
             coords['x'], coords['y'], coords['z'])
 
-        # 2. Estimación inicial rápida mediante CI iterativa para actualizacion inmediata
+        # 2. Estimación inicial rápida mediante CI iterativa para actualización inmediata
 
         _, q_deg = self.execute_inverse_kinematics(coords)
         # Mapeo a formato de servos (0-300) con offsets y signos correspondientes
@@ -104,13 +104,13 @@ class KinematicsController(QObject):
 
     def execute_inverse_kinematics(self, coords: dict):
         """
-        Calcula cinematica inversa para coordenadas cartesianas.
+        Calcula cinemática inversa para coordenadas cartesianas.
 
         Args:
             coords (dict): Coordenadas objetivo con claves `x`, `y` y `z`.
 
         Returns:
-            tuple: Angulos articulares en radianes y grados.
+            tuple: Ángulos articulares en radianes y grados.
         """
         q_rad, _ = self.kinematics_worker.ci(
             coords['x']+100, coords['y'], coords['z'], 0)
@@ -120,7 +120,7 @@ class KinematicsController(QObject):
     @pyqtSlot(dict)
     def _on_inverse_kinematics_requested(self, request: dict):
         """
-        Atiende solicitudes de cinematica inversa ruteadas por el DataController.
+        Atiende solicitudes de cinemática inversa ruteadas por el DataController.
 
         Args:
             request (dict): Contiene `color`, `coords` y `gripper_degrees`.
@@ -167,10 +167,10 @@ class KinematicsController(QObject):
 
     def get_worker(self):
         """
-        Retorna el worker de calculo.
+        Retorna el worker de cálculo.
 
         Returns:
-            KinematicsWorker: Instancia del hilo de cinematica.
+            KinematicsWorker: Instancia del hilo de cinemática.
         """
         return self.kinematics_worker
 

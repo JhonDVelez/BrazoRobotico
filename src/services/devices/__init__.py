@@ -1,7 +1,7 @@
 """
-Paquete de servicios de deteccion y monitoreo de dispositivos.
+Paquete de servicios de detección y monitoreo de dispositivos.
 
-Proporciona las clases CameraDevices (enumeration de camaras) y
+Proporciona las clases CameraDevices (enumeración de cámaras) y
 DeviceMonitor (monitoreo de cambios de hardware).
 """
 

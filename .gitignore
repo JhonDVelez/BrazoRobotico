@@ -2,6 +2,7 @@
 **/.venv
 **/config
 **/.opencode
+**/.claude
 __pycache__/
 graphify-out/
 .graphify_*

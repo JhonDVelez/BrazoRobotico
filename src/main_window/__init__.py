@@ -1,9 +1,9 @@
 """
-Paquete encargado de la ventana principal de la aplicacion.
+Paquete encargado de la ventana principal de la aplicación.
 
 Proporciona la clase MainWindow (ventana principal frameless) y los mixins
-necesarios para la gestion de menus, barra de titulo e inicializacion de
-los modulos funcionales.
+necesarios para la gestión de menús, barra de título e inicialización de
+los módulos funcionales.
 """
 
 from src.main_window.app_window import MainWindow

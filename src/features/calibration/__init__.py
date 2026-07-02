@@ -1,8 +1,8 @@
 """
-Paquete de la feature de calibracion del brazo robotico.
+Paquete de la feature de calibración del brazo robótico.
 
-Proporciona las herramientas de calibracion de articulaciones y sensores,
-incluyendo la interfaz de usuario (widget/ventana), la logica de control
+Proporciona las herramientas de calibración de articulaciones y sensores,
+incluyendo la interfaz de usuario (widget/ventana), la lógica de control
 y el worker de procesamiento asociado.
 """
 

@@ -1,9 +1,9 @@
 """
-Modulo que define el gestor de senales de la camara.
+Módulo que define el gestor de señales de la cámara.
 
-Proporciona el singleton CameraSignalManager con senales para
-notificar la disponibilidad de camaras, los resultados de las
-detecciones de vision y los datos de esferas detectadas.
+Proporciona el singleton CameraSignalManager con señales para
+notificar la disponibilidad de cámaras, los resultados de las
+detecciones de visión y los datos de esferas detectadas.
 """
 
 from PyQt6.QtCore import pyqtSignal, QObject
@@ -11,10 +11,10 @@ from PyQt6.QtCore import pyqtSignal, QObject
 
 class CameraSignalManager(QObject):
     """
-    Gestor de senales para el modulo de camara.
+    Gestor de señales para el módulo de cámara.
 
     Signals:
-        available_cameras: Emite una lista de (indice, nombre).
+        available_cameras: Emite una lista de (índice, nombre).
         charuco_done: Emite (frame_id, datos) con resultados ChArUco.
         circles_done: Emite (frame_id, datos) con resultados de esferas.
         pose_done: Emite (frame_id, datos) con datos de pose.
@@ -23,7 +23,7 @@ class CameraSignalManager(QObject):
             DataController lo re-publica al bus de pick and place.
         poses_from_camera: Sender CameraController, receiver DataController.
             Emite un diccionario {color: {'position': [x, y, z]}}; el
-            DataController lo puentea hacia simulacion y pick and place.
+            DataController lo puentea hacia simulación y pick and place.
         clear_spheres_request: Sender CameraController, receiver DataController.
             Solicita limpiar las esferas al detenerse el video.
     """
@@ -40,10 +40,10 @@ class CameraSignalManager(QObject):
     @classmethod
     def get_instance(cls):
         """
-        Obtiene la instancia unica del gestor (patron Singleton).
+        Obtiene la instancia única del gestor (patrón Singleton).
 
         Returns:
-            CameraSignalManager: Instancia unica.
+            CameraSignalManager: Instancia única.
         """
         if cls._instance is None:
             cls._instance = cls()

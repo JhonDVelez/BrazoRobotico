@@ -1,5 +1,5 @@
 """
-Modulo que define la base para los ejecutores de logica de Pick and Place.
+Módulo que define la base para los ejecutores de lógica de Pick and Place.
 """
 
 class BaseExecutor:
@@ -20,7 +20,7 @@ class BaseExecutor:
         self.context = context
 
     def _relative_to_servo(self, positions):
-        """Convierte angulos relativos a posiciones absolutas de servo."""
+        """        Convierte ángulos relativos a posiciones absolutas de servo."""
         return [float(value + 150.0) for value in positions]
 
     def _with_gripper(self, status, gripper_degrees):

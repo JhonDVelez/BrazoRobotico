@@ -1,7 +1,7 @@
 """
-Paquete de la feature de cinematica del brazo robotico.
+Paquete de la feature de cinemática del brazo robótico.
 
-Proporciona los modelos de cinematica directa e inversa para el calculo
+Proporciona los modelos de cinemática directa e inversa para el cálculo
 de posiciones articulares y cartesianas del robot.
 """
 

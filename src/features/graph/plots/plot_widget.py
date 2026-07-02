@@ -1,9 +1,9 @@
 """
-Modulo que define los componentes visuales de bajo nivel para las graficas.
+Módulo que define los componentes visuales de bajo nivel para las gráficas.
 
-Este modulo contiene clases especializadas basadas en `pyqtgraph` para
+Este módulo contiene clases especializadas basadas en `pyqtgraph` para
 renderizar datos en tiempo real, incluyendo el manejo de ejes temporales,
-cursores de medicion y el widget principal de plot optimizado.
+cursores de medición y el widget principal de plot optimizado.
 """
 
 import numpy as np
@@ -15,7 +15,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 
 class TimeAxisItem(pg.AxisItem):
     """
-    Componente para el eje X que transforma indices en tiempo (segundos).
+    Componente para el eje X que transforma índices en tiempo (segundos).
 
     Sobreescribe `tickStrings` para mostrar valores de tiempo positivos
     basados en una frecuencia de muestreo de 10 Hz.
@@ -23,10 +23,10 @@ class TimeAxisItem(pg.AxisItem):
 
     def tickStrings(self, values, scale, spacing):
         """
-        Convierte los valores numericos del eje en cadenas de texto de tiempo.
+        Convierte los valores numéricos del eje en cadenas de texto de tiempo.
 
         Args:
-            values (list): Valores numericos de los ticks.
+            values (list): Valores numéricos de los ticks.
             scale (float): Escala actual.
             spacing (float): Espaciado entre ticks.
 
@@ -39,10 +39,10 @@ class TimeAxisItem(pg.AxisItem):
 
 class PlotCursor:
     """
-    Cursor interactivo para realizar mediciones sobre las graficas.
+    Cursor interactivo para realizar mediciones sobre las gráficas.
 
-    Permite al usuario desplazar una linea vertical y visualizar los valores
-    exactos de simulacion y hardware en un punto temporal especifico.
+    Permite al usuario desplazar una línea vertical y visualizar los valores
+    exactos de simulación y hardware en un punto temporal específico.
     """
 
     def __init__(self, parent_plot: pg.PlotItem) -> None:
@@ -50,7 +50,7 @@ class PlotCursor:
         Inicializa el cursor y lo añade al plot proporcionado.
 
         Args:
-            parent_plot (pg.PlotItem): Grafica donde se renderizara el cursor.
+            parent_plot (pg.PlotItem): Gráfica donde se renderizará el cursor.
         """
         self._plot_item = parent_plot
         self._view_box = parent_plot.getViewBox()
@@ -63,7 +63,7 @@ class PlotCursor:
 
     def __setup_cursor(self, init_pos: int = -500):
         """
-        Configura la linea infinita y la etiqueta de texto del cursor.
+        Configura la línea infinita y la etiqueta de texto del cursor.
         """
         self._cursor_line = pg.InfiniteLine(
             angle=90, movable=True, span=(1, -1))
@@ -83,13 +83,13 @@ class PlotCursor:
 
     def update_data(self, x_data, y_sim, y_phy, write_index):
         """
-        Actualiza los buffers de datos internos del cursor para busqueda.
+        Actualiza los buffers de datos internos del cursor para búsqueda.
 
         Args:
             x_data (np.ndarray): Datos del eje X.
-            y_sim (np.ndarray): Buffer de simulacion.
-            y_phy (np.ndarray): Buffer fisico.
-            write_index (int): Indice de escritura circular.
+            y_sim (np.ndarray): Buffer de simulación.
+            y_phy (np.ndarray): Buffer físico.
+            write_index (int): Índice de escritura circular.
         """
         self._x_data = x_data
         self._y_sim = y_sim
@@ -99,7 +99,7 @@ class PlotCursor:
 
     def _adjust_cursor_on_range_change(self):
         """
-        Mantiene la posicion relativa del cursor cuando se cambia el zoom o escala.
+        Mantiene la posición relativa del cursor cuando se cambia el zoom o escala.
         """
         x_min, x_max = self._view_box.viewRange()[0]
         if x_max > x_min:
@@ -111,7 +111,7 @@ class PlotCursor:
 
     def update_cursor(self):
         """
-        Recalcula la posicion de la etiqueta y extrae los valores bajo el cursor.
+        Recalcula la posición de la etiqueta y extrae los valores bajo el cursor.
         """
         if self._x_data is None:
             return
@@ -126,7 +126,7 @@ class PlotCursor:
         idx = np.argmin(np.abs(self._x_data - x_val))
         real_x = self._x_data[idx]
 
-        # Acceso a datos circulares mediante el indice de escritura
+        # Acceso a datos circulares mediante el índice de escritura
         real_y_sim = self._y_sim[int(
             self._write_index + x_val) % len(self._y_sim)]
         real_y_phy = self._y_phy[int(
@@ -148,10 +148,10 @@ class PlotCursor:
 
     def get_cursor_line(self):
         """
-        Retorna la instancia de la linea infinita del cursor.
+        Retorna la instancia de la línea infinita del cursor.
 
         Returns:
-            pg.InfiniteLine: Linea vertical del cursor.
+            pg.InfiniteLine: Línea vertical del cursor.
         """
         return self._cursor_line
 
@@ -167,13 +167,13 @@ class PlotCursor:
 
 class PlotWidget(pg.PlotWidget):
     """
-    Widget especializado para la visualizacion de una grafica tipo osciloscopio.
+    Widget especializado para la visualización de una gráfica tipo osciloscopio.
 
-    Encapsula toda la logica visual de pyqtgraph, incluyendo optimizaciones
+    Encapsula toda la lógica visual de pyqtgraph, incluyendo optimizaciones
     de downsampling, recorte de vista y manejo de temas claros/oscuros.
 
     Attributes:
-        context_menu_requested (pyqtSignal): Emite la posicion del mouse para el menu.
+        context_menu_requested (pyqtSignal): Emite la posición del mouse para el menú.
     """
     context_menu_requested = pyqtSignal(object)  # pos
 
@@ -182,8 +182,8 @@ class PlotWidget(pg.PlotWidget):
         Inicializa el PlotWidget inyectando el eje de tiempo personalizado.
 
         Args:
-            title (str): Titulo de la grafica.
-            y_range (list): Limites [min, max] del eje Y.
+            title (str): Título de la gráfica.
+            y_range (list): Límites [min, max] del eje Y.
             display_window (int): Ancho de la ventana visible.
             parent (QWidget, optional): Widget padre.
         """
@@ -201,10 +201,11 @@ class PlotWidget(pg.PlotWidget):
         self.__setup_ui()
         self._cursor = PlotCursor(self.getPlotItem())
         self.setObjectName("plot_widget")
+        self.setMinimumSize(360, 180)
 
     def __setup_ui(self):
         """
-        Configura los parametros visuales y optimizaciones de Pyqtgraph.
+        Configura los parámetros visuales y optimizaciones de Pyqtgraph.
         """
         self.setViewportMargins(5, 0, 5, 0)
         self.setStyleSheet("border: none; padding: 0px 0px 0px -5px;")
@@ -216,7 +217,8 @@ class PlotWidget(pg.PlotWidget):
         self.view_box.setMouseMode(pg.ViewBox.PanMode)
         try:
             self.plot_item.autoBtn.clicked.disconnect()
-        except Exception:
+        except RuntimeError:
+            # Señal no conectada — esperado en primera inicialización
             pass
 
         # Optimizaciones de rendimiento para hilos de alta frecuencia
@@ -230,7 +232,7 @@ class PlotWidget(pg.PlotWidget):
         self.view_box.setLimits(xMin=-self._display_window * 1.05, xMax=0,
                                 yMin=self._y_range[0], yMax=self._y_range[1])
 
-        # Definicion de curvas: Simulado (Verde) y Fisico (Naranja)
+        # Definición de curvas: Simulado (Verde) y Físico (Naranja)
         self._curve_sim = self.plot_item.plot(pen=pg.mkPen(
             color=(42, 176, 147), width=3), skipFiniteCheck=True)
         self._curve_phy = self.plot_item.plot(pen=pg.mkPen(
@@ -241,7 +243,7 @@ class PlotWidget(pg.PlotWidget):
         self.plot_item.addItem(self._temp_text)
         self.view_box.sigRangeChanged.connect(self._update_elements_pos)
 
-        # Politica de menu contextual personalizado
+        # Política de menú contextual personalizado
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(
             self.context_menu_requested.emit)
@@ -254,7 +256,7 @@ class PlotWidget(pg.PlotWidget):
 
     def _update_elements_pos(self):
         """
-        Ajusta la posicion de los elementos flotantes (labels) al cambiar la vista.
+        Ajusta la posición de los elementos flotantes (labels) al cambiar la vista.
         """
         x_range, y_range = self.view_box.viewRange()
         self._temp_text.setPos(x_range[1], y_range[1])
@@ -267,7 +269,7 @@ class PlotWidget(pg.PlotWidget):
 
         Args:
             x (np.ndarray): Eje horizontal.
-            y_sim (np.ndarray): Datos de simulacion.
+            y_sim (np.ndarray): Datos de simulación.
             y_phy (np.ndarray): Datos reales.
             temp_text (str): Texto de temperatura a mostrar.
         """
@@ -277,29 +279,29 @@ class PlotWidget(pg.PlotWidget):
 
     def update_cursor_data(self, x_data, y_sim, y_phy, write_index):
         """
-        Actualiza el cursor con el estado mas reciente del buffer.
+        Actualiza el cursor con el estado más reciente del buffer.
 
         Args:
             x_data (np.ndarray): Eje de tiempo.
-            y_sim (np.ndarray): Buffer de simulacion.
-            y_phy (np.ndarray): Buffer fisico.
-            write_index (int): Indice de escritura circular.
+            y_sim (np.ndarray): Buffer de simulación.
+            y_phy (np.ndarray): Buffer físico.
+            write_index (int): Índice de escritura circular.
         """
         self._cursor.update_data(x_data, y_sim, y_phy, write_index)
 
     def set_grid_visibility(self, visible: bool):
         """
-        Muestra u oculta la cuadricula de fondo del plot.
+        Muestra u oculta la cuadrícula de fondo del plot.
 
         Args:
-            visible (bool): True para mostrar la cuadricula.
+            visible (bool): True para mostrar la cuadrícula.
         """
         self._grid_visible = visible
         self.plot_item.showGrid(x=visible, y=visible, alpha=0.3)
 
     def get_grid_visibility(self) -> bool:
         """
-        Retorna True si la cuadricula esta visible.
+        Retorna True si la cuadrícula está visible.
 
         Returns:
             bool: Estado de visibilidad del grid.
@@ -326,8 +328,8 @@ class PlotWidget(pg.PlotWidget):
         Establece la ventana visual actual del plot.
 
         Args:
-            x_range (list, optional): Limites [min, max] del eje X.
-            y_range (list, optional): Limites [min, max] del eje Y.
+            x_range (list, optional): Límites [min, max] del eje X.
+            y_range (list, optional): Límites [min, max] del eje Y.
         """
         if x_range:
             self.view_box.setXRange(x_range[0], x_range[1], padding=0)
@@ -336,7 +338,7 @@ class PlotWidget(pg.PlotWidget):
 
     def apply_theme(self, dark_t: bool):
         """
-        Aplica los colores de fondo, lineas y cursor segun el tema seleccionado.
+        Aplica los colores de fondo, líneas y cursor según el tema seleccionado.
 
         Args:
             dark_t (bool): True para modo oscuro.
@@ -363,9 +365,9 @@ class PlotWidget(pg.PlotWidget):
 
     def get_plot_title(self) -> str:
         """
-        Obtiene el titulo de la grafica.
+        Obtiene el título de la gráfica.
 
         Returns:
-            str: Titulo del plot.
+            str: Título del plot.
         """
         return self._title

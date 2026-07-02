@@ -1,9 +1,9 @@
 """
-Paquete de la feature de simulacion del brazo robotico.
+Paquete de la feature de simulación del brazo robótico.
 
-Proporciona la integracion con la vista Quick3D/QML para la representacion
-visual del robot, asi como el controlador que orquesta el intercambio de
-datos entre la simulacion y los graficos de telemetria.
+Proporciona la integración con la vista Quick3D/QML para la representación
+visual del robot, así como el controlador que orquesta el intercambio de
+datos entre la simulación y los gráficos de telemetría.
 """
 
 from .simulation_controller import SimulationController

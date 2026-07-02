@@ -1,9 +1,9 @@
 """
-Modulo encargado de la optimizacion visual y renderizado de graficas.
+Módulo encargado de la optimización visual y renderizado de gráficas.
 
-Este modulo define la clase PlotWorker, la cual extrae las porciones relevantes
-de los buffers circulares globales y aplica tecnicas de coalescencia de eventos
-y limitacion de FPS para asegurar un rendimiento visual optimo.
+Este módulo define la clase PlotWorker, la cual extrae las porciones relevantes
+de los buffers circulares globales y aplica técnicas de coalescencia de eventos
+y limitación de FPS para asegurar un rendimiento visual óptimo.
 
 Conexiones:
     - Recibe buffers mediante `update_visual_data`.
@@ -17,10 +17,10 @@ from PyQt6.QtCore import QObject, pyqtSignal, QTimer, pyqtSlot
 
 class PlotWorker(QObject):
     """
-    Worker encargado de la logica de renderizado y optimizacion de datos visuales.
+    Worker encargado de la lógica de renderizado y optimización de datos visuales.
 
     Implementa coalescencia de eventos para evitar saturar el hilo principal de Qt,
-    recortando los buffers de datos segun la ventana de visualizacion configurada.
+    recortando los buffers de datos según la ventana de visualización configurada.
 
     Attributes:
         render_ready (pyqtSignal): Emite (x, y_sim, y_phy, temp_text).
@@ -37,7 +37,7 @@ class PlotWorker(QObject):
         Inicializa el worker con el ancho de ventana especificado.
 
         Args:
-            display_window (int): Numero de muestras visibles.
+            display_window (int): Número de muestras visibles.
         """
         super().__init__()
         self._display_window = display_window
@@ -58,13 +58,13 @@ class PlotWorker(QObject):
     @pyqtSlot(np.ndarray, np.ndarray, str, int, bool)
     def update_visual_data(self, y_sim_full, y_phy_full, temp_phy, write_index, buffer_full):
         """
-        Extrae la porcion necesaria para el renderizado basandose en la ventana.
+        Extrae la porción necesaria para el renderizado basándose en la ventana.
 
         Gestiona los casos de buffer lineal (inicio) y buffer circular (wrap-around).
 
         Args:
-            y_sim_full (np.ndarray): Buffer completo de simulacion.
-            y_phy_full (np.ndarray): Buffer completo fisico.
+            y_sim_full (np.ndarray): Buffer completo de simulación.
+            y_phy_full (np.ndarray): Buffer completo físico.
             temp_phy (str): Texto de temperatura.
             write_index (int): Puntero de escritura.
             buffer_full (bool): Flag de desbordamiento de buffer.
@@ -108,7 +108,7 @@ class PlotWorker(QObject):
 
     def _schedule_render(self):
         """
-        Agenda un render para la proxima vuelta del event loop.
+        Agenda un render para la próxima vuelta del event loop.
         """
         if self._render_scheduled:
             return
@@ -118,7 +118,7 @@ class PlotWorker(QObject):
 
     def _do_render(self):
         """
-        Ejecuta el render real respetando el limite de FPS configurado.
+        Ejecuta el render real respetando el límite de FPS configurado.
         """
         self._render_scheduled = False
         
@@ -156,10 +156,10 @@ class PlotWorker(QObject):
 
     def set_visible(self, visible: bool):
         """
-        Define si el worker debe procesar datos segun la visibilidad de la UI.
+        Define si el worker debe procesar datos según la visibilidad de la UI.
 
         Args:
-            visible (bool): True si el plot esta visible.
+            visible (bool): True si el plot está visible.
         """
         self._is_visible = visible
         if visible:
@@ -170,6 +170,6 @@ class PlotWorker(QObject):
         Retorna el estado de pausa del worker.
 
         Returns:
-            bool: True si esta pausado.
+            bool: True si está pausado.
         """
         return self._is_paused

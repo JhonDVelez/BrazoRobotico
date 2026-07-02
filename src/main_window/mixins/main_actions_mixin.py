@@ -1,9 +1,9 @@
 """
-Modulo que define el comportamiento de los botones de accion de la interfaz.
+Módulo que define el comportamiento de los botones de acción de la interfaz.
 
 Gestiona las acciones principales del flujo de trabajo: iniciar, pausar,
-detener y reiniciar, asi como la alternancia de visibilidad de paneles
-y la inicializacion de ventanas de calibracion.
+detener y reiniciar, así como la alternancia de visibilidad de paneles
+y la inicialización de ventanas de calibración.
 """
 
 from PyQt6.QtCore import pyqtSlot
@@ -18,8 +18,8 @@ class MainActionsMixin:
     Mixin que gestiona el comportamiento de las secciones de la interfaz.
 
     Implementa las acciones de control de flujo (start/pause/stop/reset),
-    visibilidad de paneles (camara, modelo 3D, graficos, controles) e
-    inicializacion de ventanas secundarias de calibracion.
+    visibilidad de paneles (cámara, modelo 3D, gráficos, controles) e
+    inicialización de ventanas secundarias de calibración.
     """
 
     def __init__(self):
@@ -28,9 +28,9 @@ class MainActionsMixin:
 
     def start(self):
         """
-        Inicia la simulacion, camara, graficos y servicios del robot.
+        Inicia la simulación, cámara, gráficos y servicios del robot.
 
-        Deshabilita el boton de inicio y habilita pausa/stop.
+        Deshabilita el botón de inicio y habilita pausa/stop.
         """
         if self.hab_simulation:
             # Solicitar inicio vía DataController (Bus Global)
@@ -60,10 +60,10 @@ class MainActionsMixin:
 
     def pause(self):
         """
-        Pausa la simulacion, camara y graficos.
+        Pausa la simulación, cámara y gráficos.
 
-        Detiene el servicio del robot si esta conectado.
-        Habilita el boton de inicio y deshabilita pausa.
+        Detiene el servicio del robot si está conectado.
+        Habilita el botón de inicio y deshabilita pausa.
         """
         SimulationSignalManager.get_instance().pause_request.emit(True)
 
@@ -72,7 +72,7 @@ class MainActionsMixin:
 
         self.graph_controller.pause()
 
-        # El RobotController manejara la pausa si escucha el bus, o podemos enviar stop
+        # El RobotController manejará la pausa si escucha el bus, o podemos enviar stop
         if self.connected_to_robot:
             PhysicalSignalManager.get_instance().stop_request.emit()
 
@@ -83,7 +83,7 @@ class MainActionsMixin:
 
     def stop(self):
         """
-        Detiene la simulacion, camara y graficos.
+        Detiene la simulación, cámara y gráficos.
 
         Restaura el estado de reposo de la interfaz.
         """
@@ -111,21 +111,21 @@ class MainActionsMixin:
 
     def reset(self):
         """
-        Reinicia los valores de los sliders a su posicion central.
+        Reinicia los valores de los sliders a su posición central.
         """
         self.sliders_controller.reset_controls()
 
     @pyqtSlot(bool)
     def toggle_visibility_camera_event(self, checked: bool):
         """
-        Alterna la visibilidad del dock de la camara.
+        Alterna la visibilidad del dock de la cámara.
 
         Args:
             checked (bool): True para mostrar el panel.
         """
         self.cameraDock.toggleView(checked)
         ConfigSignalManager.get_instance().request_change(
-            "settings.json", "content", "camera", value=checked)
+            "settings.json", ["content", "camera"], checked)
 
     @pyqtSlot(bool)
     def toggle_visibility_model_event(self, checked: bool):
@@ -137,19 +137,19 @@ class MainActionsMixin:
         """
         self.modelDock.toggleView(checked)
         ConfigSignalManager.get_instance().request_change(
-            "settings.json", "content", "model", value=checked)
+            "settings.json", ["content", "model"], checked)
 
     @pyqtSlot(bool)
     def toggle_visibility_graphs_event(self, checked: bool):
         """
-        Alterna la visibilidad del dock de graficos.
+        Alterna la visibilidad del dock de gráficos.
 
         Args:
             checked (bool): True para mostrar el panel.
         """
         self.graphsDock.toggleView(checked)
         ConfigSignalManager.get_instance().request_change(
-            "settings.json", "content", "graphs", value=checked)
+            "settings.json", ["content", "graphs"], checked)
 
     @pyqtSlot(bool)
     def toggle_visibility_controls_event(self, checked: bool):
@@ -161,14 +161,14 @@ class MainActionsMixin:
         """
         self.controlsDock.toggleView(checked)
         ConfigSignalManager.get_instance().request_change(
-            "settings.json", "content", "controls", value=checked)
+            "settings.json", ["content", "controls"], checked)
 
     def initiate_camera_calibration(self):
         """
-        Inicializa la ventana de calibracion de camara.
+        Inicializa la ventana de calibración de cámara.
 
-        Detiene la camara de la interfaz principal si esta corriendo.
-        Importacion local para evitar circulos.
+        Detiene la cámara de la interfaz principal si está corriendo.
+        Importación local para evitar círculos.
         """
         from src.features.calibration import CameraCalibrationWindow
 
@@ -179,10 +179,10 @@ class MainActionsMixin:
 
     def initiate_color_calibration(self):
         """
-        Inicializa la ventana de calibracion de colores.
+        Inicializa la ventana de calibración de colores.
 
-        Detiene la camara de la interfaz principal si esta corriendo.
-        Importacion local para evitar circulos.
+        Detiene la cámara de la interfaz principal si está corriendo.
+        Importación local para evitar círculos.
         """
         from src.features.color import ColorWindow
 
@@ -194,52 +194,57 @@ class MainActionsMixin:
     @pyqtSlot(bool)
     def toggle_activation_simulation_event(self, checked: bool):
         """
-        Habilita o deshabilita la activacion de la simulacion fisica.
+        Habilita o deshabilita la activación de la simulación física.
 
         Args:
-            checked (bool): True para activar la simulacion.
+            checked (bool): True para activar la simulación.
         """
         self.hab_simulation = checked
-        ConfigSignalManager.get_instance().request_change("settings.json", "simulation",
-                                                          "activated", value=checked)
+        ConfigSignalManager.get_instance().request_change("settings.json", ["simulation",
+                                                          "activated"], checked)
 
     @pyqtSlot(bool)
     def toggle_shadows_event(self, checked: bool):
-        ConfigSignalManager.get_instance().request_change("settings.json", "simulation", "shadows", value=checked)
+        ConfigSignalManager.get_instance().request_change(
+            "settings.json", ["simulation", "shadows"], checked)
 
     @pyqtSlot(bool)
     def toggle_grid_event(self, checked: bool):
-        ConfigSignalManager.get_instance().request_change("settings.json", "simulation", "grid", value=checked)
+        ConfigSignalManager.get_instance().request_change(
+            "settings.json", ["simulation", "grid"], checked)
 
     @pyqtSlot(bool)
     def toggle_axes_event(self, checked: bool):
-        ConfigSignalManager.get_instance().request_change("settings.json", "simulation", "axes", value=checked)
+        ConfigSignalManager.get_instance().request_change(
+            "settings.json", ["simulation", "axes"], checked)
 
     @pyqtSlot(bool)
     def toggle_labels_event(self, checked: bool):
-        ConfigSignalManager.get_instance().request_change("settings.json", "simulation", "labels", value=checked)
+        ConfigSignalManager.get_instance().request_change(
+            "settings.json", ["simulation", "labels"], checked)
 
     @pyqtSlot(bool)
     def toggle_aa_event(self, checked: bool):
-        ConfigSignalManager.get_instance().request_change("settings.json", "simulation", "aa", value=checked)
+        ConfigSignalManager.get_instance().request_change(
+            "settings.json", ["simulation", "aa"], checked)
 
     @pyqtSlot(bool)
     def toggle_charuco_search(self, checked: bool):
         """
-        Alterna la busqueda de tablero ChArUco en la camara.
+        Alterna la búsqueda de tablero ChArUco en la cámara.
 
         Args:
-            checked (bool): True para activar la deteccion.
+            checked (bool): True para activar la detección.
         """
         SearchSignalManager.get_instance().set_charuco(checked)
 
     @pyqtSlot(bool)
     def toggle_sphere_search(self, checked: bool):
         """
-        Alterna la busqueda de esferas de color en la camara.
+        Alterna la búsqueda de esferas de color en la cámara.
 
         Args:
-            checked (bool): True para activar la deteccion.
+            checked (bool): True para activar la detección.
         """
         SearchSignalManager.get_instance().set_circle(checked)
 
@@ -257,21 +262,21 @@ class MainActionsMixin:
             self.sliders_controller.get_widget().hide()
             self.kinematics_controller.get_widget().set_horizontal_layout()
         ConfigSignalManager.get_instance().request_change(
-            'settings.json', "mode", 'sliders', value=checked)
+            'settings.json', ["mode", 'sliders'], checked)
 
     def toggle_kinematics_controls(self, checked: bool):
         """
-        Alterna la visibilidad del panel de control cinematico.
+        Alterna la visibilidad del panel de control cinemático.
 
         Args:
-            checked (bool): True para mostrar cinematica.
+            checked (bool): True para mostrar cinemática.
         """
         if checked:
             self.kinematics_controller.get_widget().show()
         else:
             self.kinematics_controller.get_widget().hide()
         ConfigSignalManager.get_instance().request_change(
-            'settings.json', "mode", 'kinematics', value=checked)
+            'settings.json', ["mode", 'kinematics'], checked)
 
     def toggle_pick_place_controls(self, checked: bool):
         """
@@ -282,16 +287,16 @@ class MainActionsMixin:
         """
         from src.services.data.signals import PickPlaceSignalManager
         PickPlaceSignalManager.get_instance().set_state(checked)
-        
+
         self.toggle_visibility_controls_event(not checked)
         self.controls_action.setChecked(not checked)
         self.controls_action.setEnabled(not checked)
         ConfigSignalManager.get_instance().request_change(
-            'settings.json', "mode", 'pick_place', value=checked)
+            'settings.json', ["mode", 'pick_place'], checked)
 
     def connect_robot(self):
         """
-        Inicia la conexion con el microcontrolador en el puerto COM seleccionado.
+        Inicia la conexión con el microcontrolador en el puerto COM seleccionado.
         """
         if not self.com:
             print("Error: Dispositivo no detectado")

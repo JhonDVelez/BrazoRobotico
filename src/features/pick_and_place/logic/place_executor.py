@@ -1,5 +1,5 @@
 """
-Modulo que implementa la logica de la secuencia de colocacion (Place).
+Módulo que implementa la lógica de la secuencia de colocación (Place).
 """
 
 import math
@@ -10,7 +10,7 @@ class PlaceExecutor(BaseExecutor):
     """Ejecutor especializado en la fase de Place."""
 
     def enter_computing_ik_place_above(self):
-        """Solicita IK para posicion elevada sobre el destino."""
+        """        Solicita IK para posición elevada sobre el destino."""
         if not self.context.place_target_coords:
             self.worker._fail('No se definieron coordenadas de destino')
             return
@@ -30,11 +30,11 @@ class PlaceExecutor(BaseExecutor):
             'type': 'compute_ik',
             'coords': {'x': y_comp, 'y': x_comp, 'z': 100},
             'gripper_degrees': self.context.gripper_closed,
-            'description': f'Calculando posicion elevada para destino'
+            'description': f'Calculando posición elevada para destino'
         })
 
     def enter_approaching_place_above(self):
-        """Mueve el brazo a la posicion elevada sobre el destino."""
+        """        Mueve el brazo a la posición elevada sobre el destino."""
         if self.context.ik_target is None:
             self.worker._fail('No hay objetivo IK para destino elevado')
             return
@@ -67,7 +67,7 @@ class PlaceExecutor(BaseExecutor):
             'type': 'compute_ik',
             'coords': {'x': y_comp, 'y': x_comp, 'z': z + 30},
             'gripper_degrees': self.context.gripper_closed,
-            'description': f'Calculando IK para posicion final de destino'
+            'description': f'Calculando IK para posición final de destino'
         })
 
     def enter_approaching_place(self):
@@ -98,7 +98,7 @@ class PlaceExecutor(BaseExecutor):
         })
 
     def enter_returning_home(self):
-        """Regresa a posicion neutral."""
+        """        Regresa a posición neutral."""
         target = self._relative_to_servo([0, 0, 0, 0, 90, 0])
         self.context.current_target = target
         self.worker._start_stall_timer()

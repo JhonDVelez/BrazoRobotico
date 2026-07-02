@@ -1,8 +1,8 @@
 """
-Modulo que controla el flujo de la simulacion 3D y la integracion de PyBullet.
+Módulo que controla el flujo de la simulación 3D y la integración de PyBullet.
 
-Este modulo define la clase SimulationController, la cual orquesta la vista QML,
-el worker de fisica y la sincronizacion de datos reactiva para el gemelo digital
+Este módulo define la clase SimulationController, la cual orquesta la vista QML,
+el worker de física y la sincronización de datos reactiva para el gemelo digital
 del robot.
 
 Conexiones:
@@ -12,27 +12,28 @@ Conexiones:
 """
 
 from PyQt6.QtCore import pyqtSlot, QObject
-from src.services.data.enums import Units, Modes, Domains
 from src.services.simulation import PhysicsWorker
 from src.services.styling.theme_manger import ThemeSignalManager
 from src.services.data.signals import SimulationSignalManager, ConfigSignalManager
 from src.services.data.signals.pick_place import PickPlaceSignalManager
 from src.services.data.timers import GlobalTimer
+from src.services.ui.notification_manager import NotificationManager
+from src.services.data.enums.types import NotificationType
 from src.features.simulation.simulation_worker import SimulationWorker
 from src.features.simulation.simulation_widget import SimulationWidget
 
 
 class SimulationController(QObject):
     """
-    Controlador principal del feature de simulacion.
+    Controlador principal del feature de simulación.
 
-    Administra la integracion entre el motor de fisica (PyBullet) y la representacion
+    Administra la integración entre el motor de física (PyBullet) y la representación
     grafica (QtQuick/QML), gestionando estados de inicio, pausa y parada.
     """
 
     def __init__(self, parent, preloaded_container, robot_id):
         """
-        Inicializa el controlador de simulacion y configura el flujo de datos.
+        Inicializa el controlador de simulación y configura el flujo de datos.
 
         Args:
             parent (QWidget): Widget padre.
@@ -95,11 +96,6 @@ class SimulationController(QObject):
             self.physics_worker.reattach_sphere)
         self.simulation_signal_manager.sphere_radius_changed.connect(
             self.physics_worker.update_sphere_scale)
-        
-        # Nuevas conexiones para orquestación vía DataController
-        self.simulation_signal_manager.start_simulation.connect(self.start_simulation)
-        self.simulation_signal_manager.pause_simulation.connect(self.pause_simulation)
-        self.simulation_signal_manager.stop_simulation.connect(self.stop_simulation)
 
         # Nuevas conexiones para orquestación vía DataController
         self.simulation_signal_manager.start_simulation.connect(
@@ -108,6 +104,16 @@ class SimulationController(QObject):
             self.pause_simulation)
         self.simulation_signal_manager.stop_simulation.connect(
             self.stop_simulation)
+
+        # Nuevas conexiones para orquestación vía DataController
+        self.simulation_signal_manager.start_simulation.connect(
+            self.start_simulation)
+        self.simulation_signal_manager.pause_simulation.connect(
+            self.pause_simulation)
+        self.simulation_signal_manager.stop_simulation.connect(
+            self.stop_simulation)
+
+        self.noti_manager = NotificationManager.get_instance()
 
     def init_pybullet_processing(self, root_object):
         """
@@ -126,7 +132,7 @@ class SimulationController(QObject):
         self.simulation_worker.update_sphere_radius(radius)
         self.physics_worker.update_sphere_scale(radius)
 
-        # Sincronizar configuraciones de simulacion iniciales
+        # Sincronizar configuraciones de simulación iniciales
         sim_settings = self.config_manager.get_param(
             "settings.json", "simulation", default={})
         prop_map = {
@@ -160,7 +166,7 @@ class SimulationController(QObject):
 
     def get_simulation_widget(self):
         """
-        Retorna el widget visual de la simulacion.
+        Retorna el widget visual de la simulación.
 
         Returns:
             SimulationWidget: Instancia del widget.
@@ -177,8 +183,8 @@ class SimulationController(QObject):
         self.simulation_widget.change_theme(dark_t)
 
     @pyqtSlot(str, list, object)
-    def _on_config_updated(self, filename: str, keys: list, value: object):
-        """Maneja cambios en la configuracion."""
+    def _on_config_updated(self, filename: str, keys: list, value: float):
+        """Maneja cambios en la configuración."""
         if filename == "camera.json" and "sphere_radius" in keys:
             radius = float(value)
             # Notificar cambio a traves del bus global
@@ -189,7 +195,7 @@ class SimulationController(QObject):
 
         elif filename == "settings.json" and "simulation" in keys:
             if self._root_object:
-                # Mapeo de configuracion a propiedades QML
+                # Mapeo de configuración a propiedades QML
                 prop_map = {
                     "shadows": "showShadows",
                     "grid": "showGrid",
@@ -207,17 +213,17 @@ class SimulationController(QObject):
         Slot para actualizar las posiciones de las articulaciones en el modelo 3D.
 
         Args:
-            joint_positions (list): Lista de angulos.
+            joint_positions (list): Lista de ángulos.
         """
         if self.simulation_worker is not None:
             self.simulation_worker.update_simulation(joint_positions)
 
     @pyqtSlot(dict)
     def update_sphere_pose_from_camera(self, poses: dict):
-        """Actualiza posiciones 3D de esferas desde la camara.
+        """        Actualiza posiciones 3D de esferas desde la cámara.
 
-        Se interrumpe cuando una secuencia de pick and place esta activa,
-        permitiendo que la fisica de PyBullet controle las esferas.
+        Se interrumpe cuando una secuencia de pick and place está activa,
+        permitiendo que la física de PyBullet controle las esferas.
 
         Args:
             poses (dict): Coordenadas cartesianas de las esferas.
@@ -229,7 +235,7 @@ class SimulationController(QObject):
 
     @pyqtSlot()
     def clear_spheres(self):
-        """Limpia las esferas de la simulacion si no hay pick and place en curso."""
+        """        Limpia las esferas de la simulación si no hay pick and place en curso."""
         if self.pick_place_signal_manager.is_pick_place_running():
             return
         if self.physics_worker:
@@ -241,7 +247,7 @@ class SimulationController(QObject):
 
     def start_simulation(self):
         """
-        Inicia el motor de fisica y muestra la vista de simulacion activa.
+        Inicia el motor de física y muestra la vista de simulación activa.
         """
         try:
             self.simulation_widget.image_hide()
@@ -254,19 +260,21 @@ class SimulationController(QObject):
                     self.simulation_worker.start()
 
             self.physics_worker.start()
-        except Exception as e:
-            print(f"Error iniciando simulación: {e}")
+        except RuntimeError as e:
+            print(f"[DEBUG] RuntimeError iniciando simulación: {e}")
+            self.noti_manager.notify(
+                f"Error iniciando simulación: {e}", NotificationType.TOAST_ERROR)
 
     def pause_simulation(self):
         """
-        Detiene temporalmente el paso de tiempo en el motor de fisica.
+        Detiene temporalmente el paso de tiempo en el motor de física.
         """
         if self.physics_worker:
             self.physics_worker.pause()
 
     def stop_simulation(self):
         """
-        Detiene la simulacion fisica y restaura la vista estatica.
+        Detiene la simulación física y restaura la vista estática.
         """
         if self.simulation_worker:
             self.physics_worker.pause()
@@ -280,7 +288,7 @@ class SimulationController(QObject):
 
     def closeEvent(self, event):
         """
-        Gestiona el cierre y liberacion de hilos.
+        Gestiona el cierre y liberación de hilos.
 
         Args:
             event (QCloseEvent): Evento de Qt.
@@ -292,6 +300,6 @@ class SimulationController(QObject):
                 if self.simulation_worker.isRunning():
                     self.simulation_worker.quit()
                     self.simulation_worker.wait(2000)
-            except Exception as e:
-                print(f"Error cerrando worker: {e}")
+            except RuntimeError as e:
+                print(f"[DEBUG] RuntimeError cerrando worker de simulación: {e}")
             self.simulation_worker = None

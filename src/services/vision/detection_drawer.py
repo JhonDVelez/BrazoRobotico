@@ -1,8 +1,8 @@
 """
-Modulo de dibujo de resultados de deteccion sobre el frame.
+Módulo de dibujo de resultados de detección sobre el frame.
 
 Proporciona DetectionDrawer, un QRunnable que recibe los resultados
-de deteccion de ChArUco y esferas y los dibuja sobre el frame antes
+de detección de ChArUco y esferas y los dibuja sobre el frame antes
 de mostrarlo en la interfaz.
 
 Conexiones:
@@ -11,17 +11,16 @@ Conexiones:
     - Entrega el frame final a traves de `frame_callback`.
 """
 
-import traceback
 import numpy as np
 import cv2
 from PyQt6.QtCore import QRunnable
 
 
 class DetectionDrawer(QRunnable):
-    """Tarea ejecutable para dibujar resultados de deteccion sobre el frame.
+    """Tarea ejecutable para dibujar resultados de detección sobre el frame.
 
     Dibuja la malla del tablero ChArUco (puntos interiores, ocultos y
-    exteriores con coordenadas fisicas) y las esferas detectadas
+    exteriores con coordenadas físicas) y las esferas detectadas
     (contorno, centro, radio y posicion 3D).
 
     Args:
@@ -29,8 +28,8 @@ class DetectionDrawer(QRunnable):
         results (dict): Resultados combinados de charuco y circles.
         view (tuple): (charuco_view, circle_view) flags de visibilidad.
         custom_origin (tuple): Offset del origen personalizado en mm.
-        frame_callback (callable): Funcion para devolver el frame final.
-        error_callback (callable): Funcion para reportar errores.
+        frame_callback (callable): Función para devolver el frame final.
+        error_callback (callable): Función para reportar errores.
     """
 
     def __init__(self, frame: np.ndarray, results: dict, view: tuple, custom_origin: tuple, camera_width: int, frame_callback, error_callback) -> None:
@@ -74,17 +73,17 @@ class DetectionDrawer(QRunnable):
         if grid_results is not None and self.charuco_view:
             try:
                 frame_out = self._draw_grid(frame_out, grid_results)
-            except Exception:
+            except (cv2.error, KeyError, ValueError) as e:
                 self.error_callback(
-                    f"Error al dibujar ChArUco: {traceback.format_exc()} (DetectionDrawer)")
+                    f"Error al dibujar ChArUco: {type(e).__name__}: {e} (DetectionDrawer)")
 
         if sphere_results is not None and self.circle_view:
             try:
                 frame_out = self._draw_spheres(
                     frame_out, sphere_results, pose_results)
-            except Exception:
+            except (cv2.error, KeyError, ValueError) as e:
                 self.error_callback(
-                    f"Error al dibujar esferas: {traceback.format_exc()} (DetectionDrawer)")
+                    f"Error al dibujar esferas: {type(e).__name__}: {e} (DetectionDrawer)")
 
         self.frame_callback(frame_out)
 
@@ -93,11 +92,11 @@ class DetectionDrawer(QRunnable):
 
         Muestra los puntos interiores visibles (verde), interiores
         ocultos (naranja) y exteriores estimados (azul), junto con
-        las coordenadas fisicas en milimetros de cada punto.
+        las coordenadas físicas en milímetros de cada punto.
 
         Args:
             frame: Frame sobre el que dibujar.
-            results: Resultados de deteccion de ChArUco.
+            results: Resultados de detección de ChArUco.
 
         Returns:
             np.ndarray: Frame con la malla dibujada.
@@ -141,13 +140,13 @@ class DetectionDrawer(QRunnable):
     def _draw_spheres(self, frame, sphere_results: dict[str, dict], pose_results: dict):
         """Dibuja las esferas detectadas sobre el frame.
 
-        Muestra el contorno, circulo circunscrito, centro y etiquetas
-        con el color y la posicion 3D de cada esfera.
+        Muestra el contorno, círculo circunscrito, centro y etiquetas
+        con el color y la posición 3D de cada esfera.
 
         Args:
             frame: Frame sobre el que dibujar.
-            sphere_results (dict): Resultados de deteccion de esferas.
-            pose_results (dict): Resultados de estimacion de pose.
+            sphere_results (dict): Resultados de detección de esferas.
+            pose_results (dict): Resultados de estimación de pose.
 
         Returns:
             np.ndarray: Frame con las esferas dibujadas.
@@ -186,18 +185,18 @@ class DetectionDrawer(QRunnable):
                 label_y = max(18, label_y)
                 self._draw_text_lines(frame, label_lines, (label_x, label_y))
 
-            except Exception as e:
-                print(f"[WARN] Error dibujando esfera: {e}")
+            except (cv2.error, ValueError, AttributeError) as e:
+                print(f"[WARN] Error dibujando esfera '{color}' ({type(e).__name__}): {e}")
                 continue
 
         return frame
 
     def _draw_text_lines(self, frame, lines: list[str], origin: tuple[int, int]):
-        """Dibuja multiples lineas de texto con borde negro y relleno blanco.
+        """Dibuja múltiples líneas de texto con borde negro y relleno blanco.
 
         Args:
             frame: Frame sobre el que dibujar.
-            lines (list[str]): Lineas de texto a mostrar.
+            lines (list[str]): Líneas de texto a mostrar.
             origin (tuple): Coordenadas (x, y) de inicio del texto.
         """
         x, y = origin
@@ -210,17 +209,17 @@ class DetectionDrawer(QRunnable):
                         0.45, (255, 255, 255), 1, cv2.LINE_AA)
 
     def _get_dynamic_font_scale(self, corners: np.ndarray) -> float:
-        """Calcula la escala de fuente basada en el ancho de celda medido en pixeles.
+        """Calcula la escala de fuente basada en el ancho de celda medido en píxeles.
 
         Mide el ancho de celda en dos filas opuestas (superior e inferior)
         y calcula un promedio para ajustar la escala del texto de forma
-        dinamica segun la distancia de la camara al tablero.
+        dinámica según la distancia de la cámara al tablero.
 
         Args:
             corners (np.ndarray): Esquinas de la malla con forma (rows, cols, 2).
 
         Returns:
-            float: Escala de fuente ajustada dinamicamente.
+            float: Escala de fuente ajustada dinámicamente.
         """
         if corners is None:
             return self.base_font_scale
@@ -234,7 +233,8 @@ class DetectionDrawer(QRunnable):
             top_right = corners[0, cols - 1].astype(float)
             bottom_left = corners[rows - 1, 0].astype(float)
             bottom_right = corners[rows - 1, cols - 1].astype(float)
-        except Exception:
+        except (IndexError, ValueError) as e:
+            print(f"[DEBUG] Error calculando escala de fuente dinámica ({type(e).__name__}): {e}")
             return self.base_font_scale
 
         width_top = np.linalg.norm(top_right - top_left) / max(1, cols - 1)

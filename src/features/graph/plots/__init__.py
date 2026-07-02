@@ -1,8 +1,8 @@
 """
-Paquete de componentes de graficacion individual.
+Paquete de componentes de graficación individual.
 
 Proporciona los controladores y widgets especializados para cada plot
-de linea (PyQtGraph) utilizado en las vistas angular y cartesiana.
+de línea (PyQtGraph) utilizado en las vistas angular y cartesiana.
 """
 
 from .plot_controller import PlotController

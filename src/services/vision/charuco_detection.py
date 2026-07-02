@@ -1,4 +1,3 @@
-import traceback
 import cv2
 import numpy as np
 from PyQt6.QtCore import QRunnable
@@ -24,7 +23,7 @@ class ChArUcoDetection(QRunnable):
         self.detection_callback = detection_callback
         self.error_callback = error_callback
 
-        # Incializa los detectores para el codigo ArUco y almacena los de ChArUco
+        # Inicializa los detectores para el código ArUco y almacena los de ChArUco
         dictionary_id = cv2.aruco.DICT_4X4_50
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(dictionary_id)
         self.charuco_board = cv2.aruco.CharucoBoard(
@@ -103,9 +102,9 @@ class ChArUcoDetection(QRunnable):
 
             self.detection_callback(
                 self.frame_id, self.to_physical_coordinates(unified_results))
-        except Exception:
+        except (cv2.error, ValueError, np.linalg.LinAlgError) as e:
             self.error_callback(
-                f"Error al detectar el tablero: {traceback.format_exc()} (ChArUcoDetector)")
+                f"Error al detectar el tablero: {type(e).__name__}: {e} (ChArUcoDetector)")
 
     def __extrapolate_corners(self, board, charuco_corners, charuco_ids, H) -> np.ndarray:
         """Extrapola las esquinas externas usando la homografía calculada.

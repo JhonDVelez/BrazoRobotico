@@ -1,14 +1,14 @@
 """
-Compensadores matematicos para comandos del robot fisico.
+Compensadores matemáticos para comandos del robot físico.
 
-El modulo mantiene ``RobotCompensator`` como fachada transparente para el
+El módulo mantiene ``RobotCompensator`` como fachada transparente para el
 servicio serial y añade ``CartesianPidCompensator`` para el control cartesiano
-realimentado que consume la cinematica validada en ``Codigos_test/p1.py``.
+realimentado que consume la cinemática validada en ``Codigos_test/p1.py``.
 
 Conexiones:
-    - RobotWorker usa ``RobotCompensator.process_data`` antes del envio serial.
+    - RobotWorker usa ``RobotCompensator.process_data`` antes del envío serial.
     - KinematicsWorker usa ``CartesianPidCompensator`` para transformar
-      telemetria fisica en comandos de servos mediante PID cartesiano.
+      telemetría física en comandos de servos mediante PID cartesiano.
 """
 
 import math
@@ -18,12 +18,12 @@ import numpy as np
 
 
 class CartesianPidCompensator:
-    """Controlador PID cartesiano con modelo cinematico del robot real.
+    """Controlador PID cartesiano con modelo cinemático del robot real.
 
-    Encapsula la cinematica directa, pseudoinversa del Jacobiano, limites
-    fisicos y memoria PID. No conoce el puerto serial ni emite señales; solo
+    Encapsula la cinemática directa, pseudoinversa del Jacobiano, límites
+    físicos y memoria PID. No conoce el puerto serial ni emite señales; solo
     calcula el siguiente comando de servos a partir del objetivo cartesiano y
-    la telemetria fisica actual.
+    la telemetría física actual.
     """
 
     _KP_AXES = np.array([1.38, 1.0, 1.38])
@@ -33,7 +33,7 @@ class CartesianPidCompensator:
                    (-130.0, 130.0), (-90.0, 120.0)]
 
     def __init__(self, links=None):
-        """Inicializa el modelo cinematico y la memoria del PID.
+        """Inicializa el modelo cinemático y la memoria del PID.
 
         Args:
             links (list, optional): Longitudes ``[L1, L2, L3, L4, L5]`` en mm.
@@ -50,13 +50,13 @@ class CartesianPidCompensator:
         self._previous_time = None
 
     def servo_to_joint_angles(self, positions: list) -> np.ndarray:
-        """Convierte posiciones absolutas de servos a angulos articulares.
+        """Convierte posiciones absolutas de servos a ángulos articulares.
 
         Args:
             positions (list): Posiciones de servos en grados absolutos 0-300.
 
         Returns:
-            np.ndarray: Angulos ``[q1, q2, q3, q4]`` en radianes.
+            np.ndarray: Ángulos ``[q1, q2, q3, q4]`` en radianes.
         """
         return np.radians([
             positions[0] - 150.0,
@@ -67,7 +67,7 @@ class CartesianPidCompensator:
 
     def joint_to_servo_angles(self, q_rad: np.ndarray,
                               current_positions: list | None = None) -> list:
-        """Convierte angulos articulares a comandos absolutos de servos.
+        """Convierte ángulos articulares a comandos absolutos de servos.
 
         Args:
             q_rad (np.ndarray): Angulos ``[q1, q2, q3, q4]`` en radianes.
@@ -86,13 +86,13 @@ class CartesianPidCompensator:
         return [max(0.0, min(300.0, float(value))) for value in servos]
 
     def forward_kinematics(self, q_rad: np.ndarray) -> np.ndarray:
-        """Calcula la posicion cartesiana del efector final.
+        """Calcula la posición cartesiana del efector final.
 
         Args:
-            q_rad (np.ndarray): Angulos ``[q1, q2, q3, q4]`` en radianes.
+            q_rad (np.ndarray): Ángulos ``[q1, q2, q3, q4]`` en radianes.
 
         Returns:
-            np.ndarray: Posicion cartesiana ``[x, y, z]`` en milimetros.
+            np.ndarray: Posición cartesiana ``[x, y, z]`` en milímetros.
         """
         t1, t2, t3, t4 = q_rad
         l1, l2, l3, l4, l5 = self._links
@@ -120,7 +120,7 @@ class CartesianPidCompensator:
         """Calcula un incremento articular por pseudoinversa del Jacobiano.
 
         Args:
-            q_rad (np.ndarray): Angulos articulares actuales en radianes.
+            q_rad (np.ndarray): Ángulos articulares actuales en radianes.
             cartesian_velocity (np.ndarray): Accion de control ``[vx, vy, vz]``.
 
         Returns:
@@ -135,11 +135,11 @@ class CartesianPidCompensator:
 
         Args:
             target_position (np.ndarray): Objetivo ``[x, y, z]`` en mm.
-            current_positions (list): Telemetria actual de servos 0-300.
+            current_positions (list): Telemetría actual de servos 0-300.
 
         Returns:
             tuple: ``(command, reached, current_position, error)`` donde
-            ``command`` es una lista de 6 servos o ``None`` si ya llego.
+            ``command`` es una lista de 6 servos o ``None`` si ya llegó.
         """
         now = time.time()
         dt = 0.01 if self._previous_time is None else now - self._previous_time
@@ -195,7 +195,7 @@ class CartesianPidCompensator:
         return control
 
     def apply_physical_limits(self, q_rad: np.ndarray) -> np.ndarray:
-        """Satura cada articulacion segun los limites fisicos del robot."""
+        """Satura cada articulación según los límites físicos del robot."""
         limited = []
         for index, angle in enumerate(q_rad):
             angle_deg = math.degrees(angle)
@@ -204,7 +204,7 @@ class CartesianPidCompensator:
         return np.array(limited)
 
     def _jacobian(self, q_rad: np.ndarray) -> np.ndarray:
-        """Calcula el Jacobiano analitico usado por la pseudoinversa."""
+        """Calcula el Jacobiano analítico usado por la pseudoinversa."""
         t1, t2, t3, t4 = q_rad
         _, l2, l3, l4, l5 = self._links
         s1, c1 = math.sin(t1), math.cos(t1)
@@ -230,8 +230,8 @@ class CartesianPidCompensator:
 class RobotCompensator(CartesianPidCompensator):
     """Compensador de comandos usado por el servicio serial del robot.
 
-    Hereda las utilidades cinematicas para reutilizacion, pero ``process_data``
-    permanece transparente: los modos sliders, pick-and-place y cinematica ya
+    Hereda las utilidades cinemáticas para reutilización, pero ``process_data``
+    permanece transparente: los modos sliders, pick-and-place y cinemática ya
     entregan comandos absolutos 0-300 al bus global.
     """
 

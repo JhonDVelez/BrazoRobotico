@@ -1,8 +1,8 @@
 """
-Paquete de servicios transversales de la aplicacion.
+Paquete de servicios transversales de la aplicación.
 
-Proporciona los subsistemas de datos, dispositivos, robot, simulacion,
-estilos, interfaz de usuario y vision artificial.
+Proporciona los subsistemas de datos, dispositivos, robot, simulación,
+estilos, interfaz de usuario y visión artificial.
 """
 
 from . import data, devices, robot, simulation, styling, ui, vision

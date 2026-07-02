@@ -1,15 +1,15 @@
 """
-Modulo donde se implementa el hilo de procesamiento para la captura de video.
+Módulo donde se implementa el hilo de procesamiento para la captura de video.
 
-Este modulo contiene la clase CameraWorker, la cual gestiona la captura de frames,
-la delegacion de tareas de vision artificial (deteccion de ChArUco, esferas y poses)
-mediante un QThreadPool, y la emision de resultados procesados para su visualizacion.
+Este módulo contiene la clase CameraWorker, la cual gestiona la captura de frames,
+la delegación de tareas de visión artificial (detección de ChArUco, esferas y poses)
+mediante un QThreadPool, y la emisión de resultados procesados para su visualización.
 
 Conexiones:
-    - Escucha a `FrameCounter` para determinar cuando procesar un frame semantico.
-    - El estado de busqueda (ChArUco/esferas) y de overlays lo inyecta el
+    - Escucha a `FrameCounter` para determinar cuando procesar un frame semántico.
+    - El estado de búsqueda (ChArUco/esferas) y de overlays lo inyecta el
       CameraController mediante slots locales; el worker no accede al bus global.
-    - Emite resultados de deteccion mediante señales locales (`charuco_detected`)
+    - Emite resultados de detección mediante señales locales (`charuco_detected`)
       que el controlador puentea hacia el bus global.
     - Reporta frames procesados mediante `frame_ready` para la UI.
 """
@@ -26,9 +26,9 @@ class CameraWorker(QThread):
     """
     Worker thread para manejar la captura y procesamiento concurrente de video.
 
-    Orquesta la captura de imagenes y despacha tareas de vision a hilos secundarios
+    Orquesta la captura de imágenes y despacha tareas de visión a hilos secundarios
     del sistema, manteniendo un buffer de resultados sincronizados para evitar latencia
-    en la visualizacion.
+    en la visualización.
 
     Attributes:
         frame_ready (pyqtSignal): Emite el frame (np.ndarray) listo para mostrar.
@@ -37,18 +37,19 @@ class CameraWorker(QThread):
     frame_ready = pyqtSignal(object)  # numpy BGR frame or UMat
     error_occurred = pyqtSignal(str)
     sphere_ready = pyqtSignal(dict)
-    charuco_detected = pyqtSignal(int, object)  # (frame_id, data) -> bus via controller
+    # (frame_id, data) -> bus via controller
+    charuco_detected = pyqtSignal(int, object)
 
     def __init__(self, camera_index: int = 0, camera_config: dict = None, is_calibration: bool = False,
                  search_state: tuple = (False, False), view_state: tuple = (False, False)):
         """
-        Inicializa el worker de camara con la configuracion proporcionada.
+        Inicializa el worker de cámara con la configuración proporcionada.
 
         Args:
-            camera_index (int): Indice de la camara en el sistema (0, 1, etc.).
-            camera_config (dict, optional): Configuracion de matriz, distorsion y colores.
-            is_calibration (bool): Indica si se opera en modo calibracion (sin vision pesada).
-            search_state (tuple): Estado inicial (charuco, circle) de las busquedas.
+            camera_index (int): Índice de la cámara en el sistema (0, 1, etc.).
+            camera_config (dict, optional): Configuración de matriz, distorsión y colores.
+            is_calibration (bool): Indica si se opera en modo calibración (sin visión pesada).
+            search_state (tuple): Estado inicial (charuco, circle) de las búsquedas.
             view_state (tuple): Estado inicial (charuco, circle) de los overlays.
         """
         super().__init__()
@@ -88,20 +89,20 @@ class CameraWorker(QThread):
 
     def run(self):
         """
-        Bucle de ejecucion principal del hilo.
+        Bucle de ejecución principal del hilo.
 
-        Captura frames continuamente y decide que tareas de vision despachar
-        basandose en el estado del sistema y la cadencia de `FrameCounter`.
+        Captura frames continuamente y decide que tareas de visión despachar
+        basándose en el estado del sistema y la cadencia de `FrameCounter`.
         """
         try:
             if not self.camera.camera_on():
-                self.error_occurred.emit(
-                    "No se pudo inicializar la cámara (CameraWorker)")
-                return
+                raise IOError(
+                    "No se pudo inicializar la cámara, verifique la conexión de la cámara.")
             while self._running:
                 frame = self.camera.take_frame()
                 if frame is None:
-                    raise IOError("No se pudo obtener frame de la cámara")
+                    raise IOError(
+                        "No fue posible obtener el frame de video, verifique la conexión de la cámara.")
 
                 frame_umat = cv2.UMat(frame.copy())
 
@@ -129,13 +130,12 @@ class CameraWorker(QThread):
                 view = self.draw_view_state()
                 self.thread_pool.start(DetectionDrawer(
                     frame, self.results.get(
-                        self.frame_id-1), view, self.custom_origin,
+                        self.frame_id-1, {}), view, self.custom_origin,
                     self.frame_size[0], self._emit_frame_ready, self._emit_error))
                 self.frame_counter.tick()
 
         except (OSError, RuntimeError) as e:
-            self.error_occurred.emit(
-                f"Error en worker thread (CameraWorker): {e}")
+            self.error_occurred.emit(str(e))
         finally:
             self.camera.camera_off()
 
@@ -151,7 +151,7 @@ class CameraWorker(QThread):
 
     def _emit_error(self, msg: str):
         """
-        Encapsula la emision de errores desde hilos secundarios.
+        Encapsula la emisión de errores desde hilos secundarios.
 
         Args:
             msg (str): Mensaje de error.
@@ -160,7 +160,7 @@ class CameraWorker(QThread):
 
     def stop(self):
         """
-        Detiene la ejecucion del worker de forma segura, esperando a las tareas pendientes.
+        Detiene la ejecución del worker de forma segura, esperando a las tareas pendientes.
         """
         self._running = False
         # Esperar a que se procesen tareas pendientes en el pool
@@ -170,24 +170,25 @@ class CameraWorker(QThread):
             self.wait(1000)
         try:
             self.camera.camera_off()
-        except Exception:
+        except (OSError, RuntimeError):
+            # Falla al liberar cámara en parada forzada — ignorar
             pass
 
     def pause(self):
         """
-        Pausa el bucle de captura estableciendo el flag de ejecucion a False.
+        Pausa el bucle de captura estableciendo el flag de ejecución a False.
         """
         self._running = False
 
     def resume(self):
         """
-        Reanuda el bucle de captura estableciendo el flag de ejecucion a True.
+        Reanuda el bucle de captura estableciendo el flag de ejecución a True.
         """
         self._running = True
 
     def _on_process_frame(self):
         """
-        Slot que habilita el procesamiento de vision pesada para el siguiente frame.
+        Slot que habilita el procesamiento de visión pesada para el siguiente frame.
         """
         self._process_frame = True
 
@@ -196,7 +197,7 @@ class CameraWorker(QThread):
         Obtiene el estado actual de overlays de forma thread-safe.
 
         Returns:
-            tuple: (charuco_visible, circle_visible).
+            tuple: (ChArUco_visible, circle_visible).
         """
         with self.lock:
             return self._view_state
@@ -204,7 +205,7 @@ class CameraWorker(QThread):
     @pyqtSlot(bool, bool)
     def set_search_state(self, charuco: bool, circle: bool):
         """
-        Actualiza el estado de busqueda inyectado por el controlador.
+        Actualiza el estado de búsqueda inyectado por el controlador.
 
         Args:
             charuco (bool): True para buscar el tablero ChArUco.
@@ -219,8 +220,8 @@ class CameraWorker(QThread):
         Actualiza el estado de overlays inyectado por el controlador.
 
         Args:
-            charuco (bool): True para dibujar la cuadricula ChArUco.
-            circle (bool): True para dibujar la geometria de esferas.
+            ChArUco (bool): True para dibujar la cuadrícula ChArUco.
+            circle (bool): True para dibujar la geometría de esferas.
         """
         with self.lock:
             self._view_state = (charuco, circle)
@@ -228,10 +229,10 @@ class CameraWorker(QThread):
     @pyqtSlot(float)
     def set_sphere_radius(self, radius: float):
         """
-        Actualiza el radio de la esfera usado en la estimacion de pose.
+        Actualiza el radio de la esfera usado en la estimación de pose.
 
         Args:
-            radius (float): Nuevo radio en milimetros.
+            radius (float): Nuevo radio en milímetros.
         """
         with self.lock:
             self.sphere_radius = float(radius)
@@ -239,11 +240,11 @@ class CameraWorker(QThread):
     @pyqtSlot(int, object)
     def on_charuco_done(self, fid: int, data: dict):
         """
-        Callback ejecutado cuando finaliza la deteccion de ChArUco.
+        Callback ejecutado cuando finaliza la detección de ChArUco.
 
         Args:
             fid (int): ID del frame procesado.
-            data (dict): Resultados de la deteccion (corners, ids, roi).
+            data (dict): Resultados de la detección (corners, ids, roi).
         """
         with self.lock:
             entry = self.results.setdefault(
@@ -260,7 +261,7 @@ class CameraWorker(QThread):
     @pyqtSlot(int, object)
     def on_circles_done(self, fid: int, data: dict):
         """
-        Callback ejecutado cuando finaliza la deteccion de esferas de color.
+        Callback ejecutado cuando finaliza la detección de esferas de color.
 
         Args:
             fid (int): ID del frame procesado.
@@ -275,7 +276,7 @@ class CameraWorker(QThread):
 
     def on_pose_done(self, fid: int, poses: dict):
         """
-        Callback ejecutado cuando finaliza la estimacion de pose 3D.
+        Callback ejecutado cuando finaliza la estimación de pose 3D.
 
         Args:
             fid (int): ID del frame procesado.

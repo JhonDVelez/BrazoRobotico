@@ -1,11 +1,11 @@
 """
-Modulo que define el gestor de senales para el dominio de cinematica.
+Módulo que define el gestor de señales para el dominio de cinemática.
 
-Proporciona el singleton KinematicsSignalManager, el bus de intencion saliente
-del control cartesiano. El KinematicsController publica aqui sus peticiones de
+Proporciona el singleton KinematicsSignalManager, el bus de intención saliente
+del control cartesiano. El KinematicsController publica aquí sus peticiones de
 cambio de modo y de objetivo; el DataController las escucha y orquesta el resto
-del sistema. De este modo la feature de cinematica deja de conocer el bus de
-simulacion.
+del sistema. De este modo la feature de cinemática deja de conocer el bus de
+simulación.
 """
 
 from PyQt6.QtCore import pyqtSignal
@@ -14,10 +14,10 @@ from .base import _SignalManager
 
 class KinematicsSignalManager(_SignalManager):
     """
-    Gestor de senales especifico para el control cinematico (cartesiano).
+    Gestor de señales específico para el control cinemático (cartesiano).
 
-    Hereda las senales base. El KinematicsController emite ``change_mode_signal``
-    y ``update_target_signal``, y participa en el dialogo de cinematica inversa
+    Hereda las señales base. El KinematicsController emite ``change_mode_signal``
+    y ``update_target_signal``, y participa en el diálogo de cinemática inversa
     mediado por el DataController.
 
     Signals (heredadas de _SignalManager):
@@ -28,7 +28,7 @@ class KinematicsSignalManager(_SignalManager):
 
     Signals (propias):
         inverse_kinematics_requested: Sender DataController, receiver
-            KinematicsController. Solicita el calculo de IK para una accion.
+            KinematicsController. Solicita el cálculo de IK para una acción.
         inverse_kinematics_ready: Sender KinematicsController, receiver
             DataController. Publica el resultado de IK calculado.
     """
@@ -39,10 +39,10 @@ class KinematicsSignalManager(_SignalManager):
     @classmethod
     def get_instance(cls):
         """
-        Obtiene la instancia unica del gestor (patron Singleton).
+        Obtiene la instancia única del gestor (patrón Singleton).
 
         Returns:
-            KinematicsSignalManager: Instancia unica.
+            KinematicsSignalManager: Instancia única.
         """
         if cls._instance is None:
             cls._instance = cls()

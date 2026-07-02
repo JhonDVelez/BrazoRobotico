@@ -1,8 +1,8 @@
 """
-Modulo que define el gestor de senales para el dominio de simulacion.
+Módulo que define el gestor de señales para el dominio de simulación.
 
-Proporciona el singleton SimulationSignalManager con senales para
-la actualizacion de posiciones de esferas en la escena 3D.
+Proporciona el singleton SimulationSignalManager con señales para
+la actualización de posiciones de esferas en la escena 3D.
 """
 
 from PyQt6.QtCore import pyqtSignal
@@ -11,9 +11,9 @@ from .base import _SignalManager
 
 class SimulationSignalManager(_SignalManager):
     """
-    Gestor de senales especifico para el dominio de simulacion.
+    Gestor de señales específico para el dominio de simulación.
 
-    Hereda las senales base y anade la senal ``sphere_pos`` para
+    Hereda las señales base y añade la señal ``sphere_pos`` para
     actualizar las posiciones 3D de las esferas detectadas.
 
     Signals:
@@ -37,10 +37,10 @@ class SimulationSignalManager(_SignalManager):
     @classmethod
     def get_instance(cls):
         """
-        Obtiene la instancia unica del gestor (patron Singleton).
+        Obtiene la instancia única del gestor (patrón Singleton).
 
         Returns:
-            SimulationSignalManager: Instancia unica.
+            SimulationSignalManager: Instancia única.
         """
         if cls._instance is None:
             cls._instance = cls()

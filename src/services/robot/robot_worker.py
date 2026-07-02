@@ -1,13 +1,13 @@
 """
-Modulo para la comunicacion serial con el hardware del robot.
+Módulo para la comunicación serial con el hardware del robot.
 
-Este modulo define la clase RobotWorker, la cual gestiona el envio de comandos
-y la recepcion de telemetria (posicion y temperatura) desde la placa de
+Este módulo define la clase RobotWorker, la cual gestiona el envío de comandos
+y la recepción de telemetría (posición y temperatura) desde la placa de
 control (OpenCM9.04) utilizando un hilo dedicado.
 
 Conexiones:
-    - Utiliza `PhysicalSignalManager` para reportar el estado de conexion.
-    - Emite `data_received` al recibir telemetria valida.
+    - Utiliza `PhysicalSignalManager` para reportar el estado de conexión.
+    - Emite `data_received` al recibir telemetría válida.
     - Recibe datos mediante una cola (`queue.Queue`) para evitar bloqueos.
 """
 
@@ -19,13 +19,13 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 class RobotWorker(QThread):
     """
-    Worker encargado de la comunicacion serial bidireccional con el robot.
+    Worker encargado de la comunicación serial bidireccional con el robot.
 
-    Gestiona un buffer de recepcion, procesa expresiones regulares para extraer
-    datos de telemetria y utiliza una cola de prioridad para los comandos de salida.
+    Gestiona un buffer de recepción, procesa expresiones regulares para extraer
+    datos de telemetría y utiliza una cola de prioridad para los comandos de salida.
 
     Attributes:
-        data_received (pyqtSignal): Señal que envia (lista_posiciones, lista_temperaturas).
+        data_received (pyqtSignal): Señal que envía (lista_posiciones, lista_temperaturas).
         connection_status_changed (pyqtSignal): Señal que informa cambio en el estado serie.
     """
     # Definimos señales locales para el Controller
@@ -34,7 +34,7 @@ class RobotWorker(QThread):
 
     def __init__(self, com: str, compensator=None):
         """
-        Inicializa el worker serial y abre la conexion con el puerto COM.
+        Inicializa el worker serial y abre la conexión con el puerto COM.
 
         Args:
             com (str): Nombre del puerto serial (e.g., 'COM3' o '/dev/ttyACM0').
@@ -74,7 +74,7 @@ class RobotWorker(QThread):
 
     def get_is_connected(self) -> bool:
         """
-        Verifica si hay una conexion serial activa.
+        Verifica si hay una conexión serial activa.
 
         Returns:
             bool: True si esta conectado.
@@ -83,7 +83,7 @@ class RobotWorker(QThread):
 
     def get_last_positions(self) -> list:
         """
-        Obtiene la ultima lectura de posiciones de los servos.
+        Obtiene la última lectura de posiciones de los servos.
 
         Returns:
             list: Lista de 6 posiciones (grados) o None.
@@ -92,7 +92,7 @@ class RobotWorker(QThread):
 
     def get_last_temperatures(self) -> list:
         """
-        Obtiene la ultima lectura de temperaturas de los motores.
+        Obtiene la última lectura de temperaturas de los motores.
 
         Returns:
             list: Lista de 6 temperaturas (Celsius) o None.
@@ -101,9 +101,9 @@ class RobotWorker(QThread):
 
     def enqueue_data(self, valorm):
         """
-        Añade nuevos comandos a la cola de envio.
+        Añade nuevos comandos a la cola de envío.
 
-        Descarta comandos anteriores que aun no se hayan procesado para
+        Descarta comandos anteriores que aún no se hayan procesado para
         asegurar que el robot reciba siempre el estado mas reciente.
 
         Args:
@@ -118,7 +118,7 @@ class RobotWorker(QThread):
 
     def run(self):
         """
-        Bucle principal del hilo de comunicacion.
+        Bucle principal del hilo de comunicación.
 
         Extrae comandos de la cola y ejecuta la transaccion serial.
         """
@@ -132,20 +132,20 @@ class RobotWorker(QThread):
 
     def _send_and_receive(self, valorm):
         """
-        Realiza la transaccion de bajo nivel: envia PWMs y recibe telemetria.
+        Realiza la transacción de bajo nivel: envía PWMs y recibe telemetría.
 
         Args:
-            valorm (list): Comandos de posicion originales.
+            valorm (list): Comandos de posición originales.
         """
-        # Intercepcion de datos antes del procesamiento de envio (e.g. compensacion de backlash)
+        # Intercepción de datos antes del procesamiento de envío (e.g. compensación de backlash)
         if self._compensator:
             valorm = self._compensator.process_data(valorm)
 
         if not all(0 <= x <= 300 for x in valorm):
-            print("Error de envio de datos: Valores fuera de rango")
+            print("Error de envío de datos: Valores fuera de rango")
             return
 
-        # Reconexion automatica si el puerto se cerro
+        # Reconexión automática si el puerto se cerró
         if self._cm904 is None or not getattr(self._cm904, 'is_open', False):
             try:
                 self._cm904 = serial.Serial(self._com, 9600, timeout=1)
@@ -157,29 +157,29 @@ class RobotWorker(QThread):
 
         try:
             self._cm904.reset_input_buffer()
-        except Exception as e:
-            print(f"Error limpiando buffer: {e}")
+        except (serial.SerialException, OSError) as e:
+            print(f"[DEBUG] Error limpiando buffer serial: {e}")
             self.connection_status_changed.emit(False)
             self._cm904 = None
             return
 
-        # Envio de trama compacta: A<pwm>B<pwm>C<pwm>D<pwm>E<pwm>F<pwm>\n
+        # Envío de trama compacta: A<pwm>B<pwm>C<pwm>D<pwm>E<pwm>F<pwm>\n
         try:
             frame = self._build_command_frame(valorm)
             self._cm904.write(frame)
             self._cm904.flush()
         except (serial.SerialException, OSError) as e:
-            print(f"Error al escribir en serial: {e}")
+            print(f"[DEBUG] Error al escribir en serial: {e}")
             self.connection_status_changed.emit(False)
             try:
                 if self._cm904:
                     self._cm904.close()
-            except Exception:
+            except (serial.SerialException, OSError):
                 pass
             self._cm904 = None
             return
 
-        # Recepcion y parseo de telemetria
+        # Recepción y parseo de telemetría
         try:
             raw_frame = self._read_telemetry_frame()
             if not raw_frame:
@@ -196,8 +196,10 @@ class RobotWorker(QThread):
             self.data_received.emit(
                 self._last_positions.copy(), self._last_temperaturas.copy())
 
-        except Exception as e:
-            print(f"Error lectura: {e}")
+        except (serial.SerialException, OSError, UnicodeDecodeError) as e:
+            print(f"[DEBUG] Error en lectura de telemetría ({type(e).__name__}): {e}")
+            self.connection_status_changed.emit(False)
+            self._cm904 = None
 
     def _build_command_frame(self, positions: list) -> bytes:
         """
@@ -218,7 +220,7 @@ class RobotWorker(QThread):
 
     def _read_telemetry_frame(self) -> str:
         """
-        Lee una rafaga de telemetria disponible sin bloquear el hilo serial.
+        Lee una ráfaga de telemetría disponible sin bloquear el hilo serial.
 
         Returns:
             str: Texto ASCII acumulado desde el puerto serie.
@@ -229,7 +231,8 @@ class RobotWorker(QThread):
         while time.time() - start < timeout:
             try:
                 available = self._cm904.in_waiting
-            except Exception:
+            except (serial.SerialException, OSError):
+                print("[DEBUG] Puerto serial perdido durante lectura de in_waiting")
                 self.connection_status_changed.emit(False)
                 self._cm904 = None
                 return ""
@@ -275,10 +278,10 @@ class RobotWorker(QThread):
 
     def _filter_positions(self, positions: list) -> list:
         """
-        Filtra tramas nulas y saltos electromagneticos de la telemetria fisica.
+        Filtra tramas nulas y saltos electromagnéticos de la telemetría física.
 
         Args:
-            positions (list): Lecturas crudas de posicion para los motores A-F.
+            positions (list): Lecturas crudas de posición para los motores A-F.
 
         Returns:
             list: Posiciones validadas y persistentes para publicar al sistema.
@@ -304,13 +307,13 @@ class RobotWorker(QThread):
 
     def stop(self):
         """
-        Detiene el hilo de ejecucion y cierra el puerto serial de forma segura.
+        Detiene el hilo de ejecución y cierra el puerto serial de forma segura.
         """
         self._running = False
         try:
             if self._cm904 and getattr(self._cm904, 'is_open', False):
                 self._cm904.close()
-        except Exception:
+        except (serial.SerialException, OSError):
             pass
         self.connection_status_changed.emit(False)
         self.quit()

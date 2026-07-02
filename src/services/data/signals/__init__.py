@@ -1,8 +1,8 @@
 """
-Paquete de gestores de senales del sistema.
+Paquete de gestores de señales del sistema.
 
-Cada modulo define un SignalManager especializado (simulacion, fisico,
-busqueda visual, vista de dibujo, camara, tema) que extiende la clase
+Cada módulo define un SignalManager especializado (simulación, físico,
+búsqueda visual, vista de dibujo, cámara, tema) que extiende la clase
 base _SignalManager.
 """
 

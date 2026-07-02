@@ -1,9 +1,9 @@
 """
-Modulo que define la ventana independiente para la calibracion de color.
+Módulo que define la ventana independiente para la calibración de color.
 
-Este modulo contiene la clase ColorWindow, la cual proporciona un entorno
-frameless dedicado para ajustar los parametros de vision (HSV), integrando
-la arquitectura de controladores y servicios de la aplicacion.
+Este módulo contiene la clase ColorWindow, la cual proporciona un entorno
+frameless dedicado para ajustar los parámetros de visión (HSV), integrando
+la arquitectura de controladores y servicios de la aplicación.
 """
 
 import os
@@ -22,10 +22,10 @@ from src.services.devices.device_monitor import get_device_monitor
 
 class ColorWindow(FramelessMainWindow, ColorMenuMixin):
     """
-    Ventana para la calibracion de colores HSV.
+    Ventana para la calibración de colores HSV.
 
     Mantiene la paridad visual y estructural con el resto de la suite de
-    calibracion, delegando la logica de negocio al ColorController.
+    calibración, delegando la lógica de negocio al ColorController.
     """
 
     def __init__(self):
@@ -109,12 +109,12 @@ class ColorWindow(FramelessMainWindow, ColorMenuMixin):
 
     def _on_theme_changed(self, is_dark: bool):
         """
-        Slot para manejar la actualizacion sincronizada del tema.
+        Slot para manejar la actualización sincronizada del tema.
 
         Args:
             is_dark (bool): True si el tema es oscuro.
         """
-        self.theme_manager._apply_theme_from_signal(is_dark)
+        self.theme_manager.apply_theme_from_signal(is_dark)
 
     def closeEvent(self, event):
         """

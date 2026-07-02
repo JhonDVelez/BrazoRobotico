@@ -1,14 +1,14 @@
 """
-Modulo principal de la interfaz grafica de usuario.
+Módulo principal de la interfaz gráfica de usuario.
 
-Define la clase MainWindow, la cual orquesta la integracion de multiples mixins
-para gestionar la inicializacion, acciones, menus y la barra de titulo personalizada.
-Centraliza el control de la simulacion y la conexion con el hardware.
+Define la clase MainWindow, la cual orquesta la integración de múltiples mixins
+para gestionar la inicialización, acciones, menús y la barra de título personalizada.
+Centraliza el control de la simulación y la conexión con el hardware.
 
 Conexiones:
-    - Hereda de `FramelessMainWindow` para una estetica moderna sin bordes.
-    - Utiliza `ThemeManager` para la gestion de estilos claro/oscuro.
-    - Se comunica con controladores de camara, simulacion, cinematica y sliders.
+    - Hereda de `FramelessMainWindow` para una estética moderna sin bordes.
+    - Utiliza `ThemeManager` para la gestión de estilos claro/oscuro.
+    - Se comunica con controladores de cámara, simulación, cinemática y sliders.
 """
 
 from qframelesswindow import FramelessMainWindow
@@ -21,15 +21,17 @@ from src.services.devices.device_monitor import get_device_monitor
 from src.services.data.signals import SearchSignalManager, ThemeSignalManager, ConfigSignalManager
 from src.services.styling import ThemeManager
 from src.services.data import config_manager, DataController
+from src.services.ui.notification_manager import NotificationManager
+from src.services.data.enums.types import NotificationType
 
 
 class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuMixin):
     """
-    Ventana principal de la aplicacion de control del brazo robotico.
+    Ventana principal de la aplicación de control del brazo robótico.
 
-    Hereda de multiples mixins que organizan la estructura de la interfaz,
-    widgets y comportamiento de las diferentes secciones (Camara, Graficos,
-    Controles y Simulacion).
+    Hereda de múltiples mixins que organizan la estructura de la interfaz,
+    widgets y comportamiento de las diferentes secciones (Cámara, Gráficos,
+    Controles y Simulación).
     """
 
     def __init__(self, quick3d, robot_id):
@@ -38,7 +40,7 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
 
         Args:
             quick3d (PreloadedContainer): Datos y recursos pre-cargados de QML/Quick3D.
-            robot_id (str): Identificador unico para el robot (URDF/Config).
+            robot_id (str): Identificador único para el robot (URDF/Config).
         """
         super().__init__()
         # Inicialización centralizada de configuración (antes de cualquier controller)
@@ -47,8 +49,6 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         for filename in config_manager.DEFAULTS.keys():
             data = config_manager.load(filename)
             self.config_manager.set_all_config(filename, data)
-        self.config_manager.change_requested.connect(
-            self._on_config_change_requested)
 
         # Orquestador Central de Datos e Inter-Controladores
         self.data_controller = DataController()
@@ -107,8 +107,9 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
             self.actions_toolbar
         )
 
-        # Cargar configuracion de visibilidad de paneles desde archivo
-        settings = self.config_manager.get_param("settings.json")
+        # Cargar configuración de visibilidad de paneles desde archivo
+        settings: dict = self.config_manager.get_param(
+            "settings.json", default={})
         content = settings.get("content", {})
         mode = settings.get('mode', {})
         mapping_content = {
@@ -128,7 +129,7 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
             # Sincronizar dock -> action (por si se cierra desde el botón 'X' del dock)
             dock.visibilityChanged.connect(action.setChecked)
 
-        # Cargar configuracion de busqueda visual
+        # Cargar configuración de búsqueda visual
         camera = settings.get("camera", {})
         search_manager = SearchSignalManager.get_instance()
         for key, widget in camera.items():
@@ -141,7 +142,7 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         self.hab_simulation = settings.get(
             "simulation", {}).get("activated", True)
 
-        # Configurar modo de control inicial (Sliders o Cinematica)
+        # Configurar modo de control inicial (Sliders o Cinemática)
         mapping_mode = {
             'sliders': self.sliders_controller.get_widget(),
             'kinematics': self.kinematics_controller.get_widget()
@@ -169,7 +170,8 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         self.camera_devices.get_cameras()
         self.setCentralWidget(container)
 
-        # Restaurar geometria desde config
+        # Restaurar geometría desde config
+        self.setMinimumSize(800, 600)
         settings = config_manager.load("settings.json")
         win_cfg = settings.get("window", {})
         if win_cfg.get("maximized"):
@@ -180,6 +182,9 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
             self.resize(w, h)
             self.center_window()
 
+        noti_manager = NotificationManager.get_instance()
+        noti_manager.set_main_window(self)
+
     def _on_external_theme_changed(self, is_dark: bool):
         """
         Actualiza el estilo cuando se detecta un cambio de tema externo.
@@ -187,14 +192,7 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         Args:
             is_dark (bool): True si el nuevo tema es oscuro.
         """
-        self.theme_manager._apply_theme_from_signal(is_dark)
-
-    def _on_config_change_requested(self, filename: str, keys: list, value: object):
-        """
-        Persiste cambios de configuracion solicitados via ConfigSignalManager.
-        """
-        config_manager.set_value(filename, keys, value)
-        self.config_manager.update_param(filename, keys, value)
+        self.theme_manager.apply_theme_from_signal(is_dark)
 
     def setup_connections(self):
         """
@@ -219,7 +217,7 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
             self.controls_action.triggered.connect(
                 self.toggle_visibility_controls_event)
 
-        # Configuracion de deteccion visual
+        # Configuración de detección visual
         search_manager = SearchSignalManager.get_instance()
         if hasattr(self, 'charuco_action'):
             self.charuco_action.toggled.connect(
@@ -263,7 +261,7 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         if hasattr(self, 'reset_action'):
             self.reset_action.triggered.connect(self.reset)
 
-        # Activacion de simulacion fisica
+        # Activación de simulación física
         if hasattr(self, 'simulation_action'):
             self.simulation_action.triggered.connect(
                 self.toggle_activation_simulation_event)
@@ -278,23 +276,20 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         if hasattr(self, 'aa_action'):
             self.aa_action.triggered.connect(self.toggle_aa_event)
 
-        # Control de temas y conexion de hardware
+        # Control de temas y conexión de hardware
         if hasattr(self, 'theme_action'):
             self.theme_action.triggered.connect(
                 self.theme_manager.toggle_theme_event)
-
-        self.theme_signal_manager.theme_changed.connect(
-            self._on_external_theme_changed)
 
         if hasattr(self, 'connect_action'):
             self.connect_action.triggered.connect(self.connect_robot)
 
     def closeEvent(self, event):
         """
-        Gestiona el cierre de la aplicacion y la liberacion de recursos.
+    Gestiona el cierre de la aplicación y la liberación de recursos.
 
-        Muestra un dialogo de confirmacion y asegura que los hilos de camara,
-        simulacion y ventanas secundarias se detengan correctamente.
+    Muestra un diálogo de confirmación y asegura que los hilos de cámara,
+    simulación y ventanas secundarias se detengan correctamente.
 
         Args:
             event (QCloseEvent): Evento de cierre de Qt.
@@ -315,7 +310,7 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         msg.exec()
 
         if msg.clickedButton() == si_btn:
-            # Guardar geometria de ventana
+            # Guardar geometría de ventana
             is_max = self.isMaximized()
             if not is_max:
                 config_manager.set_value(
@@ -325,7 +320,7 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
             config_manager.set_value(
                 "settings.json", ["window", "maximized"], is_max)
 
-            # Detencion segura de procesos
+            # Detención segura de procesos
             if hasattr(self, "calibration_window"):
                 if hasattr(self.calibration_window, "calibration_interface"):
                     self.calibration_window.calibration_interface.stop_video()
@@ -336,6 +331,8 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
                 self.color_window.close()
             if hasattr(self, "camera_controller"):
                 self.camera_controller.stop_video()
+            if hasattr(self, 'graph_controller'):
+                self.graph_controller.cleanup()
             event.accept()
         else:
             event.ignore()

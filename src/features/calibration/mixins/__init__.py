@@ -1,8 +1,8 @@
 """
-Paquete de mixins para el modulo de calibracion.
+Paquete de mixins para el módulo de calibración.
 
-Proporciona funcionalidad compartida de menus especificos para las
-ventanas de calibracion, siguiendo el patron Mixin.
+Proporciona funcionalidad compartida de menús específicos para las
+ventanas de calibración, siguiendo el patrón Mixin.
 """
 
 from .calibration_menu_mixin import CalibrationMenuMixin

@@ -1,11 +1,11 @@
 """
-Modulo que define el overlay de interaccion para el modo Pick and Place.
+Módulo que define el overlay de interacción para el modo Pick and Place.
 
-Este modulo contiene la clase PickAndPlaceOverlay, un widget transparente
-que se superpone a la camara para gestionar la seleccion de objetos.
+Este módulo contiene la clase PickAndPlaceOverlay, un widget transparente
+que se superpone a la cámara para gestionar la selección de objetos.
 """
 
-from PyQt6.QtCore import Qt, pyqtSignal, QPointF
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QWidget, QPushButton
 from PyQt6.QtGui import QPainter, QPen, QColor, QIcon
 import numpy as np
@@ -15,7 +15,7 @@ from src.services.vision.geometry_utils import pixel_to_board_coordinates
 
 class PickAndPlaceWidget(QWidget):
     """
-    Widget transparente que se superpone a la camara para detectar clics.
+    Widget transparente que se superpone a la cámara para detectar clics.
 
     Attributes:
         sphere_selected (pyqtSignal): Emite el color de la esfera confirmada.
@@ -25,13 +25,14 @@ class PickAndPlaceWidget(QWidget):
     sphere_selected = pyqtSignal(str)
     place_requested = pyqtSignal(dict)
     mode_changed = pyqtSignal(str)
+    error_occurred = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setMouseTracking(True)
 
-        # Referencia a la geometria original de la camara para mapeo
+        # Referencia a la geometría original de la cámara para mapeo
         self.orig_w = 1280
         self.orig_h = 720
         self.detected_circles_2d = {}
@@ -45,7 +46,7 @@ class PickAndPlaceWidget(QWidget):
         self.hide()
 
     def __setup_ui(self):
-        """Configura los botones de confirmacion y reset."""
+        """        Configura los botones de confirmación y reset."""
         self.confirm_button = QPushButton("Confirmar", self)
         self.confirm_button.setStyleSheet("""
             QPushButton {
@@ -181,10 +182,10 @@ class PickAndPlaceWidget(QWidget):
 
     def mousePressEvent(self, event):
         """
-        Detecta clics sobre la imagen de camara cuando Pick and Place esta activo.
+        Detecta clics sobre la imagen de cámara cuando Pick and Place está activo.
 
         El overlay consulta al `CameraWidget` padre para mapear coordenadas de UI
-        a coordenadas originales de imagen, sin acoplar la camara a este feature.
+        a coordenadas originales de imagen, sin acoplar la cámara a este feature.
         """
         if event.button() != Qt.MouseButton.LeftButton:
             super().mousePressEvent(event)
@@ -199,7 +200,7 @@ class PickAndPlaceWidget(QWidget):
 
     def _handle_click_with_mapping(self, pos, mapping):
         """
-        Busca una esfera cercana al clic usando la geometria visible del pixmap.
+        Busca una esfera cercana al clic usando la geometría visible del pixmap.
         """
         if mapping[0] is None:
             self._hide_confirm_button()
@@ -237,7 +238,7 @@ class PickAndPlaceWidget(QWidget):
         if not self._charuco_pose:
             return
 
-        # Verificar datos de calibracion y pose
+        #         Verificar datos de calibración y pose
         required = ['rvec', 'tvec', 'camera_matrix', 'dist_coeffs']
         if not all(k in self._charuco_pose and self._charuco_pose[k] is not None for k in required):
             print(

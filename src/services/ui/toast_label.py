@@ -1,8 +1,8 @@
 """
-Modulo de notificaciones emergentes (toast) para la interfaz.
+Módulo de notificaciones emergentes (toast) para la interfaz.
 
 Proporciona ToastLabel, un QLabel personalizado que muestra mensajes
-temporales con animacion de fundido (fade in/out) en la parte inferior
+temporales con animación de fundido (fade in/out) en la parte inferior
 de la ventana.
 """
 
@@ -12,11 +12,11 @@ from PyQt6.QtGui import QPixmap
 
 
 class ToastLabel(QLabel):
-    """Etiqueta emergente temporal con animacion de fundido.
+    """Etiqueta emergente temporal con animación de fundido.
 
     Muestra mensajes en la parte inferior de la ventana padre con
-    una animacion de entrada (fade in), una pausa configurable y
-    una animacion de salida (fade out).
+    una animación de entrada (fade in), una pausa configurable y
+    una animación de salida (fade out).
 
     Args:
         parent (QWidget, optional): Widget padre.
@@ -43,15 +43,15 @@ class ToastLabel(QLabel):
         self.hide()
 
     def show_message(self, text, duration=2000):
-        """Muestra un mensaje con animacion de fundido.
+        """Muestra un mensaje con animación de fundido.
 
-        Detiene cualquier animacion previa, posiciona el mensaje
+        Detiene cualquier animación previa, posiciona el mensaje
         centrado en la parte inferior de la ventana padre e inicia
-        la animacion de entrada.
+        la animación de entrada.
 
         Args:
             text (str): Texto del mensaje a mostrar.
-            duration (int, optional): Duracion en ms antes de
+            duration (int, optional): Duración en ms antes de
                 iniciar el fundido de salida. Por defecto 2000.
         """
         self.timer.stop()
@@ -79,7 +79,7 @@ class ToastLabel(QLabel):
         self.timer.start(duration)
 
     def fade_out(self):
-        """Inicia la animacion de fundido de salida."""
+        """Inicia la animación de fundido de salida."""
         self.anim.stop()
 
         self.fading_out = True
@@ -89,6 +89,6 @@ class ToastLabel(QLabel):
         self.anim.start()
 
     def on_animation_finished(self):
-        """Oculta la etiqueta al finalizar la animacion de salida."""
+        """Oculta la etiqueta al finalizar la animación de salida."""
         if self.fading_out:
             self.hide()

@@ -1,8 +1,8 @@
 """
-Paquete de mixins para el modulo de color.
+Paquete de mixins para el módulo de color.
 
-Proporciona componentes de menu compartidos para las ventanas
-de calibracion de color.
+Proporciona componentes de menú compartidos para las ventanas
+de calibración de color.
 """
 from .color_menu_mixin import ColorMenuMixin
 

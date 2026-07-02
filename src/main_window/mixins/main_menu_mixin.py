@@ -1,9 +1,9 @@
 """
-Modulo que define el menu superior integrado en la barra de titulo.
+Módulo que define el menú superior integrado en la barra de título.
 
-Contiene el mixin MainMenuMixin, responsable de crear las acciones del menu,
-la barra de menu con sus submenus (Camara, Modo, Simulacion, Robot) y la
-barra de estado con indicadores de conexion.
+Contiene el mixin MainMenuMixin, responsable de crear las acciones del menú,
+la barra de menú con sus submenús (Cámara, Modo, Simulación, Robot) y la
+barra de estado con indicadores de conexión.
 """
 
 import os
@@ -12,18 +12,16 @@ from PyQt6.QtGui import QAction, QKeySequence, QIcon, QPixmap, QActionGroup
 from PyQt6.QtWidgets import QMenuBar, QSizePolicy, QLabel, QStatusBar, QFrame, QInputDialog
 from PyQt6.QtCore import Qt
 from serial.tools import list_ports
-from src.services.robot import RobotController
-from src.services.data import DataController
 from src.services.data.timers import FrameCounter
 from src.services.data.signals import ThemeSignalManager, ConfigSignalManager
 
 
 class MainMenuMixin:
     """
-    Mixin encargado de definir el menu superior de la aplicacion.
+    Mixin encargado de definir el menú superior de la aplicación.
 
-    Gestiona la creacion de acciones, submenus de camara, modo de control,
-    simulacion y puertos COM, asi como la barra de estado inferior.
+    Gestiona la creación de acciones, submenús de cámara, modo de control,
+    simulación y puertos COM, así como la barra de estado inferior.
     """
 
     def __init__(self):
@@ -35,16 +33,16 @@ class MainMenuMixin:
 
     def create_main_actions(self):
         """
-        Define las acciones del menu con atajos, textos de estado e iconos.
+        Define las acciones del menú con atajos, textos de estado e iconos.
 
-        Lee la configuracion guardada en settings.json para inicializar
+        Lee la configuración guardada en settings.json para inicializar
         el estado de las acciones checkables.
         """
         config_manager = ConfigSignalManager.get_instance()
         settings = config_manager.get_param("settings.json", default={})
 
         # nombre_menu, nombre_opcion, nombre_objeto, nombre_interfaz_1, nombre_interfaz_2, shortcut,
-        # descripcion para barra de estado y si esta o no el dato almacenado en config_manager
+        # descripción para barra de estado y si está o no el dato almacenado en config_manager
         mapping_mode = {
             "mode": {
                 "sliders": ("sliders_action", "Sliders",
@@ -52,7 +50,7 @@ class MainMenuMixin:
                             "Mostrar/Ocultar controles con sliders", True),
                 "kinematics": ("kinematics_action", "Cinemática",
                                "Cinemática", "Ctrl+s",
-                               "Mostrar/Ocultar controles de cinematica", True),
+                               "Mostrar/Ocultar controles de cinemática", True),
                 "pick_place": ("pick_place_action", "Pick and Place",
                                "Pick and Place", "Ctrl+d",
                                "Mostrar/Ocultar controles de pick and place", True),
@@ -62,9 +60,9 @@ class MainMenuMixin:
         mapping_camera = {
             "camera": {
                 "calibrate": ("camera_calibration_action", "Calibrar Cámara", "Calibrar Cámara",
-                              "", "Abrir ventana de calibracion de cámara", False),
+                              "", "Abrir ventana de calibración de cámara", False),
                 "color_calibrate": ("color_calibration_action", "Calibrar Color", "Calibrar Color",
-                                    "", "Abrir ventana de calibracion de colores", False),
+                                    "", "Abrir ventana de calibración de colores", False),
             }
         }
 
@@ -84,7 +82,7 @@ class MainMenuMixin:
                          "Mostrar/Ocultar ejes de coordenadas", True),
                 "labels": ("labels_action", "Etiquetas de Juntas",
                            "Etiquetas de Juntas", "Ctrl+k",
-                           "Mostrar/Ocultar angulos de las articulaciones", True),
+                           "Mostrar/Ocultar ángulos de las articulaciones", True),
                 "aa": ("aa_action", "Antialiasing (MSAA)",
                        "Antialiasing (MSAA)", "Ctrl+l",
                        "Activar/Desactivar suavizado de bordes", True),
@@ -127,10 +125,10 @@ class MainMenuMixin:
 
     def create_main_menu(self):
         """
-        Define la estructura del menu y los submenus de la aplicacion.
+        Define la estructura del menú y los submenús de la aplicación.
 
-        Crea la barra de menu con las secciones de Camara, Modo,
-        Simulacion y Robot, integrando el logo de la aplicacion.
+        Crea la barra de menú con las secciones de Cámara, Modo,
+        Simulación y Robot, integrando el logo de la aplicación.
         """
         self.create_main_actions()
         self.menu_bar = QMenuBar()
@@ -240,9 +238,8 @@ class MainMenuMixin:
         en el submenu de Robot.
         """
         available_ports = list_ports.comports()
-        available_com = [(port.device, port.description)
-                         for port in available_ports]
-
+        available_com = [
+            port for port in available_ports if port.description != 'n/a']
         if self.last_com is not None and Counter(self.last_com) == Counter(available_com):
             return
 
@@ -252,12 +249,12 @@ class MainMenuMixin:
         for action in list(self.com_group.actions()):
             self.com_group.removeAction(action)
 
-        if available_ports:
+        if available_com:
             if self.stopped:
                 self.com_submenu.setEnabled(False)
             else:
                 self.com_submenu.setEnabled(True)
-            for port in available_ports:
+            for port in available_com:
                 com_action = self.com_submenu.addAction(port.description)
                 com_action.setCheckable(True)
                 com_action.setData(port.device)
@@ -276,10 +273,10 @@ class MainMenuMixin:
 
     def com_checkable_change(self, checked):
         """
-        Maneja la seleccion de un puerto COM en el submenu.
+        Maneja la selección de un puerto COM en el submenú.
 
-        Si se selecciona un nuevo puerto, detiene la conexion anterior
-        y habilita el boton de conectar.
+        Si se selecciona un nuevo puerto, detiene la conexión anterior
+        y habilita el botón de conectar.
 
         Args:
             checked (bool): Indica si la accion esta seleccionada.
@@ -296,7 +293,7 @@ class MainMenuMixin:
 
     def interval_selection_change(self, interval):
         """
-        Aplica el intervalo de captura de camara seleccionado.
+        Aplica el intervalo de captura de cámara seleccionado.
 
         Args:
             interval (int): Nuevo intervalo en ticks de frame.
@@ -305,18 +302,18 @@ class MainMenuMixin:
 
     def sphere_size_selection_change(self, size):
         """
-        Actualiza el radio de la esfera en la configuracion.
+        Actualiza el radio de la esfera en la configuración.
 
         Args:
             size (float): Nuevo radio en mm.
         """
         ConfigSignalManager.get_instance().request_change(
-            "camera.json", "sphere_radius", value=float(size))
+            "camera.json", ["sphere_radius"], float(size))
         self.custom_size_action.setText("Personalizado...")
 
     def custom_sphere_size(self):
         """
-        Abre un dialogo para ingresar un tamaño de esfera personalizado.
+        Abre un diálogo para ingresar un tamaño de esfera personalizado.
         """
         current = ConfigSignalManager.get_instance().get_param(
             "camera.json", "sphere_radius", default=20.0)
@@ -362,7 +359,7 @@ class MainMenuMixin:
 
     def create_status_bar(self):
         """
-        Crea la barra de estado con indicadores de conexion de camara y COM.
+        Crea la barra de estado con indicadores de conexión de cámara y COM.
         """
         status_bar = QStatusBar(self)
         separator = QFrame()
@@ -374,7 +371,7 @@ class MainMenuMixin:
 
     def change_theme(self, dark_t: bool):
         """
-        Actualiza el icono del boton de tema segun el modo actual.
+        Actualiza el icono del botón de tema según el modo actual.
 
         Args:
             dark_t (bool): True si el tema es oscuro.

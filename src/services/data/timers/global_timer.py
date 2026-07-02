@@ -1,9 +1,9 @@
 """
-Modulo que define el temporizador global de sincronizacion.
+Módulo que define el temporizador global de sincronización.
 
 Proporciona un singleton QTimer que emite ticks a diferentes
-frecuencias para la actualizacion del modelo 3D, los graficos
-y la sincronizacion con el robot fisico.
+frecuencias para la actualización del modelo 3D, los gráficos
+y la sincronización con el robot físico.
 """
 
 from PyQt6.QtCore import pyqtSignal, QObject, QTimer
@@ -12,18 +12,18 @@ from ..signals import PhysicalSignalManager
 
 class GlobalTimer(QObject):
     """
-    Temporizador global que coordina los ciclos de actualizacion del sistema.
+    Temporizador global que coordina los ciclos de actualización del sistema.
 
-    Emite senales a distintas frecuencias:
-    - model_tick: Alta frecuencia para actualizacion suave del modelo 3D.
-    - update_tick: Frecuencia media para graficos.
-    - sync_simulation_tick / sync_robot_tick: Baja frecuencia para sincronizacion.
+    Emite señales a distintas frecuencias:
+    - model_tick: Alta frecuencia para actualización suave del modelo 3D.
+    - update_tick: Frecuencia media para gráficos.
+    - sync_simulation_tick / sync_robot_tick: Baja frecuencia para sincronización.
 
     Signals:
-        sync_simulation_tick: Pulso de sincronizacion de simulacion.
-        update_tick: Actualizacion de graficos.
-        model_tick: Actualizacion del modelo 3D.
-        sync_robot_tick: Pulso de sincronizacion del robot fisico.
+        sync_simulation_tick: Pulso de sincronización de simulación.
+        update_tick: Actualización de gráficos.
+        model_tick: Actualización del modelo 3D.
+        sync_robot_tick: Pulso de sincronización del robot físico.
     """
     sync_simulation_tick = pyqtSignal()
     update_tick = pyqtSignal()
@@ -36,10 +36,10 @@ class GlobalTimer(QObject):
     @classmethod
     def get_instance(cls):
         """
-        Obtiene la instancia unica del temporizador (Singleton).
+        Obtiene la instancia única del temporizador (Singleton).
 
         Returns:
-            GlobalTimer: Instancia unica.
+            GlobalTimer: Instancia única.
         """
         if cls._instance is None:
             cls._instance = cls()
@@ -62,7 +62,7 @@ class GlobalTimer(QObject):
 
     def _tick(self):
         """
-        Ejecuta la logica de distribucion de ticks segun contadores internos.
+        Ejecuta la lógica de distribución de ticks según contadores internos.
         """
         self._sync_counter += 1
         self._model_counter += 1
@@ -82,14 +82,14 @@ class GlobalTimer(QObject):
 
     def start(self):
         """
-        Inicia el temporizador si no esta activo.
+        Inicia el temporizador si no está activo.
         """
         if not self._timer.isActive():
             self._timer.start()
 
     def stop(self):
         """
-        Detiene el temporizador si esta activo.
+        Detiene el temporizador si está activo.
         """
         if self._timer.isActive():
             self._timer.stop()

@@ -1,15 +1,17 @@
 """
-Modulo encargado del procesamiento de datos para la calibracion de camaras.
+Módulo encargado del procesamiento de datos para la calibración de cámaras.
 
-Este modulo define la clase CalibrationWorker, la cual gestiona la deteccion de
-tableros ChArUco, la acumulacion de puntos de control y el calculo de los
-parametros intrinsecos de la camara (matriz de camara y coeficientes de distorsion).
+Este módulo define la clase CalibrationWorker, la cual gestiona la detección de
+tableros ChArUco, la acumulación de puntos de control y el cálculo de los
+parámetros intrínsecos de la cámara (matriz de cámara y coeficientes de distorsión).
 
 Conexiones:
-    - Emite `frame_processed` para visualizar la deteccion en tiempo real.
-    - Emite `calibration_success` al finalizar el calculo exitosamente.
+    - Emite `frame_processed` para visualizar la detección en tiempo real.
+    - Emite `calibration_success` al finalizar el cálculo exitosamente.
     - Emite `error_occurred` en caso de fallos en el proceso.
 """
+
+from typing import Any
 
 import cv2
 import numpy as np
@@ -18,10 +20,10 @@ from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 class CalibrationWorker(QObject):
     """
-    Worker encargado exclusivamente del procesamiento de datos de calibracion.
+    Worker encargado exclusivamente del procesamiento de datos de calibración.
 
-    Maneja la deteccion de corners ChArUco, acumulacion de frames y calculo de
-    matrices de calibracion utilizando OpenCV.
+    Maneja la detección de corners ChArUco, acumulación de frames y cálculo de
+    matrices de calibración utilizando OpenCV.
 
     Attributes:
         frame_processed (pyqtSignal): Emite (frame, n_corners, status_text, color).
@@ -35,9 +37,9 @@ class CalibrationWorker(QObject):
         np.ndarray, np.ndarray, float)  # matrix, dist, error
     error_occurred = pyqtSignal(str)
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
-        Inicializa el worker con la configuracion del tablero ChArUco por defecto.
+        Inicializa el worker con la configuración del tablero ChArUco por defecto.
         """
         super().__init__()
         # Configuración del tablero ChArUco (Valores originales)
@@ -59,7 +61,7 @@ class CalibrationWorker(QObject):
         self._last_detection = None
 
     @pyqtSlot(object)
-    def process_frame(self, frame):
+    def process_frame(self, frame) -> None:
         """
         Procesa un frame para detectar corners ChArUco y gestionar la captura.
 
@@ -84,6 +86,9 @@ class CalibrationWorker(QObject):
         params = cv2.aruco.DetectorParameters()
         detector = cv2.aruco.ArucoDetector(self._aruco_dict, params)
         marker_corners, marker_ids, _ = detector.detectMarkers(gray)
+
+        if marker_ids is None:
+            return
 
         charuco_corners = None
         charuco_ids = None
@@ -110,7 +115,7 @@ class CalibrationWorker(QObject):
                 self._all_ids.append(charuco_ids.copy())
                 self._calibration_frames_count += 1
                 self._should_capture = False
-                status_text = f"✓ Frame capturado! Total: {self._calibration_frames_count} (min. 10)"
+                status_text = f"¡Frame capturado! Total: {self._calibration_frames_count} (min. 10)"
                 status_color = (0, 255, 0)
             else:
                 status_text = f"Presiona 'Capturar Imagen' para guardar (Total: {self._calibration_frames_count})"
@@ -124,7 +129,7 @@ class CalibrationWorker(QObject):
 
         self.frame_processed.emit(frame_np, n, status_text, status_color)
 
-    def set_should_capture(self, value: bool):
+    def set_should_capture(self, value: bool) -> bool:
         """
         Activa el flag para capturar el siguiente frame valido detectado.
 
@@ -132,19 +137,19 @@ class CalibrationWorker(QObject):
             value (bool): Valor para el flag de captura.
 
         Returns:
-            bool: True si se pudo activar (hay deteccion valida), False en caso contrario.
+            bool: True si se pudo activar (hay detección valida), False en caso contrario.
         """
         if self._last_detection is not None and self._last_detection[2] >= 6:
             self._should_capture = value
             return True
         return False
 
-    def run_calibration(self):
+    def run_calibration(self) -> None:
         """
-        Ejecuta el algoritmo de calibracion de OpenCV con los datos acumulados.
+        Ejecuta el algoritmo de calibración de OpenCV con los datos acumulados.
 
-        Calcula la matriz intrinseca y los coeficientes de distorsion.
-        Emite `calibration_success` si tiene exito o `error_occurred` si falla.
+        Calcula la matriz intrínseca y los coeficientes de distorsión.
+        Emite `calibration_success` si tiene éxito o `error_occurred` si falla.
         """
         if self._calibration_frames_count < 10:
             self.error_occurred.emit(
@@ -195,10 +200,13 @@ class CalibrationWorker(QObject):
             # Limpiar datos tras éxito
             self.reset_data()
 
-        except Exception as e:
-            self.error_occurred.emit(f"Error en calibración: {str(e)}")
+        except (cv2.error, ValueError, np.linalg.LinAlgError) as e:
+            print(
+                f"[DEBUG] Error en calibración de cámara ({type(e).__name__}): {e}")
+            self.error_occurred.emit(
+                f"Error en calibración: {type(e).__name__}: {str(e)}")
 
-    def reset_data(self):
+    def reset_data(self) -> None:
         """
         Resetea todos los acumuladores de puntos y el contador de frames.
         """
@@ -208,16 +216,16 @@ class CalibrationWorker(QObject):
         self._last_detection = None
 
     # Getters explícitos
-    def get_captured_count(self):
+    def get_captured_count(self) -> int:
         """
-        Obtiene el numero de frames capturados exitosamente.
+        Obtiene el número de frames capturados exitosamente.
 
         Returns:
-            int: Numero de frames.
+            int: Número de frames.
         """
         return self._calibration_frames_count
 
-    def get_image_size(self):
+    def get_image_size(self) -> None | Any:
         """
         Obtiene el tamaño de imagen detectado.
 
@@ -228,7 +236,7 @@ class CalibrationWorker(QObject):
 
     def get_last_detection(self):
         """
-        Obtiene los datos de la ultima deteccion de corners ChArUco.
+        Obtiene los datos de la última detección de corners ChArUco.
 
         Returns:
             tuple: (corners, ids, n) o None.

@@ -1,13 +1,13 @@
 """
-Modulo que gestiona el almacenamiento y sincronizacion de datos para graficos.
+Módulo que gestiona el almacenamiento y sincronización de datos para gráficos.
 
-Este modulo define la clase GraphWorker, la cual mantiene buffers circulares
-de alta eficiencia (usando NumPy) para datos provenientes de la simulacion
-y del hardware fisico.
+Este módulo define la clase GraphWorker, la cual mantiene buffers circulares
+de alta eficiencia (usando NumPy) para datos provenientes de la simulación
+y del hardware físico.
 
 Conexiones:
-    - Recibe datos de simulacion mediante `add_sim_data`.
-    - Recibe telemetria fisica mediante `add_phy_data`.
+    - Recibe datos de simulación mediante `add_sim_data`.
+    - Recibe telemetría física mediante `add_phy_data`.
     - Emite `channel_updated` cada vez que los buffers se modifican.
 """
 
@@ -17,10 +17,10 @@ from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 class GraphWorker(QObject):
     """
-    Worker encargado de la gestion de buffers circulares y almacenamiento de datos.
+    Worker encargado de la gestión de buffers circulares y almacenamiento de datos.
 
-    Es agnostico a la visualizacion y a los calculos externos, enfocandose en
-    la integridad y sincronizacion temporal de las series de datos para multiples canales.
+    Es agnóstico a la visualización y a los cálculos externos, enfocándose en
+    la integridad y sincronización temporal de las series de datos para múltiples canales.
 
     Attributes:
         channel_updated (pyqtSignal): Emite los buffers actualizados para un canal:
@@ -31,10 +31,10 @@ class GraphWorker(QObject):
 
     def __init__(self, display_window: int = 1000, graphs_amount: int = 6):
         """
-        Inicializa el worker con el tamaño de ventana y numero de canales.
+        Inicializa el worker con el tamaño de ventana y número de canales.
 
         Args:
-            display_window (int): Numero de puntos visibles en el eje X.
+            display_window (int): Número de puntos visibles en el eje X.
             graphs_amount (int): Cantidad de canales/motores a monitorear.
         """
         super().__init__()
@@ -61,10 +61,10 @@ class GraphWorker(QObject):
     @pyqtSlot(list)
     def add_sim_data(self, data: list):
         """
-        Agrega datos de simulacion para todos los canales y avanza el indice.
+        Agrega datos de simulación para todos los canales y avanza el índice.
 
         Args:
-            data (list): Lista de valores flotantes de la simulacion.
+            data (list): Lista de valores flotantes de la simulación.
         """
         if self._is_paused:
             return
@@ -78,7 +78,7 @@ class GraphWorker(QObject):
     @pyqtSlot(list, list)
     def add_phy_data(self, pos_data: list, temp_data: list):
         """
-        Agrega datos fisicos y de temperatura para todos los canales.
+        Agrega datos físicos y de temperatura para todos los canales.
 
         Args:
             pos_data (list): Lista de posiciones reales recibidas.
@@ -130,7 +130,7 @@ class GraphWorker(QObject):
 
     def set_paused(self, paused: bool):
         """
-        Pausa o reanuda la ingestion de datos.
+        Pausa o reanuda la ingestión de datos.
 
         Args:
             paused (bool): True para pausar.
@@ -142,7 +142,7 @@ class GraphWorker(QObject):
         Retorna el estado de pausa actual.
 
         Returns:
-            bool: True si esta pausado.
+            bool: True si está pausado.
         """
         return self._is_paused
 

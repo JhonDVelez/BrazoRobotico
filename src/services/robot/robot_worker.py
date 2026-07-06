@@ -12,7 +12,6 @@ Conexiones:
 """
 
 import re
-import time
 import queue
 import serial
 from PyQt6.QtCore import QThread, pyqtSignal
@@ -32,18 +31,18 @@ class RobotWorker(QThread):
     data_received = pyqtSignal(list, list)
     connection_status_changed = pyqtSignal(bool)
 
-    def __init__(self, com: str, compensator=None):
+    _TELEMETRY_PATTERN = re.compile(r"([A-F])(\d+\.?\d*)T[A-F](\d+)")
+
+    def __init__(self, com: str):
         """
         Inicializa el worker serial y abre la conexion con el puerto COM.
 
         Args:
             com (str): Nombre del puerto serial (e.g., 'COM3' o '/dev/ttyACM0').
-            compensator (RobotCompensator, optional): Objeto para ajustar comandos de salida.
         """
         super().__init__()
         self._com = com
         self._cm904 = None
-        self._compensator = compensator
         self._send_queue = queue.Queue()
         self._running = True
 
@@ -56,7 +55,6 @@ class RobotWorker(QThread):
             self._cm904 = None
             self.connection_status_changed.emit(False)
 
-        self._recv_buffer = ""
         self._last_positions = [None] * 6
         self._last_temperaturas = [None] * 6
         self._last_valid_positions = [150.0] * 6
@@ -137,10 +135,6 @@ class RobotWorker(QThread):
         Args:
             valorm (list): Comandos de posicion originales.
         """
-        # Intercepcion de datos antes del procesamiento de envio (e.g. compensacion de backlash)
-        if self._compensator:
-            valorm = self._compensator.process_data(valorm)
-
         if not all(0 <= x <= 300 for x in valorm):
             print("Error de envio de datos: Valores fuera de rango")
             return
@@ -181,23 +175,24 @@ class RobotWorker(QThread):
 
         # Recepcion y parseo de telemetria
         try:
-            raw_frame = self._read_telemetry_frame()
-            if not raw_frame:
+            result = self._read_and_filter()
+            if result is None:
                 return
 
-            parsed = self._parse_telemetry(raw_frame)    
-            if parsed is None:
-                return
-
-            positions, temperatures = parsed
-            self._last_positions = self._filter_positions(positions)
-            self._last_temperaturas = temperatures
+            self._last_positions, self._last_temperaturas = result
 
             self.data_received.emit(
                 self._last_positions.copy(), self._last_temperaturas.copy())
 
         except Exception as e:
             print(f"Error lectura: {e}")
+            self.connection_status_changed.emit(False)
+            try:
+                if self._cm904:
+                    self._cm904.close()
+            except Exception:
+                pass
+            self._cm904 = None
 
     def _build_command_frame(self, positions: list) -> bytes:
         """
@@ -216,91 +211,72 @@ class RobotWorker(QThread):
             frame += f"{char}{pwm_value}"
         return f"{frame}\n".encode('ascii')
 
-    def _read_telemetry_frame(self) -> str:
+    def _read_and_filter(self):
         """
-        Lee una rafaga de telemetria disponible sin bloquear el hilo serial.
+        Lee una linea del puerto serial, parsea y filtra la telemetria.
+
+        Integra lectura, parseo regex, deteccion de tramas nulas,
+        filtro anti-ruido electromagnetico con escape de seguridad
+        (si un salto >35° persiste mas de 4 tramas, se acepta como movimiento real).
 
         Returns:
-            str: Texto ASCII acumulado desde el puerto serie.
+            tuple[list, list] | None: (posiciones, temperaturas) o None si no hay datos validos.
         """
-        timeout = 1
-        start = time.time()
-        data = b""
-        while time.time() - start < timeout:
-            try:
-                available = self._cm904.in_waiting
-            except Exception:
-                self.connection_status_changed.emit(False)
-                self._cm904 = None
-                return ""
+        try:
+            if not self._cm904.in_waiting:
+                return None
+        except Exception:
+            self.connection_status_changed.emit(False)
+            self._cm904 = None
+            return None
 
-            if available:
-                chunk = self._cm904.read(available)
-                if chunk:
-                    data += chunk
-                    if b'\n' in data:
-                        break
-            else:
-                time.sleep(0.001)
+        try:
+            line = self._cm904.readline().decode('ascii', errors='ignore').strip()
+            if not line:
+                return None
+        except Exception as e:
+            print(f"Error leyendo del serial: {e}")
+            return None
 
-        return data.decode('ascii', errors='ignore').strip() if data else ""
-
-    def _parse_telemetry(self, frame: str):
-        """
-        Extrae posiciones y temperaturas desde una trama completa del robot.
-
-        Args:
-            frame (str): Trama con tokens tipo `A150.0TA35` para motores A-F.
-
-        Returns:
-            tuple[list, list] | None: Posiciones y temperaturas si hay 6 motores.
-        """
-        pattern = re.compile(r"([A-F])(\d+\.?\d*)T[A-F](\d+)")
-        matches = pattern.findall(frame)
+        matches = self._TELEMETRY_PATTERN.findall(line)
         if len(matches) < 6:
             return None
 
-        positions = [None] * 6
+        temp_pos = [None] * 6
         temperatures = list(self._last_temperaturas)
         for motor_char, position_value, temperature_value in matches:
-            index = ord(motor_char) - ord('A')
-            if 0 <= index < 6:
-                positions[index] = float(position_value)
-                temperatures[index] = int(temperature_value)
+            idx = ord(motor_char) - ord('A')
+            if idx < 6:
+                temp_pos[idx] = float(position_value)
+                temperatures[idx] = int(temperature_value)
 
-        if any(position is None for position in positions):
-            return None
+        # Deteccion de tramas nulas / caidas de tension
+        if all(v is not None and abs(v) < 0.001 for v in temp_pos[:4]):
+            return list(self._last_valid_positions), list(self._last_temperaturas)
+
+        # Filtro anti-ruido electromagnetico con escape de seguridad
+        trama_valida = True
+        for i in range(6):
+            if temp_pos[i] is not None:
+                diff = abs(temp_pos[i] - self._last_valid_positions[i])
+                if diff > 35.0:
+                    self._jump_freeze_count[i] += 1
+                    if self._jump_freeze_count[i] <= 4:
+                        trama_valida = False
+                else:
+                    self._jump_freeze_count[i] = 0
+
+        if not trama_valida:
+            return list(self._last_valid_positions), list(self._last_temperaturas)
+
+        # Actualizacion limpia de la telemetria
+        positions = list(self._last_valid_positions)
+        for i in range(6):
+            if temp_pos[i] is not None:
+                positions[i] = temp_pos[i]
+                self._last_valid_positions[i] = temp_pos[i]
 
         return positions, temperatures
-
-    def _filter_positions(self, positions: list) -> list:
-        """
-        Filtra tramas nulas y saltos electromagneticos de la telemetria fisica.
-
-        Args:
-            positions (list): Lecturas crudas de posicion para los motores A-F.
-
-        Returns:
-            list: Posiciones validadas y persistentes para publicar al sistema.
-        """
-        if all(abs(value) < 0.001 for value in positions[:4]):
-            return list(self._last_valid_positions)
-
-        valid_frame = True
-        for index, position in enumerate(positions):
-            difference = abs(position - self._last_valid_positions[index])
-            if difference > 35.0:
-                self._jump_freeze_count[index] += 1
-                if self._jump_freeze_count[index] <= 4:
-                    valid_frame = False
-            else:
-                self._jump_freeze_count[index] = 0
-
-        if not valid_frame:
-            return list(self._last_valid_positions)
-
-        self._last_valid_positions = list(positions)
-        return list(positions)
 
     def stop(self):
         """

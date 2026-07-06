@@ -172,6 +172,23 @@ class GraphWidget(QWidget):
         """
         return self.cartesian_layout
 
+    def set_cartesian_pid_widget(self, widget):
+        """
+        Reemplaza el contenido del layout cartesiano con un widget embebido.
+
+        Limpia el layout actual (removiendo plots PyQtGraph anteriores)
+        y agrega el widget de matplotlib para el PID cartesiano.
+
+        Args:
+            widget (QWidget): Widget CartesianPIDPlot a insertar.
+        """
+        while self.cartesian_layout.count():
+            item = self.cartesian_layout.takeAt(0)
+            if item.widget():
+                item.widget().hide()
+                item.widget().deleteLater()
+        self.cartesian_layout.addWidget(widget)
+
     def get_image_handler(self):
         """
         Retorna el manejador de imagenes interno.

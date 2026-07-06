@@ -13,7 +13,6 @@ Conexiones:
 
 from PyQt6.QtCore import QObject
 from .robot_worker import RobotWorker
-from .robot_compensator import RobotCompensator
 from src.services.data.signals import PhysicalSignalManager
 
 
@@ -29,8 +28,7 @@ class RobotController(QObject):
 
     def __init__(self, com: str):
         super().__init__()
-        self._compensator = RobotCompensator()
-        self._worker = RobotWorker(com, self._compensator)
+        self._worker = RobotWorker(com)
         self._signal_manager = PhysicalSignalManager.get_instance()
 
         # Conexiones Locales (Worker -> Controller)
@@ -62,14 +60,6 @@ class RobotController(QObject):
             RobotWorker: Instancia del worker serial.
         """
         return self._worker
-
-    def get_compensator(self) -> RobotCompensator:
-        """Retorna el compensador del robot.
-
-        Returns:
-            RobotCompensator: Instancia del compensador de datos.
-        """
-        return self._compensator
 
     def move_to(self, positions: list):
         """API publica para mover el robot.

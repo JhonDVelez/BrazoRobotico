@@ -53,7 +53,7 @@ class KinematicsWidget(QWidget):
         self._spins = {}
 
         # Configuración de ejes: (Etiqueta, Minimo, Maximo)
-        axes_config = [("X", 0, 200), ("Y", -200, 200), ("Z", 0, 520)]
+        axes_config = [("X", 0, 150), ("Y", -180, 180), ("Z", 0, 250)]
         self._keys = ["x", "y", "z"]
 
         for i, (text, s_min, s_max) in enumerate(axes_config):

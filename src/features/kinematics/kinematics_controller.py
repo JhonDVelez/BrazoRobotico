@@ -16,10 +16,12 @@ from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 from src.features.kinematics.kinematics_widget import KinematicsWidget
 from src.features.kinematics.kinematics_worker import KinematicsWorker
 from src.services.data.signals import (
-    PhysicalSignalManager, KinematicsSignalManager
+    PhysicalSignalManager, KinematicsSignalManager,
+    SimulationSignalManager, SlidersSignalManager
 )
 from src.services.data.enums import Modes
 from src.services.data.utils import rad_to_deg
+from .coordinate_correction import corregir_xy, corregir_z
 
 
 class KinematicsController(QObject):
@@ -70,6 +72,18 @@ class KinematicsController(QObject):
             self._on_inverse_kinematics_requested
         )
 
+        # Pausar/Reanudar PID segun el modo global de operacion.
+        # Escucha todos los orígenes de cambio de modo (sliders, sim, etc.)
+        # para pausar el lazo PID cuando no se esta en modo cinematico.
+        SimulationSignalManager.get_instance().change_mode_signal.connect(
+            self._on_global_mode_changed)
+        PhysicalSignalManager.get_instance().change_mode_signal.connect(
+            self._on_global_mode_changed)
+        SlidersSignalManager.get_instance().change_mode_signal.connect(
+            self._on_global_mode_changed)
+        KinematicsSignalManager.get_instance().change_mode_signal.connect(
+            self._on_global_mode_changed)
+
     def execute_kinematics(self):
         """
         Inicia el proceso de calculo cinematico basado en la entrada de la UI.
@@ -84,23 +98,14 @@ class KinematicsController(QObject):
 
         coords = self.kinematics_widget.get_coordinates()
 
-        # 1. Fijar objetivo en el worker para control realimentado (Newton-Raphson / DLS)
-        self.kinematics_worker.set_target(
-            coords['x'], coords['y'], coords['z'])
+        # Aplicar offset y correccion de coordenadas
+        tx, ty, tz = coords['x'], coords['y'], coords['z']
+        tx = tx + 110
+        tz = corregir_z(tx, ty, tz)
+        tx, ty = corregir_xy(tx, ty)
 
-        # 2. Estimación inicial rápida mediante CI iterativa para actualizacion inmediata
-
-        _, q_deg = self.execute_inverse_kinematics(coords)
-        # Mapeo a formato de servos (0-300) con offsets y signos correspondientes
-        initial_status = [
-            np.abs(q_deg[0] + 150.0),
-            np.abs(q_deg[1] - 150.0),
-            np.abs(q_deg[2] - 150.0),
-            150.0,
-            np.abs(q_deg[3] + 150.0),
-            171
-        ]
-        self._update_shared_status(initial_status)
+        # Ejecutar secuencia home + target en el worker (no bloqueante, via QTimer)
+        self.kinematics_worker.execute_target(tx, ty, tz)
 
     def execute_inverse_kinematics(self, coords: dict):
         """
@@ -112,8 +117,8 @@ class KinematicsController(QObject):
         Returns:
             tuple: Angulos articulares en radianes y grados.
         """
-        q_rad, _ = self.kinematics_worker.ci(
-            coords['x']+100, coords['y'], coords['z'], 0)
+        q_rad = self.kinematics_worker.ci(
+            coords['x'], coords['y'], coords['z'])
         q_deg = rad_to_deg(q_rad.flatten())
         return q_rad, q_deg
 
@@ -128,6 +133,11 @@ class KinematicsController(QObject):
         coords = request.get('coords')
         if not coords:
             return
+
+        tx, ty, tz = coords['x'], coords['y'], coords['z']
+        tz = corregir_z(tx, ty, tz)
+        tx, ty = corregir_xy(tx, ty)
+        coords = {'x': tx, 'y': ty, 'z': tz}
 
         _, q_deg = self.execute_inverse_kinematics(coords)
         gripper_degrees = request.get('gripper_degrees', 0)
@@ -144,6 +154,23 @@ class KinematicsController(QObject):
             'color': request.get('color'),
             'target': target
         })
+
+    @pyqtSlot(object)
+    def _on_global_mode_changed(self, mode: Modes):
+        """
+        Pausa o reanuda el PID cartesiano segun el modo de operacion global.
+
+        Solo se permite el lazo PID en modo KINEMATIC. Al salir de este
+        modo (sliders, pick-place, etc.) se pausa el control para evitar
+        que el PID compita con otras fuentes de comando.
+
+        Args:
+            mode (Modes): Nuevo modo de operacion.
+        """
+        if mode == Modes.KINEMATIC:
+            self.kinematics_worker.resume_pid()
+        else:
+            self.kinematics_worker.pause_pid()
 
     def _update_shared_status(self, status):
         """

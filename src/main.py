@@ -281,6 +281,8 @@ if __name__ == '__main__':
     src_path = os.path.dirname(__file__)
 
     QDir.addSearchPath(
+        "tabla", f"{src_path}/resources/tabla_compensacion")
+    QDir.addSearchPath(
         "icons", f"{src_path}/resources/icons")
     QDir.addSearchPath(
         "img", f"{src_path}/resources/img")

@@ -1,7 +1,7 @@
 """
-Modulo encargado de la gestion persistente de la configuracion del sistema.
+Módulo encargado de la gestión persistente de la configuración del sistema.
 
-Este modulo centraliza el acceso a archivos JSON (settings, camera, graphics),
+Este módulo centraliza el acceso a archivos JSON (settings, camera, graphics),
 asegurando que los directorios existan, los valores por defecto se mantengan
 y los datos del usuario se fusionen correctamente durante las actualizaciones.
 """
@@ -10,17 +10,18 @@ import sys
 import re
 import json
 from pathlib import Path
+from PyQt6.QtCore import QStandardPaths
 
 
 def get_app_dir() -> Path:
     """
-    Determina la ruta del directorio base de la aplicacion.
+    Determina la ruta del directorio base de la aplicación.
 
     Funciona tanto en modo desarrollo (.py) como en ejecutables compilados
     (.exe o .elf) mediante PyInstaller.
 
     Returns:
-        Path: Ruta absoluta al directorio raiz de la aplicacion.
+        Path: Ruta absoluta al directorio raíz de la aplicación.
     """
     if getattr(sys, "frozen", False):
         # Compilado con PyInstaller (--onefile o --onedir)
@@ -31,8 +32,26 @@ def get_app_dir() -> Path:
 
 
 APP_DIR = get_app_dir()
-CONFIG_DIR = APP_DIR / "config"
 GRAPH_DIR = APP_DIR / "graphs"
+
+
+def get_config_dir() -> Path:
+    """
+    Determina la ruta del directorio de configuración del usuario.
+
+    Usa QStandardPaths para obtener la carpeta Documents localizada
+    del sistema operativo (~/Documents en ingles, ~/Documentos en espanol, etc.).
+    El directorio final es: ~/Documents/OpenBotVControlLab/config/
+
+    Returns:
+        Path: Ruta absoluta al directorio de configuración.
+    """
+    docs = QStandardPaths.writableLocation(
+        QStandardPaths.StandardLocation.DocumentsLocation)
+    return Path(docs) / "OpenBotVControlLab" / "config"
+
+
+CONFIG_DIR = get_config_dir()
 
 
 # Valores por defecto de cada archivo de configuración para asegurar integridad
@@ -111,8 +130,8 @@ def _merge_defaults(defaults: dict, user_data: dict) -> dict:
     Preserva las llaves personalizadas del usuario que no existan en los defaults.
 
     Args:
-        defaults (dict): Diccionario base de configuracion.
-        user_data (dict): Datos leidos desde el disco.
+        defaults (dict): Diccionario base de configuración.
+        user_data (dict): Datos leídos desde el disco.
 
     Returns:
         dict: Diccionario fusionado resultante.
@@ -137,7 +156,7 @@ def _merge_defaults(defaults: dict, user_data: dict) -> dict:
 
 def init_config() -> None:
     """
-    Inicializa el directorio de configuracion y verifica la integridad de los archivos.
+    Inicializa el directorio de configuración y verifica la integridad de los archivos.
 
     Crea los archivos faltantes o añade llaves nuevas introducidas en versiones
     recientes del software, reseteando archivos corruptos si es necesario.
@@ -170,7 +189,7 @@ def init_config() -> None:
 
 def load(filename: str) -> dict:
     """
-    Carga un archivo de configuracion JSON completo.
+    Carga un archivo de configuración JSON completo.
 
     Args:
         filename (str): Nombre del archivo (e.g. 'camera.json').
@@ -206,12 +225,12 @@ def save(filename: str, data: dict) -> None:
 
 def get(filename: str, *keys, default=None):
     """
-    Realiza una busqueda segura y profunda de una llave en la configuracion.
+    Realiza una búsqueda segura y profunda de una llave en la configuración.
 
     Args:
         filename (str): Archivo donde buscar.
         *keys (str): Secuencia de llaves anidadas.
-        default (any, optional): Valor a retornar si falla la busqueda.
+        default (any, optional): Valor a retornar si falla la búsqueda.
 
     Returns:
         any: Valor encontrado o el valor por defecto.
@@ -225,18 +244,18 @@ def get(filename: str, *keys, default=None):
             else:
                 return default
         return data
-    except Exception:
-        # Por si el archivo no existe o está corrupto
+    except (json.JSONDecodeError, OSError, KeyError, TypeError) as e:
+        print(f"[DEBUG] Error leyendo config '{filename}' keys={keys} ({type(e).__name__}): {e}")
         return default
 
 
-def set_value(filename: str, *keys: str, value) -> None:
+def set_value(filename: str, keys: list[str], value) -> None:
     """
     Modifica o crea un valor en cualquier nivel de profundidad del JSON.
 
     Args:
         filename (str): Archivo a modificar.
-        *keys (str): Secuencia de llaves anidadas. La ultima es la clave final.
+        keys (list[str]): Lista de llaves anidadas. La última es la clave final.
         value (any): Nuevo valor a asignar.
     """
     data = load(filename)
@@ -254,14 +273,14 @@ def set_value(filename: str, *keys: str, value) -> None:
 
 def _compact_dumps(obj, indent: int = 2) -> str:
     """
-    Serializa un objeto JSON optimizando el espacio de listas numericas.
+    Serializa un objeto JSON optimizando el espacio de listas numéricas.
 
-    Colapsa listas de numeros en una sola linea para mejorar la legibilidad
-    en matrices de transformacion y coeficientes de distorsion.
+    Colapsa listas de números en una sola línea para mejorar la legibilidad
+    en matrices de transformación y coeficientes de distorsión.
 
     Args:
         obj (any): Objeto a serializar.
-        indent (int): Sangria base.
+        indent (int): Sangría base.
 
     Returns:
         str: Cadena JSON formateada.

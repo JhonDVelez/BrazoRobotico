@@ -1,8 +1,8 @@
 """
-Modulo para la deteccion y enumeracion de camaras conectadas.
+Módulo para la detección y enumeración de cámaras conectadas.
 
-Proporciona la clase CameraDevices que descubre las camaras disponibles
-en el sistema utilizando la libreria cv2-enumerate-cameras, con soporte
+Proporciona la clase CameraDevices que descubre las cámaras disponibles
+en el sistema utilizando la librería cv2-enumerate-cameras, con soporte
 multiplataforma para Windows y Linux.
 """
 
@@ -16,17 +16,17 @@ from src.services.data.signals import CameraSignalManager
 
 class CameraDevices:
     """
-    Descubridor de camaras conectadas al sistema.
+    Descubridor de cámaras conectadas al sistema.
 
-    Proporciona metodos para enumerar, filtrar y obtener nombres
-    descriptivos de las camaras disponibles en la plataforma actual.
+    Proporciona métodos para enumerar, filtrar y obtener nombres
+    descriptivos de las cámaras disponibles en la plataforma actual.
     """
 
     def get_cameras(self):
         """
-        Escanea las camaras disponibles y emite la lista via CameraSignalManager.
+        Escanea las cámaras disponibles y emite la lista vía CameraSignalManager.
 
-        Filtra camaras duplicadas y genera nombres unicos para cada
+        Filtra cámaras duplicadas y genera nombres únicos para cada
         dispositivo detectado.
         """
         if sys.platform == "win32":
@@ -63,7 +63,7 @@ class CameraDevices:
         Obtiene la ruta sysfs real del dispositivo de video.
 
         Args:
-            cam: Objeto de camara de cv2-enumerate-cameras.
+            cam: Objeto de cámara de cv2-enumerate-cameras.
 
         Returns:
             str or None: Ruta real del dispositivo en /sys/class/video4linux.
@@ -79,14 +79,14 @@ class CameraDevices:
 
     def _get_unique_camera_menu_name(self, cam, existing_names):
         """
-        Genera un nombre unico para mostrar en el menu de seleccion.
+        Genera un nombre único para mostrar en el menú de selección.
 
         Args:
-            cam: Objeto de camara.
+            cam: Objeto de cámara.
             existing_names (set): Nombres ya utilizados.
 
         Returns:
-            str: Nombre unico para el menu.
+            str: Nombre único para el menú.
         """
         display_name = self._get_camera_display_name(cam)
         if display_name in existing_names:
@@ -104,10 +104,10 @@ class CameraDevices:
 
     def _get_camera_display_name(self, cam):
         """
-        Obtiene el nombre descriptivo de una camara.
+        Obtiene el nombre descriptivo de una cámara.
 
         Args:
-            cam: Objeto de camara.
+            cam: Objeto de cámara.
 
         Returns:
             str: Nombre descriptivo.
@@ -162,7 +162,7 @@ class CameraDevices:
 
     def _get_udev_camera_name(self, sysfs_device_path):
         """
-        Obtiene el nombre de la camara desde udev.
+        Obtiene el nombre de la cámara desde udev.
 
         Args:
             sysfs_device_path (str): Ruta sysfs del dispositivo.
@@ -219,7 +219,7 @@ class CameraDevices:
 
     def _is_host_controller_name(self, product_name, manufacturer_name):
         """
-        Verifica si el nombre corresponde a un controlador host (no a una camara).
+        Verifica si el nombre corresponde a un controlador host (no a una cámara).
 
         Args:
             product_name (str): Nombre del producto.

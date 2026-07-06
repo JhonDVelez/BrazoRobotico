@@ -1,8 +1,8 @@
 """
-Modulo que define el gestor de estado de la vista de dibujo.
+Módulo que define el gestor de estado de la vista de dibujo.
 
-Controla la visibilidad de los overlays (cuadricula ChArUco y
-geometrias de esferas) que se dibujan sobre el frame de camara.
+Controla la visibilidad de los overlays (cuadrícula ChArUco y
+geometrías de esferas) que se dibujan sobre el frame de cámara.
 """
 
 import threading
@@ -11,9 +11,9 @@ from .config import ConfigSignalManager
 
 class DrawViewSignalManager:
     """
-    Gestor del estado de visualizacion de overlays en la camara.
+    Gestor del estado de visualización de overlays en la cámara.
 
-    Permite al usuario alternar la visualizacion de la cuadricula
+    Permite al usuario alternar la visualización de la cuadrícula
     ChArUco y las esferas detectadas sobre el feed de video.
 
     Es un singleton thread-safe.
@@ -26,10 +26,10 @@ class DrawViewSignalManager:
     @classmethod
     def get_instance(cls):
         """
-        Obtiene la instancia unica del gestor (patron Singleton thread-safe).
+        Obtiene la instancia única del gestor (patrón Singleton thread-safe).
 
         Returns:
-            DrawViewSignalManager: Instancia unica.
+            DrawViewSignalManager: Instancia única.
         """
         with cls._lock_instance:
             if cls._instance is None:
@@ -39,7 +39,7 @@ class DrawViewSignalManager:
 
     def _init_state(self):
         """
-        Inicializa el estado desde la configuracion persistente.
+        Inicializa el estado desde la configuración persistente.
         """
         self._lock = threading.Lock()
         config_manager = ConfigSignalManager.get_instance()
@@ -50,27 +50,27 @@ class DrawViewSignalManager:
 
     def set_charuco(self, checked: bool):
         """
-        Activa o desactiva el overlay de cuadricula ChArUco.
+        Activa o desactiva el overlay de cuadrícula ChArUco.
 
         Args:
-            checked (bool): True para mostrar la cuadricula.
+            checked (bool): True para mostrar la cuadrícula.
         """
         with self._lock:
             self._charuco = checked
-            ConfigSignalManager.get_instance().request_change("settings.json", "camera",
-                                                              "view", "charuco", value=checked)
+            ConfigSignalManager.get_instance().request_change("settings.json", ["camera",
+                                                              "view", "charuco"], checked)
 
     def set_circle(self, checked: bool):
         """
-        Activa o desactiva el overlay de geometria de las esferas.
+        Activa o desactiva el overlay de geometría de las esferas.
 
         Args:
             checked (bool): True para mostrar las esferas.
         """
         with self._lock:
             self._circle = checked
-            ConfigSignalManager.get_instance().request_change("settings.json", "camera",
-                                                              "view", "circle", value=checked)
+            ConfigSignalManager.get_instance().request_change("settings.json", ["camera",
+                                                              "view", "circle"], checked)
 
     def get_state(self):
         """

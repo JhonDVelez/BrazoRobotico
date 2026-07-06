@@ -1,9 +1,9 @@
 """
-Modulo que define el gestor de senales del tema visual.
+Módulo que define el gestor de señales del tema visual.
 
-Proporciona el singleton ThemeSignalManager para la coordinacion
+Proporciona el singleton ThemeSignalManager para la coordinación
 de cambios de tema (claro/oscuro) entre los distintos componentes
-de la aplicacion.
+de la aplicación.
 """
 
 from PyQt6.QtCore import pyqtSignal, QObject
@@ -12,9 +12,9 @@ from PyQt6.QtGui import QIcon
 
 class ThemeSignalManager(QObject):
     """
-    Gestor de senales para el cambio de tema visual.
+    Gestor de señales para el cambio de tema visual.
 
-    Permite que multiples componentes (widgets, graficas, escena 3D)
+    Permite que múltiples componentes (widgets, gráficas, escena 3D)
     se sincronicen cuando el usuario alterna entre modo claro y oscuro.
 
     Signals:
@@ -46,10 +46,10 @@ class ThemeSignalManager(QObject):
     @classmethod
     def get_instance(cls):
         """
-        Obtiene la instancia unica del gestor (patron Singleton).
+        Obtiene la instancia única del gestor (patrón Singleton).
 
         Returns:
-            ThemeSignalManager: Instancia unica.
+            ThemeSignalManager: Instancia única.
         """
         if cls._instance is None:
             cls._instance = cls()
@@ -57,7 +57,7 @@ class ThemeSignalManager(QObject):
 
     def emit_theme_change(self, dark_t: bool):
         """
-        Emite la senal de cambio de tema a todos los suscriptores.
+        Emite la señal de cambio de tema a todos los suscriptores.
 
         Args:
             dark_t (bool): True para tema oscuro.

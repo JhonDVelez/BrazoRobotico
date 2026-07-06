@@ -1,9 +1,9 @@
 """
-Modulo que gestiona la actualizacion visual del modelo 3D en QtQuick.
+Módulo que gestiona la actualización visual del modelo 3D en QtQuick.
 
-Este modulo contiene la clase SimulationWorker, la cual actua como un puente
-entre los datos cinematicos/fisicos y las propiedades de los objetos 3D
-definidos en el motor grafico de Qt (QML/Quick3D).
+Este módulo contiene la clase SimulationWorker, la cual actúa como un puente
+entre los datos cinemáticos/físicos y las propiedades de los objetos 3D
+definidos en el motor gráfico de Qt (QML/Quick3D).
 """
 
 from PyQt6.QtCore import QThread, QObject
@@ -12,7 +12,7 @@ from PyQt6.QtGui import QVector3D, QQuaternion
 
 class SimulationWorker(QThread):
     """
-    Worker thread encargado de la sincronizacion visual del robot y su entorno.
+    Worker thread encargado de la sincronización visual del robot y su entorno.
 
     Manipula dinamicamente las propiedades de eulerRotation de los eslabones
     y las posiciones de las esferas detectadas en la escena 3D.
@@ -20,11 +20,11 @@ class SimulationWorker(QThread):
 
     def __init__(self, root_object, robot_id):
         """
-        Inicializa el worker con el objeto raiz de la escena QML.
+        Inicializa el worker con el objeto raíz de la escena QML.
 
         Args:
             root_object (QObject): Referencia al objeto 'root' del cargador QML.
-            robot_id (str): Identificador unico del robot.
+            robot_id (str): Identificador único del robot.
         """
         super().__init__()
         self.timer = None
@@ -55,10 +55,10 @@ class SimulationWorker(QThread):
 
     def update_simulation(self, joint_positions=None):
         """
-        Actualiza los angulos de rotacion de cada eslabon en el modelo 3D.
+        Actualiza los ángulos de rotación de cada eslabón en el modelo 3D.
 
         Args:
-            joint_positions (list, optional): Lista de 6 angulos en grados.
+            joint_positions (list, optional): Lista de 6 ángulos en grados.
                 Defaults to None (posicion cero).
         """
         if joint_positions is None:
@@ -88,7 +88,7 @@ class SimulationWorker(QThread):
 
     def update_sphere_pose_simulation(self, poses: dict):
         """
-        Actualiza la posicion visual de las esferas de color en la escena 3D.
+        Actualiza la posición visual de las esferas de color en la escena 3D.
 
         Args:
             poses (dict): Diccionario {color: dict} con coordenadas y orientacion.

@@ -1,41 +1,43 @@
 """
-Modulo de control de la camara para captura de video.
+Módulo de control de la cámara para captura de video.
 
-Proporciona CameraControl, que gestiona la apertura, configuracion,
-captura y liberacion de la camara. Optimizado para uso con OpenCL (UMat)
+Proporciona CameraControl, que gestiona la apertura, configuración,
+captura y liberación de la cámara. Optimizado para uso con OpenCL (UMat)
 y aceleracion por hardware en Windows (D3D11).
 
 Conexiones:
-    - Utiliza config_manager para cargar la configuracion de resolucion,
-      FPS y datos de calibracion de la camara seleccionada.
+    - Utiliza config_manager para cargar la configuración de resolución,
+      FPS y datos de calibración de la cámara seleccionada.
 """
 
 import os
 import sys
+from cv2.typing import NumPyArrayNumeric
 import numpy as np
-from typing import Optional
+from typing import Any, Optional
 import cv2
 
 os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
 
 try:
     cv2.ocl.setUseOpenCL(True)
-except Exception:
+except cv2.error:
+    # OpenCL no disponible en este sistema — continuar sin aceleración GPU
     pass
 
 
 class CameraConnection:
-    """Gestiona una camara y sus operaciones basicas de captura.
+    """Gestiona una cámara y sus operaciones básicas de captura.
 
     Optimizada para usar UMat (OpenCL) en preprocesado. Configura
-    la camara con la resolucion, FPS y aceleracion por hardware
-    especificados en la configuracion.
+    la cámara con la resolución, FPS y aceleración por hardware
+        especificados en la configuración.
 
     Args:
-        camera_index (int): Indice de la camara a utilizar.
-        camera_config (dict): Configuracion con resolucion, matriz
+        camera_index (int): Índice de la cámara a utilizar.
+        camera_config (dict): Configuración con resolución, matriz
             y coeficientes de distorsion.
-        is_calibration (bool): Si True, la camara se usa para calibracion.
+        is_calibration (bool): Si True, la cámara se usa para calibración.
     """
 
     def __init__(self, camera_index: int = 0, camera_config: dict = None, is_calibration: bool = False):
@@ -54,14 +56,14 @@ class CameraConnection:
         self.camera_index = camera_index
 
     def camera_on(self) -> bool:
-        """Enciende la camara con configuracion optimizada.
+        """Enciende la cámara con configuración optimizada.
 
-        Selecciona la API de captura segun la plataforma (DShow en
+        Selecciona la API de captura según la plataforma (DShow en
         Windows, V4L2 en Linux) y configura resolucion, FPS y
         aceleracion por hardware.
 
         Returns:
-            bool: True si la camara se inicializo correctamente.
+            bool: True si la cámara se inicializó correctamente.
         """
         try:
             self.__release_camera()
@@ -87,30 +89,30 @@ class CameraConnection:
             return True
 
         except IOError as e:
-            print(f"Error al inicializar cámara: {e}")
+            print(f"[DEBUG] IOError al inicializar cámara (índice {self.camera_index}): {e}")
             self.__release_camera()
             return False
         except RuntimeError as e:
-            print(f"Error durante ejecucion: {e}")
+            print(f"[DEBUG] RuntimeError al inicializar cámara (índice {self.camera_index}): {e}")
             self.__release_camera()
             return False
 
     def camera_off(self):
-        """Apaga la camara y libera los recursos asociados."""
+        """Apaga la cámara y libera los recursos asociados."""
         self.camera_ready = False
         self.__release_camera()
         cv2.destroyAllWindows()
 
     def camera_is_on(self):
-        """Verifica si la camara esta activa y operativa.
+        """Verifica si la cámara está activa y operativa.
 
         Returns:
-            bool: True si la camara esta abierta y lista para capturar.
+            bool: True si la cámara está abierta y lista para capturar.
         """
         return self.cap is not None and self.cap.isOpened() and self.camera_ready
 
-    def take_frame(self):
-        """Captura un frame de la camara en formato BGR.
+    def take_frame(self) -> None | cv2.typing.MatLike:
+        """Captura un frame de la cámara en formato BGR.
 
         Returns:
             np.ndarray or None: Frame capturado o None si falla.
@@ -122,27 +124,12 @@ class CameraConnection:
             return frame
         return None
 
-    def __release_camera(self):
-        """Libera los recursos de la camara de forma segura."""
+    def __release_camera(self) -> None:
+        """Libera los recursos de la cámara de forma segura."""
         if self.cap:
             try:
                 self.cap.release()
-            except Exception:
+            except (cv2.error, OSError):
+                # Error al liberar cámara — ignorar en cierre
                 pass
             self.cap = None
-
-    def apply_division_trick(self, img):
-        """Aplica el 'truco de la division' para eliminar sombras.
-
-        Divide la imagen por una version muy borrosa de si misma,
-        eliminando zonas oscuras de sombras y conservando solo los
-        bordes de alto contraste.
-
-        Args:
-            img: Imagen de entrada en BGR.
-
-        Returns:
-            Imagen procesada sin sombras.
-        """
-        smooth = cv2.GaussianBlur(img, (95, 95), 0)
-        return cv2.divide(img, smooth, scale=255)

@@ -52,11 +52,11 @@ class ThemeManager:
         if scheme == Qt.ColorScheme.Dark:
             self._load_dark_theme()
             config_manager.request_change(
-                "settings.json", "theme", value="dark")
+                "settings.json", ["theme"], "dark")
         else:
             self._load_light_theme()
             config_manager.request_change(
-                "settings.json", "theme", value="light")
+                "settings.json", ["theme"], "light")
 
         # Emitir señal según el estado actual
         is_dark = self.actual_theme == Qt.ColorScheme.Dark
@@ -64,27 +64,22 @@ class ThemeManager:
 
         self.actual_theme = scheme
 
-    def _apply_theme_from_signal(self, is_dark: bool):
-        """ Aplica el tema cuando se recibe una señal de otra ventana (sin emitir de nuevo).
-        """
-        config_manager = ConfigSignalManager.get_instance()
+    def apply_theme_from_signal(self, is_dark: bool):
+        """Aplica el tema cuando se recibe una señal de otra ventana (sin emitir ni escribir config)."""
         if is_dark:
             self._load_dark_theme()
-            config_manager.request_change(
-                "settings.json", "theme", value="dark")
         else:
             self._load_light_theme()
-            config_manager.request_change(
-                "settings.json", "theme", value="light")
         self.actual_theme = Qt.ColorScheme.Dark if is_dark else Qt.ColorScheme.Light
 
     def load_current_theme(self):
+        """Aplica el tema guardado."""
         self.update_theme(self.theme_signal_manager.get_current_theme())
 
     def toggle_theme_event(self):
         """Cambia manualmente entre tema claro y oscuro.
 
-        Si no hay un tema actual, lo determina desde la configuracion
+        Si no hay un tema actual, lo determina desde la configuración
         guardada. Emite la señal de cambio de tema y aplica el nuevo
         tema a la interfaz.
         """

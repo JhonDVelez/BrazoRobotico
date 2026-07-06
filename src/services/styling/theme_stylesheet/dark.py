@@ -1,6 +1,6 @@
 """Hoja de estilo QSS para el tema oscuro de la interfaz.
 
-Contiene la personalizacion completa de todos los widgets Qt
+Contiene la personalización completa de todos los widgets Qt
 para el modo oscuro, con colores base #0c0e12 y acentos #1A70E6.
 Modificada a partir de PyQtDarkTheme (MIT License).
 """

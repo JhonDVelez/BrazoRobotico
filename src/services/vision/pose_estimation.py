@@ -1,8 +1,8 @@
 """
-Modulo para la estimacion de pose 3D de esferas de color.
+Módulo para la estimación de pose 3D de esferas de color.
 
-Este modulo implementa la clase PoseEstimation que, utilizando los resultados
-de deteccion de esferas y la pose de un tablero ChArUco, calcula la posicion
+Este módulo implementa la clase PoseEstimation que, utilizando los resultados
+de detección de esferas y la pose de un tablero ChArUco, calcula la posición
 3D de esferas apoyadas sobre el plano del tablero.
 
 Conexiones:
@@ -19,9 +19,9 @@ from src.services.vision.geometry_utils import pixel_to_board_coordinates
 
 class PoseEstimation(QRunnable):
     """
-    Tarea ejecutable para estimar la posicion 3D de esferas detectadas.
+    Tarea ejecutable para estimar la posición 3D de esferas detectadas.
 
-    Esta clase utiliza tecnicas de ray-casting para intersectar el rayo visual
+    Esta clase utiliza técnicas de ray-casting para intersectar el rayo visual
     proveniente del centro de una esfera con un plano paralelo al tablero
     ChArUco, situado a una distancia igual al radio de la esfera.
     """
@@ -30,18 +30,18 @@ class PoseEstimation(QRunnable):
                  sphere_radius, custom_origin_offset, error_callback,
                  frame_id=None, pose_callback=None):
         """
-        Inicializa la tarea de estimacion de pose.
+        Inicializa la tarea de estimación de pose.
 
         Args:
             results (dict): Diccionario con resultados de 'circles' y 'charuco'.
-            camera_matrix (np.ndarray): Matriz intrinseca de la camara.
-            dist_coeffs (np.ndarray): Coeficientes de distorsion de la camara.
+            camera_matrix (np.ndarray): Matriz intrínseca de la cámara.
+            dist_coeffs (np.ndarray): Coeficientes de distorsión de la cámara.
             frame_size (tuple): Tamaño del frame (ancho, alto).
-            sphere_radius (float): Radio fisico de las esferas (mm).
+            sphere_radius (float): Radio físico de las esferas (mm).
             custom_origin_offset (list): Offset [x, y, z] para el origen personalizado.
-            error_callback (callable): Funcion para reportar errores.
+            error_callback (callable): Función para reportar errores.
             frame_id (int, optional): Identificador del frame procesado.
-            pose_callback (callable, optional): Funcion para devolver los resultados.
+            pose_callback (callable, optional): Función para devolver los resultados.
         """
         super().__init__()
         self.circle_results = results.get("circles") or {}
@@ -62,27 +62,27 @@ class PoseEstimation(QRunnable):
 
     def run(self):
         """
-        Ejecuta el proceso de estimacion de pose para todas las elipses detectadas.
+        Ejecuta el proceso de estimación de pose para todas las elipses detectadas.
 
-        Valida la pose del tablero ChArUco, calcula la matriz de rotacion
+        Valida la pose del tablero ChArUco, calcula la matriz de rotación
         y proyecta cada esfera al espacio 3D del tablero y del origen personalizado.
         """
         try:
             final_poses = {}
 
             if self.rvec is None or self.tvec is None:
-                # No podemos estimar poses sin el tablero, reportamos vacio
+                # No podemos estimar poses sin el tablero, reportamos vacío
                 if self.pose_callback is not None:
                     self.pose_callback(self.frame_id, final_poses)
                 return
 
             if not self.circle_results:
-                # No hay esferas detectadas, reportamos vacio
+                # No hay esferas detectadas, reportamos vacío
                 if self.pose_callback is not None:
                     self.pose_callback(self.frame_id, final_poses)
                 return
 
-            # R transforma coordenadas del tablero hacia coordenadas de camara.
+            # R transforma coordenadas del tablero hacia coordenadas de cámara.
             rotation_matrix, _ = cv2.Rodrigues(self.rvec)
 
             for color_name, sphere_data in self.circle_results.items():
@@ -90,7 +90,7 @@ class PoseEstimation(QRunnable):
                 if center is None:
                     continue
                 
-                # Calculamos la posicion del centro de la esfera (plane_z = radio)
+                # Calculamos la posición del centro de la esfera (plane_z = radio)
                 p_world = pixel_to_board_coordinates(
                     center, self.rvec, self.tvec, self.camera_matrix, 
                     self.dist_coeffs, self.frame_size, self.sphere_radius
@@ -107,8 +107,9 @@ class PoseEstimation(QRunnable):
             if self.pose_callback is not None:
                 self.pose_callback(self.frame_id, final_poses)
 
-        except Exception as e:
-            self.error_callback(str(e))
+        except (cv2.error, ValueError, np.linalg.LinAlgError) as e:
+            print(f"[DEBUG] Error en estimación de pose ({type(e).__name__}): {e}")
+            self.error_callback(f"Error en estimación de pose: {type(e).__name__}: {e}")
 
     def _apply_custom_origin(self, p_world):
         """
@@ -120,6 +121,6 @@ class PoseEstimation(QRunnable):
         Returns:
             np.ndarray: Coordenadas 3x1 respecto al origen personalizado.
         """
-        # Restar el offset fisico definido por el usuario para trasladar el origen
+        # Restar el offset físico definido por el usuario para trasladar el origen
         p_final = p_world - self.custom_origin_offset
         return p_final

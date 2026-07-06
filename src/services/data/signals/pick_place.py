@@ -21,7 +21,7 @@ class PickPlaceSignalManager(QObject):
     release_sphere_request = pyqtSignal(str)
     reattach_sphere_request = pyqtSignal(str)
     clear_spheres_request = pyqtSignal()
-    # Peticion de (des)activar la busqueda de esferas en la camara.
+    # Petición de (des)activar la búsqueda de esferas en la cámara.
     # Sender PickAndPlaceController, receiver DataController -> SearchSignalManager.
     search_circle_request = pyqtSignal(bool)
 
@@ -34,7 +34,7 @@ class PickPlaceSignalManager(QObject):
 
     def _init_state(self):
         """
-        Inicializa el estado desde la configuracion persistente.
+        Inicializa el estado desde la configuración persistente.
         """
         self._lock = threading.Lock()
         config_manager = ConfigSignalManager.get_instance()
@@ -59,14 +59,14 @@ class PickPlaceSignalManager(QObject):
         self.state_changed.emit(state)
 
     def is_pick_place_running(self):
-        """Retorna True si una secuencia de pick and place esta en ejecucion."""
+        """Retorna True si una secuencia de pick and place está en ejecución."""
         return self._pick_place_running
 
     def set_pick_place_running(self, running):
         """Establece el estado de ejecucion de la secuencia.
 
         Args:
-            running (bool): True si la secuencia esta activa.
+            running (bool): True si la secuencia está activa.
         """
         self._pick_place_running = running
         self.pick_place_running_changed.emit(running)

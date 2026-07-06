@@ -1,15 +1,15 @@
 """
-Modulo que define el contexto de datos para la secuencia Pick and Place.
+Módulo que define el contexto de datos para la secuencia Pick and Place.
 
 Encapsula todo el estado compartido y constantes para evitar el acoplamiento
-fuerte a traves de la herencia en el worker.
+fuerte a través de la herencia en el worker.
 """
 
 class PickPlaceContext:
-    """Contenedor de estado para la operacion de Pick and Place."""
+    """Contenedor de estado para la operación de Pick and Place."""
 
     def __init__(self):
-        # Estado de la operacion
+        # Estado de la operación
         self.selected_color = None
         self.sphere_poses = {}
         self.place_target_coords = None
@@ -32,9 +32,9 @@ class PickPlaceContext:
         self.ERROR_THRESHOLD = 5.0
 
     def reset(self):
-        """Limpia el estado interno para una nueva operacion."""
+        """        Limpia el estado interno para una nueva operación."""
         self.selected_color = None
         self.place_target_coords = None
         self.ik_target = None
         self.current_target = None
-        # Mantenemos sphere_poses y configuracion de pinza
+        # Mantenemos sphere_poses y configuración de pinza

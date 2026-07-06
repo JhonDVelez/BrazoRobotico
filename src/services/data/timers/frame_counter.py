@@ -1,9 +1,9 @@
 """
-Modulo que define el contador de fotogramas para control de cadencia.
+Módulo que define el contador de fotogramas para control de cadencia.
 
 Proporciona un singleton que cuenta los frames entrantes y emite una
-senal de procesamiento cada N frames, permitiendo reducir la carga
-computacional del pipeline de vision.
+señal de procesamiento cada N frames, permitiendo reducir la carga
+computacional del pipeline de visión.
 """
 
 import threading
@@ -13,11 +13,11 @@ from src.services.data.signals import ConfigSignalManager
 
 class FrameCounter(QObject):
     """
-    Contador de fotogramas con emision periodica.
+    Contador de fotogramas con emisión periódica.
 
     Cuenta los frames entrantes y emite ``process_frame_signal`` cada
     ``_interval`` ticks, permitiendo espaciar el procesamiento pesado
-    de vision artificial.
+    de visión artificial.
 
     Signals:
         process_frame_signal: Se emite cuando se alcanza el intervalo.
@@ -30,10 +30,10 @@ class FrameCounter(QObject):
     @classmethod
     def get_instance(cls):
         """
-        Obtiene la instancia unica del contador (Singleton).
+        Obtiene la instancia única del contador (Singleton).
 
         Returns:
-            FrameCounter: Instancia unica.
+            FrameCounter: Instancia única.
         """
         if cls._instance is None:
             cls._instance = cls()
@@ -51,7 +51,7 @@ class FrameCounter(QObject):
 
     def tick(self):
         """
-        Incrementa el contador y emite la senal al alcanzar el intervalo.
+        Incrementa el contador y emite la señal al alcanzar el intervalo.
         """
         with self._lock:
             self._counter += 1
@@ -70,7 +70,7 @@ class FrameCounter(QObject):
 
     def set_interval(self, interval: int):
         """
-        Establece un nuevo intervalo de emision y persiste el cambio.
+        Establece un nuevo intervalo de emisión y persiste el cambio.
 
         Args:
             interval (int): Nuevo intervalo en frames.
@@ -78,5 +78,5 @@ class FrameCounter(QObject):
         with self._lock:
             self._interval = int(interval)
             self._counter = 0
-            ConfigSignalManager.get_instance().request_change("settings.json", "camera", "view",
-                          "interval", value=self._interval)
+            ConfigSignalManager.get_instance().request_change("settings.json", ["camera", "view",
+                                                                                "interval"], self._interval)

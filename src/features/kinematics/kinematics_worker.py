@@ -1,15 +1,15 @@
 """
-Modulo que define el KinematicsWorker para el calculo de cinematica.
+Módulo que define el KinematicsWorker para el cálculo de cinemática.
 
-Este modulo contiene la logica para el calculo de cinematica directa (CD) e
-inversa (CI) de un brazo robotico, ademas de gestionar el control
+Este módulo contiene la lógica para el cálculo de cinemática directa (CD) e
+inversa (CI) de un brazo robótico, además de gestionar el control
 realimentado mediante el uso de hilos (QThread).
 
 Conexiones:
-    - Emite `commands_ready` cuando se calcula un nuevo comando de posicion.
-    - Emite `error_occurred` en caso de fallos en el calculo.
-    - Se conecta con `RobotWorker` (indirectamente a traves de señales) para
-      recibir telemetria y enviar comandos.
+    - Emite `commands_ready` cuando se calcula un nuevo comando de posición.
+    - Emite `error_occurred` en caso de fallos en el cálculo.
+    - Se conecta con `RobotWorker` (indirectamente a través de señales) para
+      recibir telemetría y enviar comandos.
 """
 
 import math
@@ -21,16 +21,16 @@ from src.services.robot.robot_compensator import CartesianPidCompensator
 
 class KinematicsWorker(QThread):
     """
-    Worker encargado exclusivamente del calculo de cinematica y control.
+    Worker encargado exclusivamente del cálculo de cinemática y control.
 
-    Esta clase implementa algoritmos de cinematica directa e inversa iterativa
-    para controlar un brazo robotico de 4 grados de libertad (DOF) activos.
+    Esta clase implementa algoritmos de cinemática directa e inversa iterativa
+    para controlar un brazo robótico de 4 grados de libertad (DOF) activos.
 
     Attributes:
-        commands_ready (pyqtSignal): Señal que envia una lista de posiciones
+        commands_ready (pyqtSignal): Señal que envía una lista de posiciones
             (float) para los servos del robot.
-        error_occurred (pyqtSignal): Señal que envia un mensaje de error (str)
-            en caso de fallas criticas.
+        error_occurred (pyqtSignal): Señal que envía un mensaje de error (str)
+            en caso de fallas críticas.
     """
     commands_ready = pyqtSignal(list)
     error_occurred = pyqtSignal(str)
@@ -38,7 +38,7 @@ class KinematicsWorker(QThread):
 
     def __init__(self):
         """
-        Inicializa el worker de cinematica con las dimensiones del robot.
+        Inicializa el worker de cinemática con las dimensiones del robot.
 
         Define las longitudes de los eslabones y establece el estado inicial
         del sistema de control.
@@ -55,6 +55,7 @@ class KinematicsWorker(QThread):
         self._prev_positions = list(self._current_positions)
         self._is_paused = False
 
+<<<<<<< HEAD
         # --- PID control state (initiative) ---
         self._pid_active = False
         self._pid_target = None
@@ -117,12 +118,114 @@ class KinematicsWorker(QThread):
             [ 0,       dz_dt2,       dz_dt3,       dz_dt4]
         ])
         return np.linalg.pinv(J)
+=======
+    # --- Métodos Matemáticos (DH y Transformaciones) ---
+
+    def _h_dh(self, H):
+        """
+        Extrae la rotación y traslación de una matriz de transformación homogénea.
+
+        Args:
+            H (np.ndarray): Matriz de transformación homogénea de 4x4.
+
+        Returns:
+            tuple: Contiene (R, vect_d, zero_array, scale) donde:
+                - R (np.ndarray): Matriz de rotación 3x3.
+                - vect_d (np.ndarray): Vector de traslación 3x1.
+                - zero_array (np.ndarray): Array de ceros para compatibilidad.
+                - scale (int): Factor de escala (siempre 1).
+        """
+        R = H[:3, :3]
+        vect_d = H[:3, 3].reshape((3, 1))
+        return R, vect_d, np.array([0, 0, 0]), 1
+
+    def _hrx(self, theta):
+        """
+        Genera una matriz de rotación en el eje X.
+
+        Args:
+            theta (float): Ángulo de rotación en radianes.
+
+        Returns:
+            np.ndarray: Matriz de transformación de 4x4.
+        """
+        c, s = np.cos(theta), np.sin(theta)
+        return np.array([[1, 0, 0, 0], [0, c, -s, 0], [0, s, c, 0], [0, 0, 0, 1]])
+
+    def _hrz(self, theta):
+        """
+        Genera una matriz de rotación en el eje Z.
+
+        Args:
+            theta (float): Ángulo de rotación en radianes.
+
+        Returns:
+            np.ndarray: Matriz de transformación de 4x4.
+        """
+        c, s = np.cos(theta), np.sin(theta)
+        return np.array([[c, -s, 0, 0], [s, c, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+
+    def _htx(self, d):
+        """
+        Genera una matriz de traslación en el eje X.
+
+        Args:
+            d (float): Distancia de traslación.
+
+        Returns:
+            np.ndarray: Matriz de transformación de 4x4.
+        """
+        return np.array([[1, 0, 0, d], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+
+    def _htz(self, d):
+        """
+        Genera una matriz de traslación en el eje Z.
+
+        Args:
+            d (float): Distancia de traslación.
+
+        Returns:
+            np.ndarray: Matriz de transformación de 4x4.
+        """
+        return np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, d], [0, 0, 0, 1]])
+
+    def _t_matrices(self, t1, t2, t3, t4):
+        """
+        Calcula las matrices de transformación sucesivas para cada eslabón.
+
+        Utiliza los parámetros DH (Denavit-Hartenberg) personalizados para el robot.
+
+        Args:
+            t1 (float): Ángulo de la articulación 1 (Base) en radianes.
+            t2 (float): Ángulo de la articulación 2 (Hombro) en radianes.
+            t3 (float): Ángulo de la articulación 3 (Codo) en radianes.
+            t4 (float): Ángulo de la articulación 4 (Muñeca) en radianes.
+
+        Returns:
+            list: Lista de 5 matrices np.ndarray (4x4) desde la base hasta el efector final.
+        """
+        # A1: Base a Hombro
+        A1 = self._hrz(t1 + np.pi) @ self._htz(self._L1) @ self._htx(0) @ self._hrx(np.pi/2)
+        # A2: Hombro a Codo
+        A2 = self._hrz(t2 + np.pi/2) @ self._htz(0) @ self._htx(self._L2) @ self._hrx(0)
+        # A3: Codo a Muñeca
+        A3 = self._hrz(t3) @ self._htz(0) @ self._htx(self._L3) @ self._hrx(0)
+        # A4: Muñeca a Pinza
+        A4 = self._hrz(t4) @ self._htz(0) @ self._htx(self._L4) @ self._hrx(0)
+
+        T01 = A1
+        T02 = T01 @ A2
+        T03 = T02 @ A3
+        T04 = T03 @ A4
+        return [np.identity(4), T01, T02, T03, T04]
+>>>>>>> 1825586cf103f63ef7f9c90d4540b2f568c648da
 
     def cd(self, t1, t2, t3, t4):
         return self._cinematica_directa(np.array([t1, t2, t3, t4], dtype=float))
 
     def ci(self, px, py, pz, max_iter=100, tol=1.0, gain=0.5):
         """
+<<<<<<< HEAD
         Calcula cinematica inversa iterativa (Newton-Raphson) para un objetivo cartesiano.
 
         Usa la pseudoinversa del Jacobiano para converger desde el origen
@@ -138,10 +241,46 @@ class KinematicsWorker(QThread):
 
         Returns:
             np.ndarray: Angulos articulares [q1, q2, q3, q4] en radianes.
+=======
+        Calcula la cinemática directa para obtener la posición del efector final.
+
+        Args:
+            t1 (float): Ángulo articular 1 en radianes.
+            t2 (float): Ángulo articular 2 en radianes.
+            t3 (float): Ángulo articular 3 en radianes.
+            t4 (float): Ángulo articular 4 en radianes.
+
+        Returns:
+            np.ndarray: Vector de posición [x, y, z] en milímetros.
+>>>>>>> 1825586cf103f63ef7f9c90d4540b2f568c648da
         """
         q = np.zeros(4, dtype=float)
         target = np.array([px, py, pz], dtype=float)
 
+<<<<<<< HEAD
+=======
+    def ci(self, px, py, pz, phi):
+        """
+        Calcula la cinemática inversa iterativa para alcanzar una posición.
+
+        Utiliza el método de Newton-Raphson con el Jacobiano analítico para
+        encontrar los ángulos articulares que minimizan el error de posición.
+
+        Args:
+            px (float): Posición deseada en X (mm).
+            py (float): Posición deseada en Y (mm).
+            pz (float): Posición deseada en Z (mm).
+            phi (float): Ángulo de aproximación inicial para la muñeca (grados).
+
+        Returns:
+            tuple: Contiene (q, error) donde:
+                - q (np.ndarray): Vector de ángulos articulares 4x1 en radianes.
+                - error (np.ndarray): Vector de error de posición residual 3x1.
+        """
+        q = np.deg2rad(np.array([40, 60, 90, phi], dtype=float)).reshape((4, 1))
+        lambda_val, tol, max_iter = 0.5, 0.1, 100
+        P_deseada = np.array([px, py, pz], dtype=float)
+>>>>>>> 1825586cf103f63ef7f9c90d4540b2f568c648da
         for _ in range(max_iter):
             current_xyz = self._cinematica_directa(q)
             error = target - current_xyz
@@ -159,8 +298,21 @@ class KinematicsWorker(QThread):
 
     def _apply_dead_band(self, dq_rad):
         """
+<<<<<<< HEAD
         Compensa la banda muerta de los servomotores incrementando
         las ordenes pequeñas por encima del umbral.
+=======
+        Calcula el Jacobiano analítico del robot para la posición actual.
+
+        El Jacobiano relaciona las velocidades articulares con las velocidades
+        lineales del efector final (Jv).
+
+        Args:
+            q_flat (array-like): Ángulos articulares actuales [t1, t2, t3, t4] en radianes.
+
+        Returns:
+            np.ndarray: Matriz Jacobiana de 3x4.
+>>>>>>> 1825586cf103f63ef7f9c90d4540b2f568c648da
         """
         dq_deg = np.degrees(dq_rad)
         for j in range(len(dq_deg)):
@@ -308,10 +460,16 @@ class KinematicsWorker(QThread):
     @pyqtSlot(list, list)
     def update_sensor_data(self, positions, temp_data=None):
         """
-        Recibe telemetria del robot y recalcula el siguiente comando de control.
+        Recibe telemetría del robot y recalcula el siguiente comando de control.
 
+<<<<<<< HEAD
         Implementa el esquema PID cartesiano con anti-windup, banda muerta,
         y contador de estabilidad, segun la logica de Prueba_controlv11.
+=======
+        Este método implementa un esquema de control incremental (Damped Least Squares)
+        para mover el robot hacia el objetivo definido en `set_target`. También
+        incluye detección de bloqueos mecánicos.
+>>>>>>> 1825586cf103f63ef7f9c90d4540b2f568c648da
 
         Args:
             positions (list): Posiciones actuales de los servos (0-300 grados).
@@ -487,7 +645,7 @@ class KinematicsWorker(QThread):
 
     def get_current_positions(self):
         """
-        Obtiene las ultimas posiciones conocidas de los servos.
+        Obtiene las últimas posiciones conocidas de los servos.
 
         Returns:
             list: Lista de 6 flotantes (grados).

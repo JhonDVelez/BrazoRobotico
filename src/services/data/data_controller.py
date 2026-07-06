@@ -1,13 +1,13 @@
 """
-Modulo que actua como controlador de flujo de datos centralizado (Cerebro).
+Módulo que actúa como controlador de flujo de datos centralizado (Cerebro).
 
-Implementa la logica de negocio y orquestacion, actuando como un mediador reactivo
-entre los controladores de interfaz (Features) y los controladores de ejecucion
-(Servicios de Simulacion y Robot).
+Implementa la lógica de negocio y orquestación, actuando como un mediador reactivo
+entre los controladores de interfaz (Features) y los controladores de ejecución
+(Servicios de Simulación y Robot).
 
 Reglas de Arquitectura:
-    - Instancia unica gestionada por MainWindow.
-    - Se comunica con otros controladores exclusivamente via SignalManagers.
+    - Instancia única gestionada por MainWindow.
+    - Se comunica con otros controladores exclusivamente vía SignalManagers.
     - No tiene acceso directo a Workers o Widgets ajenos.
 """
 
@@ -30,7 +30,7 @@ class DataController(QObject):
     Orquestador central del flujo de datos del sistema.
 
     Mantiene el estado global del robot (Digital Twin) y coordina la 
-    sincronizacion entre la entrada del usuario, la simulacion fisica 
+    sincronización entre la entrada del usuario, la simulación física 
     y el hardware real.
     """
 
@@ -38,7 +38,7 @@ class DataController(QObject):
 
     def __init__(self) -> None:
         """
-        Inicializa el DataController unico.
+        Inicializa el DataController único.
         """
         super().__init__()
         self._mode = Modes.SLIDERS
@@ -66,14 +66,14 @@ class DataController(QObject):
 
         self._setup_global_connections()
 
-        # Temporizador de sincronizacion centralizado
+        # Temporizador de sincronización centralizado
         self._sync_timer = GlobalTimer.get_instance()
         self._sync_timer.start()
         self._sync_timer.sync_simulation_tick.connect(self._handle_sync_tick)
         self._sync_timer.sync_robot_tick.connect(self._handle_sync_tick)
 
     def _load_initial_config(self):
-        """Carga la configuracion persistente."""
+        """Carga la configuración persistente."""
         config_manager.init_config()
         for filename in config_manager.DEFAULTS.keys():
             data = config_manager.load(filename)
@@ -81,8 +81,8 @@ class DataController(QObject):
 
     @pyqtSlot(str, list, object)
     def _on_config_change_requested(self, filename: str, keys: list, value: object):
-        """Persiste cambios de configuracion."""
-        config_manager.set_value(filename, *keys, value=value)
+        """Persiste cambios de configuración."""
+        config_manager.set_value(filename, keys, value)
         self.config_signals.update_param(filename, keys, value)
 
     def _setup_global_connections(self):
@@ -107,12 +107,12 @@ class DataController(QObject):
         self.kin_signals.change_mode_signal.connect(self.set_mode)
 
         # --- Feedback desde Servicios (Ejecucion) ---
-        # Feedback de Simulacion -> Actualizacion de UI
+        # Feedback de Simulación -> Actualización de UI
         self.sim_signals.sensor_position_signal.connect(
             self._on_simulation_feedback)
         self.sim_signals.model_position_signal.connect(self._on_model_feedback)
 
-        # Feedback de Robot Fisico -> Actualizacion de UI y Sincronizacion
+        # Feedback de Robot Físico -> Actualización de UI y Sincronización
         self.phys_signals.data_received.connect(self._on_physical_feedback)
 
         # Bridge Pick and Place -> Simulation
@@ -121,12 +121,12 @@ class DataController(QObject):
         self.pick_signals.reattach_sphere_request.connect(
             self.sim_signals.reattach_sphere.emit)
 
-        # Bridge Pick and Place -> Search (control de busqueda de esferas)
+        # Bridge Pick and Place -> Search (control de búsqueda de esferas)
         self.pick_signals.search_circle_request.connect(
             self.search_signals.set_circle)
 
-        # Bridge cinematica inversa: Pick and Place <-> Kinematics.
-        # Ninguna feature conoce a la otra; el DataController media el dialogo.
+        # Bridge cinemática inversa: Pick and Place <-> Kinematics.
+        # Ninguna feature conoce a la otra; el DataController media el diálogo.
         self.pick_signals.inverse_kinematics_requested.connect(
             self.kin_signals.inverse_kinematics_requested.emit)
         self.kin_signals.inverse_kinematics_ready.connect(
@@ -143,17 +143,21 @@ class DataController(QObject):
             self.pick_signals.spheres_detected_2d.emit)
 
         # Bridge Simulation Control
-        self.sim_signals.start_request.connect(self.sim_signals.start_simulation.emit)
-        self.sim_signals.pause_request.connect(self.sim_signals.pause_simulation.emit)
-        self.sim_signals.stop_request.connect(self.sim_signals.stop_simulation.emit)
+        self.sim_signals.start_request.connect(
+            self.sim_signals.start_simulation.emit)
+        self.sim_signals.pause_request.connect(
+            self.sim_signals.pause_simulation.emit)
+        self.sim_signals.stop_request.connect(
+            self.sim_signals.stop_simulation.emit)
 
         # Bridge Robot Control
-        self.phys_signals.start_request.connect(self.phys_signals.start_service.emit)
-        self.phys_signals.stop_request.connect(self.phys_signals.stop_service.emit)
+        self.phys_signals.start_request.connect(
+            self.phys_signals.start_service.emit)
+        self.phys_signals.stop_request.connect(
+            self.phys_signals.stop_service.emit)
 
     @pyqtSlot()
     def _handle_sync_tick(self):
-
         """Despacha posiciones y detecta llegada al objetivo."""
         if self._target_data is None:
             return
@@ -161,7 +165,6 @@ class DataController(QObject):
         data_rad = deg_to_rad(self._target_data)
         self.sim_signals.update_pybullet_signal.emit(data_rad.tolist())
 
-        
         if self.phys_signals.is_connected:
             self.phys_signals.send_to_robot.emit(self._target_data)
 
@@ -188,12 +191,12 @@ class DataController(QObject):
 
     @pyqtSlot(object)
     def set_mode(self, mode: Modes):
-        """Cambia el modo de operacion global."""
+        """Cambia el modo de operación global."""
         self._mode = mode
 
     @pyqtSlot(list)
     def _on_simulation_feedback(self, actual_positions: list):
-        """Procesa feedback de la simulacion para graficos y target_reached."""
+        """Procesa feedback de la simulación para gráficos y target_reached."""
         pos_deg = rad_to_deg(actual_positions)
         self.sim_signals.update_graph_signal.emit(pos_deg)
         if not self.phys_signals.is_connected:
@@ -201,7 +204,7 @@ class DataController(QObject):
 
     @pyqtSlot(list, dict)
     def _on_model_feedback(self, motor_positions, sphere_positions):
-        """Procesa feedback de la simulacion para el modelo 3D."""
+        """Procesa feedback de la simulación para el modelo 3D."""
         pos_deg = rad_to_deg(motor_positions)
         self.sim_signals.update_robot_signal.emit(pos_deg)
         self.sim_signals.sphere_pos_from_pybullet.emit(sphere_positions)

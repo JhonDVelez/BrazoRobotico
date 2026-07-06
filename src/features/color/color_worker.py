@@ -1,13 +1,13 @@
 """
-Modulo encargado del procesamiento de color en el espacio HSV.
+Módulo encargado del procesamiento de color en el espacio HSV.
 
-Este modulo define la clase ColorWorker, la cual aplica filtros de color
-dinamicos sobre el feed de video para ayudar en la calibracion de deteccion
+Este módulo define la clase ColorWorker, la cual aplica filtros de color
+dinámicos sobre el feed de video para ayudar en la calibración de detección
 de objetos por color.
 
 Conexiones:
     - Recibe frames de `CameraWorker`.
-    - Emite `processing_finished` con el frame original, mascara y resultado.
+    - Emite `processing_finished` con el frame original, máscara y resultado.
 """
 
 import cv2
@@ -17,15 +17,15 @@ from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 class ColorWorker(QObject):
     """
-    Worker encargado del procesamiento de imagenes para calibracion de color HSV.
+    Worker encargado del procesamiento de imágenes para calibración de color HSV.
 
-    Calcula mascaras binarias y aplica operaciones bitwise para aislar colores
-    especificos basados en rangos de Hue, Saturation y Value.
+    Calcula máscaras binarias y aplica operaciones bitwise para aislar colores
+    específicos basados en rangos de Hue, Saturation y Value.
 
     Attributes:
-        processing_finished (pyqtSignal): Emite (original, mascara, resultado) en formato np.ndarray.
+        processing_finished (pyqtSignal): Emite (original, máscara, resultado) en formato np.ndarray.
     """
-    # Señal que envía los frames procesados: (original, mascara, resultado)
+    # Señal que envía los frames procesados: (original, máscara, resultado)
     processing_finished = pyqtSignal(np.ndarray, np.ndarray, np.ndarray)
 
     def __init__(self):
@@ -41,10 +41,10 @@ class ColorWorker(QObject):
     @pyqtSlot(object)
     def process_frame(self, frame):
         """
-        Aplica el filtro HSV al frame recibido y genera la visualizacion de calibracion.
+        Aplica el filtro HSV al frame recibido y genera la visualización de calibración.
 
         Args:
-            frame (np.ndarray | cv2.UMat): Imagen original capturada por la camara.
+            frame (np.ndarray | cv2.UMat): Imagen original capturada por la cámara.
         """
         if frame is None:
             return
@@ -93,6 +93,6 @@ class ColorWorker(QObject):
         Obtiene una copia de los rangos HSV actuales.
 
         Returns:
-            dict: Configuracion de filtrado.
+            dict: Configuración de filtrado.
         """
         return self._hsv_ranges.copy()

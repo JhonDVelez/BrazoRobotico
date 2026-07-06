@@ -1,8 +1,8 @@
 """
-Modulo que define los componentes de menu y barra de estado para el modulo de color.
+Módulo que define los componentes de menú y barra de estado para el módulo de color.
 
-Este modulo contiene el ColorMenuMixin, el cual extiende las capacidades
-de la ventana de color permitiendo la creacion de una barra de menus y
+Este módulo contiene el ColorMenuMixin, el cual extiende las capacidades
+de la ventana de color permitiendo la creación de una barra de menús y
 una barra de estado personalizada.
 """
 
@@ -14,9 +14,9 @@ from src.main_window.mixins.main_menu_mixin import MainMenuMixin
 
 class ColorMenuMixin(MainMenuMixin):
     """
-    Mixin encargado de definir el menu para la ventana de calibracion de color.
+    Mixin encargado de definir el menú para la ventana de calibración de color.
 
-    Proporciona metodos para configurar la barra de menus, las acciones
+    Proporciona métodos para configurar la barra de menús, las acciones
     (como el cambio de tema) y la barra de estado de la ventana.
     """
 
@@ -28,7 +28,7 @@ class ColorMenuMixin(MainMenuMixin):
 
     def create_calibration_menu(self):
         """
-        Define la estructura de la barra de menus y sus acciones asociadas.
+        Define la estructura de la barra de menús y sus acciones asociadas.
 
         Crea acciones para el control del tema visual y configura atajos de teclado.
         """

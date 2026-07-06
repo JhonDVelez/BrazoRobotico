@@ -1,15 +1,15 @@
 """
-Modulo que define la ventana principal independiente para la calibracion.
+Módulo que define la ventana principal independiente para la calibración.
 
-Este modulo contiene la clase CameraCalibrationWindow, la cual proporciona un
-entorno dedicado (ventana sin bordes) para ejecutar el proceso de calibracion
-de camaras, integrando menus, barra de titulo personalizada y servicios de tema.
+Este módulo contiene la clase CameraCalibrationWindow, la cual proporciona un
+entorno dedicado (ventana sin bordes) para ejecutar el proceso de calibración
+de cámaras, integrando menús, barra de título personalizada y servicios de tema.
 """
 
 import os
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout
-from PyQt6.QtCore import QCoreApplication, Qt
-from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import QCoreApplication
+from PyQt6.QtGui import QIcon, QScreen
 from qframelesswindow import FramelessMainWindow
 from src.services.data.signals import ThemeSignalManager
 from src.services.styling import ThemeManager
@@ -22,16 +22,16 @@ from src.services.devices import CameraDevices
 
 class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
     """
-    Ventana independiente para la calibracion de la camara.
+    Ventana independiente para la calibración de la cámara.
 
-    Actua como contenedor principal para el CalibrationController y gestiona
-    los servicios especificos de la ventana como el monitoreo de hardware
+    Actúa como contenedor principal para el CalibrationController y gestiona
+    los servicios específicos de la ventana como el monitoreo de hardware
     y la persistencia del tema visual.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
-        Inicializa la ventana de calibracion y sus servicios base.
+        Inicializa la ventana de calibración y sus servicios base.
         """
         super().__init__()
         self.setWindowTitle("Calibración De Cámara")
@@ -52,9 +52,9 @@ class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
         self.__setup_services()
         self.__setup_connections()
 
-    def __setup_base_ui(self):
+    def __setup_base_ui(self) -> None:
         """
-        Configura los contenedores principales y la estetica de la ventana frameless.
+        Configura los contenedores principales y la estética de la ventana frameless.
         """
         self._root_container = QWidget()
         self._root_layout = QVBoxLayout(self._root_container)
@@ -77,7 +77,9 @@ class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
         self.setCentralWidget(self._root_container)
 
         # Dimensiones adaptativas y posicionamiento centralizado
-        screen = QApplication.primaryScreen()
+        screen: QScreen | None = QApplication.primaryScreen()
+        if screen is None:
+            return
         screen_geometry = screen.geometry()
         self.resize(int(screen_geometry.width()*0.66),
                     int(screen_geometry.height()*0.66))
@@ -85,9 +87,9 @@ class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
         y = (screen_geometry.height() - self.height()) // 2
         self.move(x, y)
 
-    def __setup_services(self):
+    def __setup_services(self) -> None:
         """
-        Inicializa servicios globales de tema y monitoreo de hardware camara.
+        Inicializa servicios globales de tema y monitoreo de hardware cámara.
         """
         self.theme_manager = ThemeManager(self)
         self.theme_manager.load_current_theme()
@@ -100,7 +102,7 @@ class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
         self._device_monitor.install_filter(QCoreApplication.instance())
         self._camera_devices.get_cameras()
 
-    def __setup_connections(self):
+    def __setup_connections(self) -> None:
         """
         Establece las conexiones de eventos reactivos de la ventana.
         """
@@ -111,18 +113,18 @@ class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
         self._theme_signal_manager.theme_changed.connect(
             self._on_theme_changed)
 
-    def _on_theme_changed(self, is_dark: bool):
+    def _on_theme_changed(self, is_dark: bool) -> None:
         """
         Maneja el cambio de tema visual sincronizado.
 
         Args:
             is_dark (bool): True si el tema es oscuro.
         """
-        self.theme_manager._apply_theme_from_signal(is_dark)
+        self.theme_manager.apply_theme_from_signal(is_dark)
 
-    def closeEvent(self, event):
+    def closeEvent(self, event) -> None:
         """
-        Gestiona la limpieza de recursos y detencion de monitores al cerrar.
+        Gestiona la limpieza de recursos y detención de monitores al cerrar.
 
         Args:
             event (QCloseEvent): Evento de cierre de Qt.
@@ -132,10 +134,10 @@ class CameraCalibrationWindow(FramelessMainWindow, CalibrationMenuMixin):
             self._device_monitor.uninstall_filter()
         event.accept()
 
-    # Getters explicitos
-    def get_controller(self):
+    # Getters explícitos
+    def get_controller(self) -> CalibrationController:
         """
-        Retorna el controlador de calibracion de la ventana.
+        Retorna el controlador de calibración de la ventana.
 
         Returns:
             CalibrationController: Instancia del controlador.

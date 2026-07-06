@@ -1,12 +1,12 @@
 """
-Modulo de acoplamiento con el motor de fisicas PyBullet.
+Módulo de acoplamiento con el motor de física PyBullet.
 
 Proporciona la clase RobotArmPhysics que gestiona la carga del
-modelo URDF, el control de las articulaciones y la ejecucion
-de los pasos de simulacion.
+modelo URDF, el control de las articulaciones y la ejecución
+de los pasos de simulación.
 
 Conexiones:
-    - Utilizado por PhysicsWorker para controlar la simulacion.
+    - Utilizado por PhysicsWorker para controlar la simulación.
     - Emite robot_loaded cuando termina de cargar el modelo URDF.
 """
 
@@ -18,7 +18,7 @@ from src.services.data.signals import ConfigSignalManager
 
 
 class RobotArmPhysics(QWidget):
-    """Establece las fisicas del modelo 3D y la comunicacion con PyBullet.
+    """    Establece las físicas del modelo 3D y la comunicación con PyBullet.
 
     Gestiona el entorno de PyBullet/OpenGL, la carga del modelo URDF,
     el control posicional de las articulaciones y la obtencion de
@@ -68,7 +68,7 @@ class RobotArmPhysics(QWidget):
         scale = radius_mm / 20.0
         mesh_scale = [scale, scale, scale]
 
-        # Crear nuevas formas de colision y visuales
+        # Crear nuevas formas de colisión y visuales
         self.col_id = p.createCollisionShape(
             shapeType=p.GEOM_MESH,
             fileName=self.sphere_collision_path,
@@ -83,21 +83,21 @@ class RobotArmPhysics(QWidget):
 
         # Si ya existen esferas, debemos recrearlas o actualizar su forma
         # En PyBullet no es trivial cambiar la forma de un cuerpo existente,
-        # lo mas seguro es eliminarlas y dejar que update_spheres las recree
+        # lo más seguro es eliminarlas y dejar que update_spheres las recree
         if hasattr(self, 'spheres') and self.spheres:
             for color, body_id in list(self.spheres.items()):
                 p.removeBody(body_id)
             self.spheres.clear()
             self.missing_counters.clear()
-            # Las esferas liberadas tambien deben ser recreadas si es posible,
-            # pero por ahora las removemos para evitar inconsistencias fisicas.
+            # Las esferas liberadas también deben ser recreadas si es posible,
+            # pero por ahora las removemos para evitar inconsistencias físicas.
             self.released_spheres.clear()
 
     def get_robot_id(self) -> int:
-        """Obtiene el ID del robot en el motor de fisicas de PyBullet.
+        """Obtiene el ID del robot en el motor de física de PyBullet.
 
         Returns:
-            int: Identificador del robot en la simulacion.
+            int: Identificador del robot en la simulación.
         """
         if self.robot_id:
             return self.robot_id
@@ -120,7 +120,7 @@ class RobotArmPhysics(QWidget):
 
         Args:
             positions (list): Lista de posiciones objetivo en radianes.
-            max_velocity (float, optional): Velocidad maxima (rad/s).
+            max_velocity (float, optional): Velocidad máxima (rad/s).
                 Por defecto 1.2.
         """
         if self.robot_id is None or len(positions) != len(self.joint_indices):
@@ -137,7 +137,7 @@ class RobotArmPhysics(QWidget):
             )
 
     def step_simulation(self):
-        """Avanza un paso de la simulacion en PyBullet."""
+        """Avanza un paso de la simulación en PyBullet."""
         p.stepSimulation()
 
     def load_models(self, robot_id):
@@ -153,10 +153,10 @@ class RobotArmPhysics(QWidget):
             p.setCollisionFilterGroupMask(self.robot_id, joint_index, 1, 1)
 
     def get_robot_info(self):
-        """Obtiene informacion del robot, principalmente los indices de cada junta.
+        """Obtiene información del robot, principalmente los índices de cada junta.
 
         Recorre todas las articulaciones del modelo y almacena los
-        indices de aquellas que son moviles (revolute o prismatic).
+        índices de aquellas que son móviles (revolute o prismatic).
         """
         num_joints = p.getNumJoints(self.robot_id)
         for i in range(num_joints):
@@ -166,13 +166,13 @@ class RobotArmPhysics(QWidget):
 
     def update_spheres(self, poses: dict):
         """
-        Actualiza las posiciones de las esferas segun las detecciones de la camara.
+        Actualiza las posiciones de las esferas según las detecciones de la cámara.
 
         Si una esfera no se detecta durante 5 frames seguidos, se oculta.
         Las esferas en proceso de pick and place (released) se ignoran.
 
         Args:
-            poses (dict): Diccionario {color: posicion_o_dict}.
+            poses (dict): Diccionario {color: posición_o_dict}.
         """
         detected_colors = set(poses.keys())
 
@@ -183,7 +183,7 @@ class RobotArmPhysics(QWidget):
             # Reiniciar contador si se detecta
             self.missing_counters[color] = 0
 
-            # Extraer la posicion si viene en un diccionario
+            # Extraer la posición si viene en un diccionario
             pos_list = pose.get('position') if isinstance(pose, dict) else pose
 
             if color in self.spheres:
@@ -200,7 +200,7 @@ class RobotArmPhysics(QWidget):
                     self.hide_sphere(self.spheres[color])
 
     def hide_all_spheres(self):
-        """Oculta todas las esferas de la simulacion inmediatamente."""
+        """Oculta todas las esferas de la simulación inmediatamente."""
         for color, body_id in self.spheres.items():
             if color not in self.released_spheres:
                 self.hide_sphere(body_id)
@@ -275,7 +275,7 @@ class RobotArmPhysics(QWidget):
 
     def release_sphere(self, color):
         """
-        Interrumpe el seguimiento por camara de una esfera para usar fisica real.
+        Interrumpe el seguimiento por cámara de una esfera para usar física real.
 
         Args:
             color (str): Clave de color de la esfera a liberar.
@@ -287,7 +287,7 @@ class RobotArmPhysics(QWidget):
 
     def reattach_sphere(self, color):
         """
-        Reanuda el seguimiento por camara de una esfera.
+        Reanuda el seguimiento por cámara de una esfera.
 
         Args:
             color (str): Clave de color de la esfera a reasociar.
@@ -297,7 +297,7 @@ class RobotArmPhysics(QWidget):
 
     def has_released_spheres(self):
         """
-        Indica si hay esferas liberadas que requieren avanzar la fisica.
+        Indica si hay esferas liberadas que requieren avanzar la física.
 
         Returns:
             bool: True si al menos una esfera fue liberada.

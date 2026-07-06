@@ -1,14 +1,14 @@
 """
-Modulo que define la interfaz visual para los graficos de telemetria.
+Módulo que define la interfaz visual para los gráficos de telemetría.
 
-Este modulo contiene la clase GraphWidget, la cual organiza los selectores
+Este módulo contiene la clase GraphWidget, la cual organiza los selectores
 de modo (Angular/Cartesiano) y gestiona el intercambio entre la imagen
-estatica de placeholder y el area de renderizado de graficos activos.
+estática de placeholder y el área de renderizado de gráficos activos.
 
 Conexiones:
-    - Emite `mode_changed` para notificar la seleccion de vista.
+    - Emite `mode_changed` para notificar la selección de vista.
     - Utiliza `QStackedWidget` para optimizar el rendimiento de la interfaz.
-    - Integra `ImageHandler` para la gestion de temas y placeholders.
+    - Integra `ImageHandler` para la gestión de temas y placeholders.
 """
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QRadioButton,
@@ -21,9 +21,9 @@ class GraphWidget(QWidget):
     """
     Widget contenedor principal de las graficas del sistema.
 
-    Proporciona los controles de radio para alternar entre el analisis de
-    motores y trayectorias cartesianas, ademas de gestionar el estado visual
-    de 'ejecucion' vs 'detenido'.
+    Proporciona los controles de radio para alternar entre el análisis de
+    motores y trayectorias cartesianas, además de gestionar el estado visual
+    de 'ejecución' vs 'detenido'.
 
     Attributes:
         mode_changed (pyqtSignal): Emite True si se selecciona el modo Angular.
@@ -34,7 +34,7 @@ class GraphWidget(QWidget):
 
     def __init__(self, parent=None):
         """
-        Inicializa el widget de graficas y configura su interfaz base.
+        Inicializa el widget de gráficas y configura su interfaz base.
 
         Args:
             parent (QWidget, optional): Widget padre.
@@ -110,7 +110,7 @@ class GraphWidget(QWidget):
 
     def _on_mode_toggled(self, checked):
         """
-        Cambia el indice del stacked widget segun el radio seleccionado.
+        Cambia el índice del stacked widget según el radio seleccionado.
 
         Args:
             checked (bool): Estado del radio 'Angular'.
@@ -124,10 +124,10 @@ class GraphWidget(QWidget):
 
     def _set_ui_running_state(self, running: bool):
         """
-        Intercambia la visibilidad entre el placeholder y las graficas reales.
+        Intercambia la visibilidad entre el placeholder y las gráficas reales.
 
         Args:
-            running (bool): True si las graficas deben estar visibles.
+            running (bool): True si las gráficas deben estar visibles.
         """
         if running:
             self.image_label.hide()
@@ -144,10 +144,10 @@ class GraphWidget(QWidget):
 
     def set_running(self, running: bool):
         """
-        Establece el estado de ejecucion global del modulo.
+        Establece el estado de ejecución global del módulo.
 
         Args:
-            running (bool): True para habilitar visualizacion activa.
+            running (bool): True para habilitar visualización activa.
         """
         self._image_handler.set_process_running(running)
         self._set_ui_running_state(running)
@@ -156,7 +156,7 @@ class GraphWidget(QWidget):
 
     def get_angular_layout(self):
         """
-        Retorna el layout destinado a las graficas angulares.
+        Retorna el layout destinado a las gráficas angulares.
 
         Returns:
             QGridLayout: Layout angular.
@@ -165,7 +165,7 @@ class GraphWidget(QWidget):
 
     def get_cartesian_layout(self):
         """
-        Retorna el layout destinado a las graficas cartesianas.
+        Retorna el layout destinado a las gráficas cartesianas.
 
         Returns:
             QGridLayout: Layout cartesiano.
@@ -191,7 +191,7 @@ class GraphWidget(QWidget):
 
     def get_image_handler(self):
         """
-        Retorna el manejador de imagenes interno.
+        Retorna el manejador de imágenes interno.
 
         Returns:
             ImageHandler: Manejador de placeholder.
@@ -200,7 +200,7 @@ class GraphWidget(QWidget):
 
     def resizeEvent(self, event):
         """
-        Notifica cambios de tamano para reajustar la disposicion de las graficas.
+        Notifica cambios de tamaño para reajustar la disposición de las gráficas.
         """
         super().resizeEvent(event)
         self.resize_requested.emit(self.width())

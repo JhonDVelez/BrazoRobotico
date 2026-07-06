@@ -1,8 +1,8 @@
 """
-Modulo que define el gestor de estado de busqueda visual.
+Módulo que define el gestor de estado de búsqueda visual.
 
-Mantiene el estado de activacion de las detecciones de ChArUco y
-esferas de color, sincronizado con el archivo de configuracion.
+Mantiene el estado de activación de las detecciones de ChArUco y
+esferas de color, sincronizado con el archivo de configuración.
 """
 
 from PyQt6.QtCore import pyqtSignal, QObject
@@ -12,26 +12,26 @@ from .config import ConfigSignalManager
 
 class SearchSignalManager(QObject):
     """
-    Gestor del estado de busqueda visual para la camara.
+    Gestor del estado de búsqueda visual para la cámara.
 
-    Permite habilitar o deshabilitar la deteccion de patrones ChArUco
+    Permite habilitar o deshabilitar la detección de patrones ChArUco
     y esferas de color, persistiendo el estado en settings.json.
 
     Es un singleton thread-safe.
     """
     _instance = None
     _lock_instance = threading.Lock()
-    
+
     charuco_search_changed = pyqtSignal(bool)
     circle_search_changed = pyqtSignal(bool)
 
     @classmethod
     def get_instance(cls):
         """
-        Obtiene la instancia unica del gestor (patron Singleton thread-safe).
+        Obtiene la instancia única del gestor (patrón Singleton thread-safe).
 
         Returns:
-            SearchSignalManager: Instancia unica.
+            SearchSignalManager: Instancia única.
         """
         with cls._lock_instance:
             if cls._instance is None:
@@ -44,7 +44,7 @@ class SearchSignalManager(QObject):
 
     def _init_state(self):
         """
-        Inicializa el estado desde la configuracion persistente.
+        Inicializa el estado desde la configuración persistente.
         """
         self._lock = threading.RLock()
         config_manager = ConfigSignalManager.get_instance()
@@ -54,7 +54,7 @@ class SearchSignalManager(QObject):
 
     def set_charuco(self, checked: bool):
         """
-        Activa o desactiva la busqueda de tablero ChArUco.
+        Activa o desactiva la búsqueda de tablero ChArUco.
 
         Args:
             checked (bool): True para activar.
@@ -63,8 +63,9 @@ class SearchSignalManager(QObject):
             if self._charuco == checked:
                 return
             self._charuco = checked
-            ConfigSignalManager.get_instance().request_change("settings.json", "camera", "charuco", value=checked)
-        
+            ConfigSignalManager.get_instance().request_change(
+                "settings.json", ["camera", "charuco"], checked)
+
         # Emitir fuera del lock para evitar deadlocks con la UI
         self.charuco_search_changed.emit(checked)
 
@@ -73,14 +74,15 @@ class SearchSignalManager(QObject):
             if self._circle == checked:
                 return
             self._circle = checked
-            ConfigSignalManager.get_instance().request_change("settings.json", "camera", "circle", value=checked)
-        
+            ConfigSignalManager.get_instance().request_change(
+                "settings.json", ["camera", "circle"], checked)
+
         # Emitir fuera del lock
         self.circle_search_changed.emit(checked)
 
     def get_state(self):
         """
-        Obtiene el estado actual de ambas busquedas.
+        Obtiene el estado actual de ambas búsquedas.
 
         Returns:
             tuple: (charuco_activo, circle_activa).

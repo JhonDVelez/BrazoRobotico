@@ -1,7 +1,7 @@
 """
-Paquete de funciones utilitarias para conversion de unidades.
+Paquete de funciones utilitarias para conversión de unidades.
 
-Expone las funciones deg_to_rad y rad_to_deg para la conversion
+Expone las funciones deg_to_rad y rad_to_deg para la conversión
 entre grados y radianes utilizadas en todo el sistema.
 """
 

@@ -1,11 +1,11 @@
 """
-Paquete raiz de la aplicacion OpenBotv Control Lab.
+Paquete raíz de la aplicación OpenBotv Control Lab.
 
 Expone los subpaquetes principales del sistema:
-- features: Modulos funcionales (calibracion, camara, color, graficos, cinematica, etc.).
-- main_window: Ventana principal y mixins de inicializacion/menu/title bar.
-- resources: Recursos estaticos (iconos, imagenes, QML).
-- services: Servicios transversales (datos, dispositivos, robot, simulacion, etc.).
+- features: Módulos funcionales (calibración, cámara, color, gráficos, cinemática, etc.).
+- main_window: Ventana principal y mixins de inicialización/menú/title bar.
+- resources: Recursos estáticos (iconos, imágenes, QML).
+- services: Servicios transversales (datos, dispositivos, robot, simulación, etc.).
 """
 
 from . import features, main_window, resources, services

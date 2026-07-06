@@ -1,9 +1,9 @@
 """
 Paquete de temporizadores del sistema.
 
-Proporciona los componentes de temporizacion global (GlobalTimer) y
-contador de fotogramas (FrameCounter) para la sincronizacion de
-procesamiento de video y actualizacion de datos.
+Proporciona los componentes de temporización global (GlobalTimer) y
+contador de fotogramas (FrameCounter) para la sincronización de
+procesamiento de video y actualización de datos.
 """
 
 from .global_timer import GlobalTimer

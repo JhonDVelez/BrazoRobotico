@@ -1,19 +1,20 @@
 """
-Modulo que define el gestor de senales para la configuracion del sistema.
+Módulo que define el gestor de señales para la configuración del sistema.
 
-Permite el acceso y modificacion de parametros de configuracion de forma
+Permite el acceso y modificación de parámetros de configuración de forma
 centralizada y reactiva, sin acceso directo a archivos desde los componentes.
 """
 
+from typing import Any
 from PyQt6.QtCore import pyqtSignal, QObject
 
 
 class ConfigSignalManager(QObject):
     """
-    Gestor de senales y datos para la configuracion.
+    Gestor de señales y datos para la configuración.
 
-    Actua como un almacen en memoria de la configuracion actual y facilita
-    la comunicacion entre los componentes que requieren datos y el controlador
+    Actúa como un almacén en memoria de la configuración actual y facilita
+    la comunicación entre los componentes que requieren datos y el controlador
     que los persiste.
 
     Signals:
@@ -31,10 +32,10 @@ class ConfigSignalManager(QObject):
     @classmethod
     def get_instance(cls):
         """
-        Obtiene la instancia unica del gestor (patron Singleton).
+        Obtiene la instancia única del gestor (patrón Singleton).
 
         Returns:
-            ConfigSignalManager: Instancia unica.
+            ConfigSignalManager: Instancia única.
         """
         if cls._instance is None:
             cls._instance = cls()
@@ -42,7 +43,7 @@ class ConfigSignalManager(QObject):
 
     def set_all_config(self, filename: str, data: dict):
         """
-        Puebla el cache interno con la configuracion completa de un archivo.
+        Puebla el caché interno con la configuración completa de un archivo.
 
         Args:
             filename (str): Nombre del archivo (e.g. 'settings.json').
@@ -52,7 +53,7 @@ class ConfigSignalManager(QObject):
 
     def get_param(self, filename: str, *keys: str, default=None):
         """
-        Obtiene un parametro del cache de forma segura.
+        Obtiene un parámetro del caché de forma segura.
 
         Args:
             filename (str): Archivo donde buscar.
@@ -65,7 +66,7 @@ class ConfigSignalManager(QObject):
         data = self._cache.get(filename)
         if data is None:
             return default
-        
+
         temp = data
         for key in keys:
             if isinstance(temp, dict) and key in temp:
@@ -76,7 +77,7 @@ class ConfigSignalManager(QObject):
 
     def update_param(self, filename: str, keys: list, value: object, notify: bool = True):
         """
-        Actualiza un parametro en el cache local.
+        Actualiza un parámetro en el caché local.
 
         Args:
             filename (str): Archivo a modificar.
@@ -86,24 +87,24 @@ class ConfigSignalManager(QObject):
         """
         if filename not in self._cache:
             self._cache[filename] = {}
-        
+
         data = self._cache[filename]
         target = data
         for key in keys[:-1]:
             target = target.setdefault(key, {})
-        
+
         target[keys[-1]] = value
-        
+
         if notify:
             self.config_updated.emit(filename, keys, value)
 
-    def request_change(self, filename: str, *keys: str, value: object):
+    def request_change(self, filename: str, keys: list[str], value: object):
         """
-        Solicita un cambio persistente en la configuracion.
+        Solicita un cambio persistente en la configuración.
 
         Args:
             filename (str): Archivo a modificar.
             *keys (str): Llaves anidadas.
             value (object): Nuevo valor.
         """
-        self.change_requested.emit(filename, list(keys), value)
+        self.change_requested.emit(filename, keys, value)

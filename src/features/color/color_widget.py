@@ -1,9 +1,9 @@
 """
-Modulo que gestiona la interfaz visual para la calibracion de colores.
+Módulo que gestiona la interfaz visual para la calibración de colores.
 
-Este modulo define la clase ColorWidget, la cual integra los controles deslizantes
-para el ajuste de rangos HSV y las visualizaciones de camara, mascara y resultado
-en una disposicion organizada.
+Este módulo define la clase ColorWidget, la cual integra los controles deslizantes
+para el ajuste de rangos HSV y las visualizaciones de cámara, máscara y resultado
+en una disposición organizada.
 
 Conexiones:
     - Emite `hsv_changed` cuando se ajusta cualquier control deslizante.
@@ -11,6 +11,7 @@ Conexiones:
     - Utiliza `ImageHandler` para cada una de sus tres sub-vistas de imagen.
 """
 
+import numpy as np
 from PyQt6.QtWidgets import (
     QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QPushButton,
     QLabel, QSlider, QSpinBox, QComboBox, QGroupBox
@@ -22,7 +23,7 @@ from src.services.ui import ImageHandler
 
 class ColorWidget(QWidget):
     """
-    Widget de interfaz para la calibracion de color HSV.
+    Widget de interfaz para la calibración de color HSV.
 
     Mantiene una paridad visual entre los controles de entrada (sliders/spinboxes)
     y la retroalimentacion visual de procesamiento en tiempo real.
@@ -51,7 +52,7 @@ class ColorWidget(QWidget):
 
     def __setup_ui(self):
         """
-        Configura la disposicion de los paneles de control y visualizacion.
+        Configura la disposición de los paneles de control y visualización.
         """
         self.setObjectName("ColorWidget")
 
@@ -140,14 +141,14 @@ class ColorWidget(QWidget):
         main_grid.addWidget(self.controls_widget, 0, 1)
 
         # (1, 0) - Máscara HSV
-        self.mask_view = self._create_image_view("Máscara HSV")
+        self.mask_view: QGroupBox = self._create_image_view("Máscara HSV")
         main_grid.addWidget(self.mask_view, 1, 0)
 
         # (1, 1) - Resultado HSV
-        self.result_view = self._create_image_view("Resultado HSV")
+        self.result_view: QGroupBox = self._create_image_view("Resultado HSV")
         main_grid.addWidget(self.result_view, 1, 1)
 
-    def _create_image_view(self, title: str):
+    def _create_image_view(self, title: str) -> QGroupBox:
         """
         Crea una vista de imagen agrupada con su propio ImageHandler.
 
@@ -171,9 +172,9 @@ class ColorWidget(QWidget):
         setattr(group, "handler", handler)
         return group
 
-    def _sync_control(self, widget, value):
+    def _sync_control(self, widget, value) -> None:
         """
-        Sincroniza dos widgets sin realimentacion de senales.
+        Sincroniza dos widgets sin realimentación de señales.
 
         Args:
             widget (QWidget): Widget cuyo valor se actualiza.
@@ -183,15 +184,15 @@ class ColorWidget(QWidget):
         widget.setValue(value)
         widget.blockSignals(False)
 
-    def _emit_hsv_changed(self):
+    def _emit_hsv_changed(self) -> None:
         """
-        Emite la senal de cambio de valores HSV con el estado actual.
+        Emite la señal de cambio de valores HSV con el estado actual.
         """
         self.hsv_changed.emit(self.get_hsv_values())
 
     def _on_camera_toggled(self, checked):
         """
-        Maneja el toggle del boton de camara.
+        Maneja el toggle del botón de cámara.
 
         Args:
             checked (bool): Estado del boton (ON/OFF).
@@ -208,7 +209,7 @@ class ColorWidget(QWidget):
         """
         return {key: ctrl["spinbox"].value() for key, ctrl in self._hsv_controls.items()}
 
-    def set_hsv_values(self, values: dict):
+    def set_hsv_values(self, values: dict) -> None:
         """
         Establece los valores de los controles HSV desde un diccionario.
 
@@ -230,19 +231,19 @@ class ColorWidget(QWidget):
 
     def get_camera_layout(self) -> QVBoxLayout:
         """
-        Retorna el layout destinado al widget de feed de camara.
+        Retorna el layout destinado al widget de feed de cámara.
 
         Returns:
-            QVBoxLayout: Layout del contenedor de camara.
+            QVBoxLayout: Layout del contenedor de cámara.
         """
         return self.camera_layout
 
-    def update_views(self, mask_frame, result_frame):
+    def update_views(self, mask_frame: np.ndarray, result_frame: np.ndarray) -> None:
         """
-        Actualiza las imagenes de mascara y resultado del procesamiento.
+        Actualiza las imágenes de máscara y resultado del procesamiento.
 
         Args:
-            mask_frame (np.ndarray): Imagen de la mascara binaria HSV.
+            mask_frame (np.ndarray): Imagen de la máscara binaria HSV.
             result_frame (np.ndarray): Imagen filtrada final.
         """
         self.mask_view.handler.set_video_image(
@@ -250,19 +251,19 @@ class ColorWidget(QWidget):
         self.result_view.handler.set_video_image(
             ImageHandler.numpy_to_qpixmap(result_frame))
 
-    def set_process_running(self, running: bool):
+    def set_process_running(self, running: bool) -> None:
         """
         Actualiza el estado de procesamiento de los ImageHandler internos.
 
         Args:
-            running (bool): True si el procesamiento esta activo.
+            running (bool): True si el procesamiento está activo.
         """
         self.mask_view.handler.set_process_running(running)
         self.result_view.handler.set_process_running(running)
 
-    def clear_views(self):
+    def clear_views(self) -> None:
         """
-        Detiene el procesamiento y restaura las imagenes placeholder.
+        Detiene el procesamiento y restaura las imágenes placeholder.
         """
         self.set_process_running(False)
         self.mask_view.handler.set_static_image()

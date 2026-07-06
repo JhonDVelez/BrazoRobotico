@@ -1,9 +1,9 @@
 """
-Modulo de dialogo de resultados de calibracion de camara.
+Módulo de diálogo de resultados de calibración de cámara.
 
 Proporciona CalibrationResultDialog, un QDialog que muestra los
-resultados numericos de la calibracion de la camara: matriz
-intrinseca 3x3, coeficientes de distorsion y error de reproyeccion.
+resultados numéricos de la calibración de la cámara: matriz
+intrínseca 3x3, coeficientes de distorsión y error de reproyección.
 """
 
 import numpy as np
@@ -13,17 +13,17 @@ from PyQt6.QtCore import Qt
 
 
 class CalibrationResultDialog(QDialog):
-    """Dialogo que muestra los resultados de la calibracion de la camara.
+    """Diálogo que muestra los resultados de la calibración de la cámara.
 
-    Presenta la matriz intrinseca de la camara, los coeficientes de
-    distorsion radial y el error de reproyeccion en un formato visual
-    que simula los parentesis de matriz.
+    Presenta la matriz intrínseca de la cámara, los coeficientes de
+    distorsión radial y el error de reproyección en un formato visual
+    que simula los paréntesis de matriz.
 
     Args:
-        parent: Widget padre del dialogo.
-        camera_matrix (np.ndarray): Matriz intrinseca 3x3.
-        dist_coeffs (np.ndarray): Coeficientes de distorsion.
-        reprojection_error (float): Error de reproyeccion RMS.
+        parent: Widget padre del diálogo.
+        camera_matrix (np.ndarray): Matriz intrínseca 3x3.
+        dist_coeffs (np.ndarray): Coeficientes de distorsión.
+        reprojection_error (float): Error de reproyección RMS.
     """
 
     def __init__(self, parent, camera_matrix: np.ndarray, dist_coeffs: np.ndarray, reprojection_error: float):
@@ -38,11 +38,11 @@ class CalibrationResultDialog(QDialog):
         self.__setup_ui()
 
     def __setup_ui(self):
-        """Configura la interfaz de usuario del dialogo.
+        """Configura la interfaz de usuario del diálogo.
 
-        Crea los elementos visuales: titulo de exito, error de
-        reproyeccion, matriz de camara 3x3 con bordes de parentesis,
-        coeficientes de distorsion y boton OK.
+        Crea los elementos visuales: título de éxito, error de
+        reproyección, matriz de cámara 3x3 con bordes de paréntesis,
+        coeficientes de distorsión y botón OK.
         """
         self.main_layout = QVBoxLayout(self)
 
@@ -110,25 +110,25 @@ class CalibrationResultDialog(QDialog):
     # Getters explicitos
 
     def get_camera_matrix(self):
-        """Retorna la matriz intrinseca de la camara.
+        """Retorna la matriz intrínseca de la cámara.
 
         Returns:
-            np.ndarray: Matriz 3x3 de calibracion.
+            np.ndarray: Matriz 3x3 de calibración.
         """
         return self._camera_matrix
 
     def get_dist_coeffs(self):
-        """Retorna los coeficientes de distorsion.
+        """Retorna los coeficientes de distorsión.
 
         Returns:
-            np.ndarray: Coeficientes de distorsion.
+            np.ndarray: Coeficientes de distorsión.
         """
         return self._dist_coeffs
 
     def get_reprojection_error(self):
-        """Retorna el error de reproyeccion RMS.
+        """Retorna el error de reproyección RMS.
 
         Returns:
-            float: Error de reproyeccion.
+            float: Error de reproyección.
         """
         return self._reprojection_error

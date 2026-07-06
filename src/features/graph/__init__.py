@@ -1,8 +1,8 @@
 """
-Paquete de la feature de graficos en tiempo real.
+Paquete de la feature de gráficos en tiempo real.
 
-Proporciona los componentes para la visualizacion de posiciones articulares
-y datos cinematicos en graficos de linea actualizados en tiempo real.
+Proporciona los componentes para la visualización de posiciones articulares
+y datos cinemáticos en gráficos de línea actualizados en tiempo real.
 """
 
 from .graph_controller import GraphController

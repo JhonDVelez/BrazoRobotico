@@ -1,9 +1,9 @@
 """
-Modulo que define un Layout de flujo para PyQt6.
+Módulo que define un Layout de flujo para PyQt6.
 
 Permite que los widgets se acomoden horizontalmente y "salten" a la siguiente
-linea cuando no hay espacio suficiente, similar al comportamiento de elementos
-en una pagina web.
+línea cuando no hay espacio suficiente, similar al comportamiento de elementos
+en una página web.
 """
 
 from PyQt6.QtCore import QPoint, QRect, QSize, Qt

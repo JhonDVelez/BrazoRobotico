@@ -1,5 +1,5 @@
 """
-Modulo que orquesta el PickAndPlaceWorker utilizando composicion de ejecutores.
+Módulo que orquesta el PickAndPlaceWorker utilizando composición de ejecutores.
 """
 
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, QTimer
@@ -13,7 +13,7 @@ from src.features.pick_and_place.logic.place_executor import PlaceExecutor
 class PickAndPlaceWorker(QObject):
     """Worker que coordina la secuencia completa de Pick and Place.
 
-    Utiliza composicion para delegar la logica de ejecucion a objetos especializados,
+    Utiliza composición para delegar la lógica de ejecución a objetos especializados,
     actuando como orquestador central de señales y estados.
     """
 
@@ -26,14 +26,14 @@ class PickAndPlaceWorker(QObject):
         # Contexto de datos compartido
         self.context = PickPlaceContext()
         
-        # Ejecutores de logica (Composicion)
+        # Ejecutores de lógica (Composición)
         self.pick_executor = PickExecutor(self, self.context)
         self.place_executor = PlaceExecutor(self, self.context)
         
         # Maquina de estados
         self._sm = PickPlaceStateMachine(on_state_change=self._on_state_change)
         
-        # Timer de estancamiento (Orquestacion)
+        # Timer de estancamiento (Orquestación)
         self._state_stall_timer = QTimer()
         self._state_stall_timer.setSingleShot(True)
         self._state_stall_timer.timeout.connect(self._on_state_timeout)
@@ -130,7 +130,7 @@ class PickAndPlaceWorker(QObject):
 
     @pyqtSlot(list)
     def on_feedback_update(self, positions):
-        """Maneja la telemetria para detectar llegada a objetivo por stall o precision."""
+        """Maneja la telemetría para detectar llegada a objetivo por stall o precisión."""
         if len(positions) < 6:
             return
             
@@ -158,7 +158,7 @@ class PickAndPlaceWorker(QObject):
 
         self.context.last_positions = mapped
 
-    # --- Orquestacion Interna ---
+    # --- Orquestación Interna ---
 
     def _start_stall_timer(self):
         self.context.last_positions = None
@@ -229,7 +229,7 @@ class PickAndPlaceWorker(QObject):
         self.context.reset()
         self._state_stall_timer.stop()
 
-    def _abort_to_home(self, reason="Error critico"):
+    def _abort_to_home(self, reason="Error crítico"):
         self._state_stall_timer.stop()
         fb = self.context.current_feedback
         current_gripper = fb[5] if fb is not None else 150
@@ -238,7 +238,7 @@ class PickAndPlaceWorker(QObject):
         self.action_request.emit({
             'type': 'move',
             'target': home_target,
-            'description': 'Abortando: Regresando a neutral por error critico'
+            'description': 'Abortando: Regresando a neutral por error crítico'
         })
         self._clear_state()
         self._sm.reset()

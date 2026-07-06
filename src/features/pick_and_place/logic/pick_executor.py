@@ -1,5 +1,5 @@
 """
-Modulo que implementa la logica de la secuencia de captura (Pick).
+Módulo que implementa la lógica de la secuencia de captura (Pick).
 """
 
 import math
@@ -10,21 +10,21 @@ class PickExecutor(BaseExecutor):
     """Ejecutor especializado en la fase de Pick."""
 
     def enter_homing(self):
-        """Envia el brazo a posicion neutral."""
+        """        Envía el brazo a posición neutral."""
         target = self._relative_to_servo([0, 0, 0, 0, 90, 0])
         self.context.current_target = target
         self.worker._start_stall_timer()
         self.worker.action_request.emit({
             'type': 'move',
             'target': target,
-            'description': 'Moviendo a posicion neutral'
+            'description': 'Moviendo a posición neutral'
         })
 
     def enter_computing_ik_above(self):
-        """Solicita IK para posicion elevada sobre la esfera."""
+        """        Solicita IK para posición elevada sobre la esfera."""
         sphere_pose = self.context.sphere_poses.get(self.context.selected_color)
         if not sphere_pose or 'position' not in sphere_pose:
-            self.worker._fail('No se encontro pose para la esfera seleccionada')
+            self.worker._fail('No se encontró pose para la esfera seleccionada')
             return
 
         x, y, z = sphere_pose['position']
@@ -41,20 +41,20 @@ class PickExecutor(BaseExecutor):
             'color': self.context.selected_color,
             'coords': {'x': y_comp, 'y': x_comp, 'z': above_z},
             'gripper_degrees': self.context.gripper_closed,
-            'description': f'Calculando posicion elevada para {self.context.selected_color}'
+            'description': f'Calculando posición elevada para {self.context.selected_color}'
         })
 
     def enter_approaching_above(self):
-        """Mueve el brazo a la posicion elevada."""
+        """        Mueve el brazo a la posición elevada."""
         if self.context.ik_target is None:
-            self.worker._fail('No hay objetivo IK para posicion elevada')
+            self.worker._fail('No hay objetivo IK para posición elevada')
             return
         self.context.current_target = self.context.ik_target
         self.worker._start_stall_timer()
         self.worker.action_request.emit({
             'type': 'move',
             'target': self.context.ik_target,
-            'description': 'Aproximando a posicion elevada'
+            'description': 'Aproximando a posición elevada'
         })
 
     def enter_opening_gripper(self):
@@ -78,7 +78,7 @@ class PickExecutor(BaseExecutor):
         """Solicita IK para la esfera."""
         sphere_pose = self.context.sphere_poses.get(self.context.selected_color)
         if not sphere_pose or 'position' not in sphere_pose:
-            self.worker._fail('No se encontro pose para la esfera seleccionada')
+            self.worker._fail('No se encontró pose para la esfera seleccionada')
             return
 
         x, y, z = sphere_pose['position']

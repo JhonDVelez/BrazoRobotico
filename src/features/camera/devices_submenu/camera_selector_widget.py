@@ -1,8 +1,8 @@
 """
-Modulo que define el selector de dispositivos de camara.
+Módulo que define el selector de dispositivos de cámara.
 
 Este modulo contiene la clase CameraSelectorWidget, un componente especializado
-para listar y seleccionar las camaras conectadas al sistema.
+para listar y seleccionar las cámaras conectadas al sistema.
 """
 
 from PyQt6.QtWidgets import QComboBox, QSizePolicy
@@ -11,15 +11,15 @@ from src.services.devices import CameraDevices
 
 class CameraSelectorWidget(QComboBox):
     """
-    Widget de seleccion de camara basado en QComboBox.
+    Widget de selección de cámara basado en QComboBox.
 
-    Permite al usuario elegir entre las diferentes camaras detectadas por el
-    sistema, integrando la logica de descubrimiento de hardware.
+    Permite al usuario elegir entre las diferentes cámaras detectadas por el
+    sistema, integrando la lógica de descubrimiento de hardware.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
-        Inicializa el selector de camara con estilos y configuraciones base.
+        Inicializa el selector de cámara con estilos y configuraciones base.
         """
         super().__init__()
         self.setObjectName("camera_selector")
@@ -32,11 +32,8 @@ class CameraSelectorWidget(QComboBox):
         self.setVisible(False)
         self.camera_devices = CameraDevices()
 
-    def get_cameras(self):
+    def get_cameras(self) -> None:
         """
-        Consulta las camaras disponibles y actualiza el contenido del selector.
+        Consulta las cámaras disponibles y actualiza el contenido del selector.
         """
-        cameras = self.camera_devices.get_cameras()
-        self.clear()
-        for camera_index, display_name in cameras:
-            self.addItem(display_name, [camera_index, display_name])
+        self.camera_devices.get_cameras()

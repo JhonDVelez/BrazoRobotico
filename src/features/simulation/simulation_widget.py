@@ -1,9 +1,9 @@
 """
-Modulo que define el widget de visualizacion de la simulacion 3D.
+Módulo que define el widget de visualización de la simulación 3D.
 
-Este modulo contiene la clase SimulationWidget, la cual integra una vista
+Este módulo contiene la clase SimulationWidget, la cual integra una vista
 de QtQuick (QML) dentro de un widget de PyQt6, permitiendo mostrar tanto una
-imagen estatica de placeholder como el modelo 3D interactivo.
+imagen estática de placeholder como el modelo 3D interactivo.
 
 Conexiones:
     - Emite `theme_needed` para solicitar ajustes de color en la escena 3D.
@@ -18,11 +18,11 @@ from src.services.ui.image_handler import ImageHandler
 
 class SimulationWidget(QWidget):
     """
-    Widget encargado de la interfaz de visualizacion del robot 3D.
+    Widget encargado de la interfaz de visualización del robot 3D.
 
     Gestiona el contenedor de ventana (`windowContainer`) necesario para incrustar
-    contenido QML/Quick3D en un entorno de widgets estandares, facilitando el
-    intercambio visual entre la simulacion activa y el estado de reposo.
+    contenido QML/Quick3D en un entorno de widgets estándares, facilitando el
+    intercambio visual entre la simulación activa y el estado de reposo.
 
     Attributes:
         theme_needed (pyqtSignal): Emite True si se requiere aplicar un tema oscuro.
@@ -35,7 +35,7 @@ class SimulationWidget(QWidget):
 
         Args:
             preloaded_container (PreloadedContainer): Objeto con la vista y contenedor pre-listos.
-            pybullet_callback (callable): Funcion a ejecutar tras la integracion visual exitosa.
+            pybullet_callback (callable): Función a ejecutar tras la integración visual exitosa.
         """
         super().__init__()
         self.preloaded_container = preloaded_container
@@ -58,7 +58,7 @@ class SimulationWidget(QWidget):
 
         self.setSizePolicy(QSizePolicy.Policy.Expanding,
                            QSizePolicy.Policy.Expanding)
-        self.setMinimumSize(160, 120)
+        self.setMinimumSize(500, 375)
 
         # Configurar imagen estática (Placeholder)
         self.__setup_static_image()
@@ -68,7 +68,7 @@ class SimulationWidget(QWidget):
 
     def __setup_static_image(self):
         """
-        Configura la etiqueta de imagen que se muestra cuando la simulacion esta apagada.
+        Configura la etiqueta de imagen que se muestra cuando la simulación está apagada.
         """
         self.image_path_l = "img:robotArm_l.svg"
         self.image_path_d = "img:robotArm_d.svg"
@@ -86,7 +86,7 @@ class SimulationWidget(QWidget):
 
     def __integrate_preloaded_container(self):
         """
-        Realiza la integracion tecnica de la ventana QQuickView en el widget de PyQt.
+        Realiza la integración técnica de la ventana QQuickView en el widget de PyQt.
         """
         try:
             if not self.quick_view:
@@ -106,7 +106,7 @@ class SimulationWidget(QWidget):
                 QSizePolicy.Policy.Expanding,
                 QSizePolicy.Policy.Expanding
             )
-            self.window_container.setMinimumSize(160, 120)
+            self.window_container.setMinimumSize(500, 375)
 
             # Agregar al layout de la interfaz
             self.layout().addWidget(self.window_container)
@@ -122,17 +122,17 @@ class SimulationWidget(QWidget):
                 self.quick_view.setResizeMode(
                     QQuickView.ResizeMode.SizeRootObjectToView)
             else:
-                print("Error de configuracion de vista")
+                print("Error de configuración de vista")
 
-            # Inicializar comunicacion con el objeto raiz QML
+            # Inicializar comunicación con el objeto raíz QML
             self._root_object = self.quick_view.rootObject()
             if self._root_object:
                 self.pybullet_callback(self._root_object)
             else:
-                print("Error de inicializacion del worker")
+                print("Error de inicialización del worker")
 
-        except Exception as e:
-            print(f"Error integrando contenedor precargado: {e}")
+        except (RuntimeError, AttributeError) as e:
+            print(f"[DEBUG] Error integrando contenedor precargado ({type(e).__name__}): {e}")
 
     def get_simulation_widget(self):
         """

@@ -1,15 +1,15 @@
 """
-Modulo del worker de simulacion del brazo robotico en PyBullet.
+Módulo del worker de simulación del brazo robótico en PyBullet.
 
-Proporciona la clase PhysicsWorker que gestiona la actualizacion
-periodica de la simulacion, la actualizacion del modelo 3D en la
-interfaz y el envio de datos a las graficas.
+Proporciona la clase PhysicsWorker que gestiona la actualización
+periódica de la simulación, la actualización del modelo 3D en la
+interfaz y el envío de datos a las gráficas.
 
 Conexiones:
     - Conectado a SimulationSignalManager.update_pybullet_signal
       para recibir posiciones objetivo.
     - Conectado a los ticks de GlobalTimer (update_tick, model_tick,
-      sync_simulation_tick) para sincronizar la simulacion.
+      sync_simulation_tick) para sincronizar la simulación.
     - Emite posiciones a traves de SimulationSignalManager
       (model_position_signal, sensor_position_signal).
 """
@@ -19,10 +19,10 @@ from src.services.simulation.physics_pybullet import RobotArmPhysics
 
 
 class PhysicsWorker(QThread):
-    """Worker encargado de actualizar la simulacion de PyBullet en segundo plano.
+    """    Worker encargado de actualizar la simulación de PyBullet en segundo plano.
 
-    Gestiona la sincronizacion entre las posiciones objetivo, la simulacion
-    fisica y la representacion 3D mostrada en la interfaz.
+    Gestiona la sincronización entre las posiciones objetivo, la simulación
+    física y la representación 3D mostrada en la interfaz.
 
     Args:
         robot_id: Identificador del robot cargado en PyBullet.
@@ -47,23 +47,23 @@ class PhysicsWorker(QThread):
         self.physic.load_models(robot_id)
 
     def set_max_velocity(self, max_vel):
-        """Define la velocidad maxima de los motores en la simulacion.
+        """Define la velocidad máxima de los motores en la simulación.
 
         Args:
-            max_vel (float): Velocidad maxima en radianes por segundo.
+            max_vel (float): Velocidad máxima en radianes por segundo.
                 Debe ser mayor a 0.
         """
         if max_vel > 0:
             self.max_velocity = max_vel
         else:
-            print("La velocidad maxima debe ser mayor a 0, "
-                  "usando la velocidad maxima por defecto: 1 rad/s")
+            print("La velocidad máxima debe ser mayor a 0, "
+                  "usando la velocidad máxima por defecto: 1 rad/s")
             self.max_velocity = 1.2
 
     def run(self):
         """Ciclo principal del subproceso.
 
-        Activa la simulacion y establece la velocidad maxima de los motores.
+        Activa la simulación y establece la velocidad máxima de los motores.
         """
         self._running = True
         self.set_max_velocity(1.2)
@@ -71,16 +71,16 @@ class PhysicsWorker(QThread):
             self._paused = False
 
     def pause(self):
-        """Pausa la simulacion."""
+        """Pausa la simulación."""
         self._running = False
         self._paused = True
 
     @pyqtSlot()
     def update_simulation(self):
-        """Actualiza la posicion de los motores en la simulacion.
+        """        Actualiza la posición de los motores en la simulación.
 
         Compara las posiciones objetivo con las previas y, si son
-        diferentes, actualiza los motores. Avanza la simulacion si
+        diferentes, actualiza los motores. Avanza la simulación si
         la diferencia entre objetivo y actual supera 0.0005 rad.
         """
         if self._running:
@@ -98,7 +98,7 @@ class PhysicsWorker(QThread):
 
     @pyqtSlot()
     def update_3d_model(self):
-        """Actualiza los angulos de la simulacion mostrados en el modelo 3D.
+        """        Actualiza los ángulos de la simulación mostrados en el modelo 3D.
 
         Emite las posiciones articulares actuales al modelo 3D de la interfaz.
         """
@@ -108,9 +108,9 @@ class PhysicsWorker(QThread):
 
     @pyqtSlot()
     def update_graphs(self):
-        """Envia datos de posiciones a las graficas.
+        """        Envía datos de posiciones a las gráficas.
 
-        Se ejecuta tipicamente cada 100 ms a traves del tick
+        Se ejecuta típicamente cada 100 ms a través del tick
         sync_simulation_tick de GlobalTimer.
         """
         if self._running:
@@ -119,7 +119,7 @@ class PhysicsWorker(QThread):
 
     @pyqtSlot(list)
     def update_target(self, target_position):
-        """Actualiza los angulos objetivo de la simulacion.
+        """        Actualiza los ángulos objetivo de la simulación.
 
         Aplica un offset de -2.617994 rad a cada posicion para
         alinear el sistema de coordenadas de la GUI con el de PyBullet.
@@ -140,7 +140,7 @@ class PhysicsWorker(QThread):
     @pyqtSlot(str)
     def release_sphere(self, color: str):
         """
-        Libera una esfera para que PyBullet deje de recibir poses de camara.
+        Libera una esfera para que PyBullet deje de recibir poses de cámara.
 
         Args:
             color (str): Identificador de la esfera seleccionada.
@@ -150,7 +150,7 @@ class PhysicsWorker(QThread):
     @pyqtSlot(str)
     def reattach_sphere(self, color: str):
         """
-        Reasocia una esfera para que vuelva a seguir la camara.
+        Reasocia una esfera para que vuelva a seguir la cámara.
 
         Args:
             color (str): Identificador de la esfera.
@@ -159,7 +159,7 @@ class PhysicsWorker(QThread):
 
     @pyqtSlot()
     def hide_all_spheres(self):
-        """Oculta todas las esferas que no estan siendo manipuladas."""
+        """Oculta todas las esferas que no están siendo manipuladas."""
         self.physic.hide_all_spheres()
 
     @pyqtSlot(float)

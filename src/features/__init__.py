@@ -1,8 +1,8 @@
 """
-Paquete que agrupa las funcionalidades modulares de la aplicacion.
+Paquete que agrupa las funcionalidades modulares de la aplicación.
 
-Cada subpaquete representa una feature independiente (calibracion, camara,
-color, graficos, cinematica, simulacion, sliders) siguiendo el patron
+Cada subpaquete representa una feature independiente (calibración, cámara,
+color, gráficos, cinemática, simulación, sliders) siguiendo el patrón
 Worker-Widget-Controller.
 """
 from .camera import devices_submenu

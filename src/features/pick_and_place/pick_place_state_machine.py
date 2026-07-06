@@ -1,12 +1,12 @@
 """
-Modulo que define la maquina de estados para la secuencia Pick and Place.
+Módulo que define la máquina de estados para la secuencia Pick and Place.
 """
 
 from statemachine import StateMachine, State
 from src.features.pick_and_place.pick_place_states import PickPlaceState
 
 class PickPlaceStateMachine(StateMachine):
-    """Maquina de estados interna para la secuencia Pick and Place.
+    """    Máquina de estados interna para la secuencia Pick and Place.
 
     Gestiona las transiciones entre fases de la secuencia. Cada estado
     tiene un callback ``on_enter_*`` que notifica al worker para emitir
@@ -49,7 +49,7 @@ class PickPlaceStateMachine(StateMachine):
     gripper_released = releasing.to(returning_home)
     home_reached = returning_home.to(idle)
 
-    # Transicion de reset/cancelacion desde cualquier estado no-idle
+    # Transición de reset/cancelación desde cualquier estado no-idle
     reset = (
         homing.to(idle)
         | computing_ik_above.to(idle)

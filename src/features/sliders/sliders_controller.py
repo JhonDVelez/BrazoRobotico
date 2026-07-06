@@ -1,14 +1,14 @@
 """
-Modulo que orquesta el control manual del robot mediante sliders.
+Módulo que orquesta el control manual del robot mediante sliders.
 
-Este modulo define la clase SlidersController, la cual enlaza la interaccion
+Este módulo define la clase SlidersController, la cual enlaza la interacción
 del usuario con los hilos de procesamiento y notifica al sistema los cambios
-de posicion angular deseados.
+de posición angular deseados.
 
 Conexiones:
     - Escucha cambios de valor en `SlidersWidget`.
     - Actualiza el estado global de control a `Modes.SLIDERS`.
-    - Sincroniza el `SlidersWorker` y emite señales de actualizacion de objetivo.
+    - Sincroniza el `SlidersWorker` y emite señales de actualización de objetivo.
 """
 
 from PyQt6.QtCore import QObject
@@ -20,14 +20,14 @@ from src.services.data.signals import SlidersSignalManager
 
 class SlidersController(QObject):
     """
-    Controlador para el modulo de sliders manuales.
+    Controlador para el módulo de sliders manuales.
 
-    Coordina la interaccion entre la interfaz de usuario y el estado de los angulos
+    Coordina la interacción entre la interfaz de usuario y el estado de los ángulos
     del robot, asegurando que los comandos manuales tengan prioridad sobre otros
     modos cuando el usuario interactua con ellos.
 
     El estado articular vigente lo mantiene el DataController (fuente de verdad
-    unica); este controlador solo publica intencion en su bus propio.
+    única); este controlador solo publica intención en su bus propio.
     """
 
     def __init__(self, parent=None):
@@ -47,17 +47,17 @@ class SlidersController(QObject):
         """
         Configura las conexiones de señales entre el widget, el worker y el sistema.
         """
-        # Widget -> Controlador (Accion del usuario en la UI)
+        # Widget -> Controlador (Acción del usuario en la UI)
         self._widget.value_changed.connect(self._on_ui_value_changed)
         
-        # Worker -> Estado Compartido (Actualizacion logica terminada)
+        # Worker -> Estado Compartido (Actualización lógica terminada)
         self._worker.status_changed.connect(self._update_shared_status)
 
     def _on_ui_value_changed(self, index, value):
         """
-        Maneja el cambio de posicion solicitado desde la interfaz.
+        Maneja el cambio de posición solicitado desde la interfaz.
 
-        Cambia el modo de operacion global a SLIDERS para habilitar el control manual.
+        Cambia el modo de operación global a SLIDERS para habilitar el control manual.
 
         Args:
             index (int): Indice del motor modificado (0-5).
@@ -93,14 +93,14 @@ class SlidersController(QObject):
 
     def reset_controls(self):
         """
-        Reinicia todos los controles y el estado logico a la posicion central.
+        Reinicia todos los controles y el estado lógico a la posición central.
         """
         self._worker.reset_to_defaults()
         self._widget.reset_ui()
 
     def set_external_values(self, values: list):
         """
-        Actualiza los sliders desde una fuente externa (e.g. sincronizacion de cinematica).
+        Actualiza los sliders desde una fuente externa (e.g. sincronización de cinemática).
 
         Args:
             values (list): Nuevos valores a cargar en la UI y el worker.

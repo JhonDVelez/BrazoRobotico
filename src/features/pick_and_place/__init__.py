@@ -1,13 +1,13 @@
 """
 Paquete de la feature de sistema de pick and place.
 
-Proporciona los componentes para el calculo y manejo de datos de la funcionalidad
+Proporciona los componentes para el cálculo y manejo de datos de la funcionalidad
 pick and place una vez se obtienen las posiciones de las esfera, permitiendo enviar
-datos objetivos de robot tanto en simulacion como en fisico.
+datos objetivos de robot tanto en simulación como en físico.
 
 Conexiones:
     - PickAndPlaceController coordina con PickPlaceSignalManager (bus global).
-    - PickAndPlaceWorker ejecuta la maquina de estados con feedback del robot/sim.
+    - PickAndPlaceWorker ejecuta la máquina de estados con feedback del robot/sim.
     - PickPlaceState define los estados de la secuencia de pickup.
 """
 

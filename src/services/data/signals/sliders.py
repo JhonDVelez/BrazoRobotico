@@ -1,11 +1,11 @@
 """
-Modulo que define el gestor de senales para el dominio de sliders.
+Módulo que define el gestor de señales para el dominio de sliders.
 
-Proporciona el singleton SlidersSignalManager, el bus de intencion saliente
-del control manual por sliders. El SlidersController publica aqui sus
+Proporciona el singleton SlidersSignalManager, el bus de intención saliente
+del control manual por sliders. El SlidersController publica aquí sus
 peticiones de cambio de modo y de objetivo; el DataController las escucha y
 orquesta el resto del sistema. De este modo la feature de sliders deja de
-conocer el bus de simulacion.
+conocer el bus de simulación.
 """
 
 from .base import _SignalManager
@@ -13,9 +13,9 @@ from .base import _SignalManager
 
 class SlidersSignalManager(_SignalManager):
     """
-    Gestor de senales especifico para el control manual por sliders.
+    Gestor de señales específico para el control manual por sliders.
 
-    Hereda las senales base. En la practica el SlidersController solo emite
+    Hereda las señales base. En la práctica el SlidersController solo emite
     ``change_mode_signal`` y ``update_target_signal``:
 
     Signals (heredadas de _SignalManager):
@@ -29,10 +29,10 @@ class SlidersSignalManager(_SignalManager):
     @classmethod
     def get_instance(cls):
         """
-        Obtiene la instancia unica del gestor (patron Singleton).
+        Obtiene la instancia única del gestor (patrón Singleton).
 
         Returns:
-            SlidersSignalManager: Instancia unica.
+            SlidersSignalManager: Instancia única.
         """
         if cls._instance is None:
             cls._instance = cls()

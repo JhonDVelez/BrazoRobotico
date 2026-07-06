@@ -1,7 +1,7 @@
 """
-Modulo que define la barra de titulo personalizada de la aplicacion.
+Módulo que define la barra de título personalizada de la aplicación.
 
-Integra la barra de menu, el titulo del programa y los botones de control
+Integra la barra de menú, el título del programa y los botones de control
 de ventana (minimizar, maximizar, cerrar) en una interfaz sin bordes
 (frameless) basada en qframelesswindow.
 """
@@ -15,20 +15,20 @@ from src.services.data.signals import ThemeSignalManager
 
 class MainTitleBarMixin(TitleBarBase):
     """
-    Barra de titulo personalizada para ventanas frameless.
+    Barra de título personalizada para ventanas frameless.
 
-    Organiza el menu a la izquierda, el titulo centrado y los botones
+    Organiza el menú a la izquierda, el título centrado y los botones
     de ventana (min/max/close) y tema a la derecha, con balanceo
-    automatico de anchos laterales.
+    automático de anchos laterales.
     """
 
     def __init__(self, parent, title="OpenBotV Control Lab"):
         """
-        Inicializa la barra de titulo con el layout y controles de ventana.
+        Inicializa la barra de título con el layout y controles de ventana.
 
         Args:
             parent (QWidget): Ventana padre.
-            title (str): Titulo a mostrar centrado.
+            title (str): Título a mostrar centrado.
         """
         super().__init__(parent)
         self.parent_class = parent
@@ -58,7 +58,7 @@ class MainTitleBarMixin(TitleBarBase):
         # Controles a la derecha
         self._create_window_buttons()
 
-        # Politicas de tamano
+        # Políticas de tamaño
         self.left_container.setSizePolicy(
             QSizePolicy.Policy.Minimum,
             QSizePolicy.Policy.Fixed
@@ -115,7 +115,7 @@ class MainTitleBarMixin(TitleBarBase):
         """
         Equilibra el ancho de los contenedores laterales.
 
-        Forza la actualizacion de geometria y agenda el balanceo fino
+        Fuerza la actualización de geometría y agenda el balanceo fino
         para el siguiente ciclo del event loop.
         """
         self.left_container.updateGeometry()
@@ -124,8 +124,8 @@ class MainTitleBarMixin(TitleBarBase):
 
     def _balance_widths(self):
         """
-        Ajusta los anchos minimos de contenedores izquierdo y derecho
-        para que tengan el mismo tamano y el titulo quede centrado.
+        Ajusta los anchos mínimos de contenedores izquierdo y derecho
+        para que tengan el mismo tamaño y el título quede centrado.
         """
         left_width = self.left_container.sizeHint().width()
         buttons_width = self.buttons_frame.width()

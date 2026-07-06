@@ -1,10 +1,10 @@
 """
-Modulo para la gestion de imagenes estaticas y de video en la interfaz.
+Módulo para la gestión de imágenes estáticas y de video en la interfaz.
 
-Proporciona ImageHandler, que maneja la carga, escalado y actualizacion
+Proporciona ImageHandler, que maneja la carga, escalado y actualización
 de QPixmap en QLabel, con soporte para cambio de tema y escalado
-automatico al redimensionar la ventana. Incluye metodos estaticos
-de conversion entre numpy (OpenCV) y QPixmap.
+automático al redimensionar la ventana. Incluye métodos estáticos
+de conversión entre numpy (OpenCV) y QPixmap.
 """
 
 from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QSize, QObject, QEvent
@@ -15,11 +15,11 @@ import cv2
 
 
 class ImageHandler(QObject):
-    """Manejador de imagenes para QLabel con soporte de redimension automatica.
+    """Manejador de imágenes para QLabel con soporte de redimensión automática.
 
-    Gestiona la visualizacion de imagenes estaticas (segun el tema) y
-    frames de video en vivo. Escala automaticamente las imagenes al
-    cambiar el tamano del QLabel contenedor.
+    Gestiona la visualización de imágenes estáticas (según el tema) y
+    frames de video en vivo. Escala automáticamente las imágenes al
+    cambiar el tamaño del QLabel contenedor.
 
     Args:
         image_label (QLabel): QLabel donde se mostrara la imagen.
@@ -38,7 +38,7 @@ class ImageHandler(QObject):
         self.image_label.installEventFilter(self)
 
     def eventFilter(self, watched, event):
-        """Maneja el redimensionamiento automatico del QLabel.
+        """Maneja el redimensionamiento automático del QLabel.
 
         Args:
             watched: Objeto observado.
@@ -53,7 +53,7 @@ class ImageHandler(QObject):
         return super().eventFilter(watched, event)
 
     def set_static_image(self):
-        """Muestra la imagen estatica (logo/inicio) en el QLabel."""
+        """Muestra la imagen estática (logo/inicio) en el QLabel."""
         if self.pixmap and not self.pixmap.isNull():
             self.image_label.setContentsMargins(10, 10, 10, 10)
             self._apply_pixmap(
@@ -77,12 +77,12 @@ class ImageHandler(QObject):
             print("El frame obtenido no es valido")
 
     def _apply_pixmap(self, pixmap: QPixmap, transform_type: Qt.TransformationMode):
-        """Escala y aplica un QPixmap al QLabel respetando los margenes.
+        """Escala y aplica un QPixmap al QLabel respetando los márgenes.
 
         Args:
             pixmap (QPixmap): Imagen a mostrar.
-            transform_type (Qt.TransformationMode): Modo de transformacion
-                (SmoothTransformation para estaticas, FastTransformation para video).
+            transform_type (Qt.TransformationMode): Modo de transformación
+                (SmoothTransformation para estáticas, FastTransformation para video).
         """
         if pixmap and not pixmap.isNull():
             label_size = self.image_label.size()
@@ -104,7 +104,7 @@ class ImageHandler(QObject):
             self.image_label.clear()
 
     def update_theme(self, dark_t: bool):
-        """Actualiza la imagen estatica al cambiar el tema.
+        """Actualiza la imagen estática al cambiar el tema.
 
         Args:
             dark_t (bool): True para tema oscuro, False para claro.
@@ -115,7 +115,7 @@ class ImageHandler(QObject):
             self.set_static_image()
 
     def set_process_running(self, running: bool):
-        """Establece si un proceso de video esta activo.
+        """Establece si un proceso de video está activo.
 
         Args:
             running (bool): True si hay un proceso de captura de video activo.
@@ -130,7 +130,7 @@ class ImageHandler(QObject):
             frame (np.ndarray): Frame de imagen en formato BGR.
 
         Returns:
-            QPixmap: Representacion de la imagen como QPixmap.
+            QPixmap: Representación de la imagen como QPixmap.
         """
         try:
             frame = np.ascontiguousarray(frame, dtype=np.uint8)
@@ -148,8 +148,8 @@ class ImageHandler(QObject):
                 q_image = QImage(bgr.data, width, height,
                                  bytes_per_line, QImage.Format.Format_BGR888)
                 return QPixmap.fromImage(q_image)
-        except Exception as e:
-            print(f"Error conversión: {e}")
+        except (cv2.error, ValueError, AttributeError) as e:
+            print(f"[DEBUG] Error en conversión de frame a QPixmap ({type(e).__name__}): {e}")
             return QPixmap()
 
     @staticmethod
@@ -160,7 +160,7 @@ class ImageHandler(QObject):
             u_mat (cv2.UMat): Frame como UMat de OpenCV.
 
         Returns:
-            QPixmap: Representacion de la imagen como QPixmap.
+            QPixmap: Representación de la imagen como QPixmap.
         """
         frame = u_mat.get()
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)

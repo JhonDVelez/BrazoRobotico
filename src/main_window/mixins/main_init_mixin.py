@@ -1,9 +1,9 @@
 """
-Modulo que define la estructura e inicializacion de la interfaz principal.
+Módulo que define la estructura e inicialización de la interfaz principal.
 
 Contiene el mixin MainInitMixin, responsable de crear los contenedores
-graficos (splitters, group boxes), inicializar los controladores de
-camara, simulacion, graficos y controles, y configurar la toolbar
+gráficos (splitters, group boxes), inicializar los controladores de
+cámara, simulación, gráficos y controles, y configurar la toolbar
 con las acciones de flujo de trabajo.
 """
 
@@ -27,11 +27,11 @@ from src.features.graph import GraphController
 
 class MainInitMixin:
     """
-    Mixin responsable de la inicializacion de la interfaz principal.
+    Mixin responsable de la inicialización de la interfaz principal.
 
-    Proporciona metodos para configurar los layouts, splitters y group boxes,
-    asi como para inicializar los controladores de los modulos funcionales
-    (camara, simulacion, graficos, sliders, cinematica).
+    Proporciona métodos para configurar los layouts, splitters y group boxes,
+    así como para inicializar los controladores de los módulos funcionales
+    (cámara, simulación, gráficos, sliders, cinemática).
     """
 
     def setup_ui(self, dummy_widget=None):
@@ -73,6 +73,8 @@ class MainInitMixin:
         self.modelBox.setFlat(True)
         self.modelBox.setSizePolicy(box_size_policy)
         self.modelDock.setWidget(self.modelBox)
+        self.modelDock.setMinimumSizeHintMode(
+            ads.CDockWidget.eMinimumSizeHintMode.MinimumSizeHintFromContentMinimumSize)
         self.dock_manager.addDockWidget(
             Area.LeftDockWidgetArea, self.modelDock)
         self._configure_dock_title_bar(self.modelDock)
@@ -85,6 +87,8 @@ class MainInitMixin:
         self.cameraBox.setFlat(True)
         self.cameraBox.setSizePolicy(box_size_policy)
         self.cameraDock.setWidget(self.cameraBox)
+        self.cameraDock.setMinimumSizeHintMode(
+            ads.CDockWidget.eMinimumSizeHintMode.MinimumSizeHintFromContentMinimumSize)
         self.dock_manager.addDockWidget(
             Area.BottomDockWidgetArea, self.cameraDock, self.modelDock.dockAreaWidget())
         self._configure_dock_title_bar(self.cameraDock)
@@ -98,6 +102,8 @@ class MainInitMixin:
         self.graphsBox.setFlat(True)
         self.graphsBox.setSizePolicy(box_size_policy)
         self.graphsDock.setWidget(self.graphsBox)
+        self.graphsDock.setMinimumSizeHintMode(
+            ads.CDockWidget.eMinimumSizeHintMode.MinimumSizeHintFromContentMinimumSize)
         self.dock_manager.addDockWidget(
             Area.RightDockWidgetArea, self.graphsDock)
         self._configure_dock_title_bar(self.graphsDock)
@@ -116,6 +122,8 @@ class MainInitMixin:
         self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
 
         self.controlsDock.setWidget(self.controlsBox)
+        self.controlsDock.setMinimumSizeHintMode(
+            ads.CDockWidget.eMinimumSizeHintMode.MinimumSizeHintFromContentMinimumSize)
         self.dock_manager.addDockWidget(
             Area.BottomDockWidgetArea, self.controlsDock, self.graphsDock.dockAreaWidget())
         self._configure_dock_title_bar(self.controlsDock)
@@ -149,7 +157,7 @@ class MainInitMixin:
 
     def init_camera(self):
         """
-        Inicializa el modulo de camara y lo agrega a su contenedor.
+        Inicializa el módulo de cámara y lo agrega a su contenedor.
         """
         if not self.cameraBox.layout():
             layout = QVBoxLayout(self.cameraBox)
@@ -173,9 +181,9 @@ class MainInitMixin:
 
     def init_controls(self):
         """
-        Inicializa los paneles de control (sliders y cinematica).
+        Inicializa los paneles de control (sliders y cinemática).
 
-        Crea los controladores de sliders y cinematica, los agrega a un
+        Crea los controladores de sliders y cinemática, los agrega a un
         contenedor compartido y configura la visibilidad inicial.
         """
         self.kinematics_controller = KinematicsController(self)
@@ -200,10 +208,10 @@ class MainInitMixin:
 
     def init_tool_bar(self):
         """
-        Crea la barra de herramientas lateral con las acciones de la aplicacion.
+        Crea la barra de herramientas lateral con las acciones de la aplicación.
 
-        Incluye botones de visibilidad de paneles (modelo 3D, camara,
-        graficos, controles), activacion de busqueda visual (ChArUco,
+        Incluye botones de visibilidad de paneles (modelo 3D, cámara,
+        gráficos, controles), activación de búsqueda visual (ChArUco,
         esferas) y controles de flujo (start, pause, stop, reset).
         """
         self.actions_toolbar = QToolBar()
@@ -269,14 +277,14 @@ class MainInitMixin:
             self.charuco_icon, "Tablero ChArUco")
         self.charuco_action.setObjectName("charuco_action")
         self.charuco_action.setStatusTip(
-            "Activa/Desactiva la deteccion del tablero")
+            "Activa/Desactiva la detección del tablero")
         self.charuco_action.setCheckable(True)
 
         self.sphere_action = self.actions_toolbar.addAction(
             self.sphere_icon, "Activar Objetos")
         self.sphere_action.setObjectName("sphere_action")
         self.sphere_action.setStatusTip(
-            "Activa/Desactiva la deteccion de las esferas de colores")
+            "Activa/Desactiva la detección de las esferas de colores")
         self.sphere_action.setCheckable(True)
 
         config_manager = ConfigSignalManager.get_instance()
@@ -326,10 +334,10 @@ class MainInitMixin:
 
     def init_simulation(self):
         """
-        Inicializa el modulo de simulacion y lo agrega a su contenedor.
+        Inicializa el módulo de simulación y lo agrega a su contenedor.
 
         Crea el SimulationController que integra la vista Quick3D con
-        el motor de fisica PyBullet.
+        el motor de física PyBullet.
         """
         if not self.modelBox.layout():
             self.sim_layout = QVBoxLayout(self.modelBox)
@@ -343,9 +351,9 @@ class MainInitMixin:
 
     def init_openbotv(self, com: str):
         """
-        Inicializa la conexion con el microcontrolador via puerto serie.
+        Inicializa la conexión con el microcontrolador vía puerto serie.
 
-        Crea el RobotController para el dominio fisico. El DataController
+        Crea el RobotController para el dominio físico. El DataController
         central ya esta orquestando las señales.
 
         Args:
@@ -358,10 +366,10 @@ class MainInitMixin:
 
     def init_graphics(self):
         """
-        Inicializa el modulo de graficos de telemetria.
+        Inicializa el módulo de gráficos de telemetría.
 
-        Crea el GraphController con el servicio de cinematica para
-        el calculo de trayectorias cartesianas.
+        Crea el GraphController con el servicio de cinemática para
+        el cálculo de trayectorias cartesianas.
         """
         if not self.graphsBox.layout():
             graph_layout = QVBoxLayout(self.graphsBox)
@@ -374,7 +382,7 @@ class MainInitMixin:
 
     def center_window(self):
         """
-        Centra la ventana en la pantalla al iniciar la aplicacion.
+        Centra la ventana en la pantalla al iniciar la aplicación.
         """
         screen = QApplication.primaryScreen()
         screen_geometry = screen.geometry()

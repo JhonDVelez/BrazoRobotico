@@ -135,13 +135,6 @@ class RobotWorker(QThread):
         Args:
             valorm (list): Comandos de posición originales.
         """
-<<<<<<< HEAD
-=======
-        # Intercepción de datos antes del procesamiento de envío (e.g. compensación de backlash)
-        if self._compensator:
-            valorm = self._compensator.process_data(valorm)
-
->>>>>>> 1825586cf103f63ef7f9c90d4540b2f568c648da
         if not all(0 <= x <= 300 for x in valorm):
             print("Error de envío de datos: Valores fuera de rango")
             return
@@ -191,7 +184,6 @@ class RobotWorker(QThread):
             self.data_received.emit(
                 self._last_positions.copy(), self._last_temperaturas.copy())
 
-<<<<<<< HEAD
         except Exception as e:
             print(f"Error lectura: {e}")
             self.connection_status_changed.emit(False)
@@ -200,11 +192,6 @@ class RobotWorker(QThread):
                     self._cm904.close()
             except Exception:
                 pass
-=======
-        except (serial.SerialException, OSError, UnicodeDecodeError) as e:
-            print(f"[DEBUG] Error en lectura de telemetría ({type(e).__name__}): {e}")
-            self.connection_status_changed.emit(False)
->>>>>>> 1825586cf103f63ef7f9c90d4540b2f568c648da
             self._cm904 = None
 
     def _build_command_frame(self, positions: list) -> bytes:
@@ -226,20 +213,15 @@ class RobotWorker(QThread):
 
     def _read_and_filter(self):
         """
-<<<<<<< HEAD
         Lee una linea del puerto serial, parsea y filtra la telemetria.
 
         Integra lectura, parseo regex, deteccion de tramas nulas,
         filtro anti-ruido electromagnetico con escape de seguridad
         (si un salto >35° persiste mas de 4 tramas, se acepta como movimiento real).
-=======
-        Lee una ráfaga de telemetría disponible sin bloquear el hilo serial.
->>>>>>> 1825586cf103f63ef7f9c90d4540b2f568c648da
 
         Returns:
             tuple[list, list] | None: (posiciones, temperaturas) o None si no hay datos validos.
         """
-<<<<<<< HEAD
         try:
             if not self._cm904.in_waiting:
                 return None
@@ -247,19 +229,6 @@ class RobotWorker(QThread):
             self.connection_status_changed.emit(False)
             self._cm904 = None
             return None
-=======
-        timeout = 1
-        start = time.time()
-        data = b""
-        while time.time() - start < timeout:
-            try:
-                available = self._cm904.in_waiting
-            except (serial.SerialException, OSError):
-                print("[DEBUG] Puerto serial perdido durante lectura de in_waiting")
-                self.connection_status_changed.emit(False)
-                self._cm904 = None
-                return ""
->>>>>>> 1825586cf103f63ef7f9c90d4540b2f568c648da
 
         try:
             line = self._cm904.readline().decode('ascii', errors='ignore').strip()
@@ -309,38 +278,6 @@ class RobotWorker(QThread):
 
         return positions, temperatures
 
-<<<<<<< HEAD
-=======
-    def _filter_positions(self, positions: list) -> list:
-        """
-        Filtra tramas nulas y saltos electromagnéticos de la telemetría física.
-
-        Args:
-            positions (list): Lecturas crudas de posición para los motores A-F.
-
-        Returns:
-            list: Posiciones validadas y persistentes para publicar al sistema.
-        """
-        if all(abs(value) < 0.001 for value in positions[:4]):
-            return list(self._last_valid_positions)
-
-        valid_frame = True
-        for index, position in enumerate(positions):
-            difference = abs(position - self._last_valid_positions[index])
-            if difference > 35.0:
-                self._jump_freeze_count[index] += 1
-                if self._jump_freeze_count[index] <= 4:
-                    valid_frame = False
-            else:
-                self._jump_freeze_count[index] = 0
-
-        if not valid_frame:
-            return list(self._last_valid_positions)
-
-        self._last_valid_positions = list(positions)
-        return list(positions)
-
->>>>>>> 1825586cf103f63ef7f9c90d4540b2f568c648da
     def stop(self):
         """
         Detiene el hilo de ejecución y cierra el puerto serial de forma segura.

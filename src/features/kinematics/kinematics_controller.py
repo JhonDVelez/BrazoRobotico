@@ -104,24 +104,8 @@ class KinematicsController(QObject):
         tz = corregir_z(tx, ty, tz)
         tx, ty = corregir_xy(tx, ty)
 
-<<<<<<< HEAD
         # Ejecutar secuencia home + target en el worker (no bloqueante, via QTimer)
         self.kinematics_worker.execute_target(tx, ty, tz)
-=======
-        # 2. Estimación inicial rápida mediante CI iterativa para actualización inmediata
-
-        _, q_deg = self.execute_inverse_kinematics(coords)
-        # Mapeo a formato de servos (0-300) con offsets y signos correspondientes
-        initial_status = [
-            np.abs(q_deg[0] + 150.0),
-            np.abs(q_deg[1] - 150.0),
-            np.abs(q_deg[2] - 150.0),
-            150.0,
-            np.abs(q_deg[3] + 150.0),
-            171
-        ]
-        self._update_shared_status(initial_status)
->>>>>>> 1825586cf103f63ef7f9c90d4540b2f568c648da
 
     def execute_inverse_kinematics(self, coords: dict):
         """

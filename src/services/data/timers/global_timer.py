@@ -76,6 +76,7 @@ class GlobalTimer(QObject):
                 self.sync_simulation_tick.emit()
             else:
                 self.sync_robot_tick.emit()
+                self.sync_simulation_tick.emit()
             self._sync_counter = 0
         else:
             self.update_tick.emit()

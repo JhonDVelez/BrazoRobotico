@@ -9,7 +9,8 @@ y la inicialización de ventanas de calibración.
 from PyQt6.QtCore import pyqtSlot
 from src.services.data.signals import (
     SearchSignalManager, ConfigSignalManager,
-    SimulationSignalManager, PhysicalSignalManager
+    SimulationSignalManager, PhysicalSignalManager,
+    SlidersSignalManager
 )
 
 
@@ -304,3 +305,7 @@ class MainActionsMixin:
         self.connected_to_robot = True
         self.init_openbotv(self.com)
         self.com_connected_label.setText(self.com)
+
+        slider_values = self.sliders_controller._worker.get_sliders_state()
+        SlidersSignalManager.get_instance().update_target_signal.emit(slider_values)
+        PhysicalSignalManager.get_instance().send_to_robot.emit(slider_values)

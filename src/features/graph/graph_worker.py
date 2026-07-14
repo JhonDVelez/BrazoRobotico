@@ -95,8 +95,7 @@ class GraphWorker(QObject):
                 else:
                     self._temp_phy[i] = ""
 
-        # Notificar actualización sin avanzar el reloj (paridad con original)
-        self.notify_update()
+        self._advance_index()
 
     def _advance_index(self):
         """

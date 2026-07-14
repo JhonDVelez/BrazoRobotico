@@ -12,7 +12,7 @@ Conexiones:
 """
 
 import numpy as np
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, QTimer
 from src.features.kinematics.kinematics_widget import KinematicsWidget
 from src.features.kinematics.kinematics_worker import KinematicsWorker
 from src.services.data.signals import (
@@ -35,6 +35,7 @@ class KinematicsController(QObject):
         status_updated (pyqtSignal): Emite el nuevo vector de posiciones de servos.
     """
     status_updated = pyqtSignal(list)
+    send_enabled = pyqtSignal(bool)
 
     def __init__(self, parent=None):
         """
@@ -44,8 +45,17 @@ class KinematicsController(QObject):
             parent (QWidget, optional): Widget padre.
         """
         super().__init__()
+        self._first_kinematic_entry = True
         self.kinematics_widget = KinematicsWidget(parent)
         self.kinematics_worker = KinematicsWorker()
+
+        self.send_enabled.connect(self.kinematics_widget.set_send_enabled)
+
+        # Temporizador de sincronización de UI a 30 Hz (33 ms): desacopla
+        # el renderizado del modelo 3D y los sliders del lazo PID a 100 Hz.
+        self._ui_timer = QTimer(self)
+        self._ui_timer.setInterval(33)
+        self._ui_timer.timeout.connect(self._sync_ui)
 
         self.__setup_connections()
         self.kinematics_worker.start()
@@ -57,14 +67,17 @@ class KinematicsController(QObject):
         # UI -> Controlador (Petición de movimiento)
         self.kinematics_widget.send_clicked.connect(self.execute_kinematics)
 
-        # Telemetria -> Worker (Retroalimentacion para control de lazo cerrado)
-        # El controlador actúa como puente hacia el worker
-        PhysicalSignalManager.get_instance().data_received.connect(
-            self.kinematics_worker.update_sensor_data)
+        # Telemetría -> Worker: el KinematicsWorker la lee por polling del
+        # RobotWorker (variables compartidas bajo cerrojo), por lo que no
+        # necesita conexión de señal hacia el hilo.
 
         # Worker -> Sistema (Publicacion de comandos calculados)
         self.kinematics_worker.commands_ready.connect(
             self._update_shared_status)
+
+        # Fin de secuencia PID -> rehabilitar controles de la UI
+        self.kinematics_worker.control_finished.connect(
+            lambda: self.send_enabled.emit(True))
 
         # IK del flujo Pick and Place mediada por el DataController.
         # Kinematics escucha en su propio bus; no conoce a PickPlace.
@@ -86,16 +99,11 @@ class KinematicsController(QObject):
 
     def execute_kinematics(self):
         """
-        Inicia el proceso de cálculo cinemático basado en la entrada de la UI.
+        Inicia el seguimiento del destino cartesiano del usuario.
 
-        Cambia el modo de operacion a KINEMATIC y establece el objetivo
-        en el worker para el seguimiento de la trayectoria.
+        Al entrar al modo Cartesiano ya se envio el home (ver
+        `_on_global_mode_changed`); aqui se va al destino solicitado.
         """
-        # Cambiar modo de operación global mediante el bus propio de la feature.
-        # El DataController escucha y orquesta el resto del sistema.
-        KinematicsSignalManager.get_instance().change_mode_signal.emit(
-            Modes.KINEMATIC)
-
         coords = self.kinematics_widget.get_coordinates()
 
         # Aplicar offset y correccion de coordenadas
@@ -104,8 +112,8 @@ class KinematicsController(QObject):
         tz = corregir_z(tx, ty, tz)
         tx, ty = corregir_xy(tx, ty)
 
-        # Ejecutar secuencia home + target en el worker (no bloqueante, via QTimer)
-        self.kinematics_worker.execute_target(tx, ty, tz)
+        # Home ya enviado al entrar al modo; aqui se va al destino.
+        self.kinematics_worker.start_target_only(tx, ty, tz)
 
     def execute_inverse_kinematics(self, coords: dict):
         """
@@ -162,15 +170,28 @@ class KinematicsController(QObject):
 
         Solo se permite el lazo PID en modo KINEMATIC. Al salir de este
         modo (sliders, pick-place, etc.) se pausa el control para evitar
-        que el PID compita con otras fuentes de comando.
+        que el PID compita con otras fuentes de comando. El temporizador
+        de sincronización de UI se apaga al salir del modo Cartesiano.
 
         Args:
             mode (Modes): Nuevo modo de operacion.
         """
         if mode == Modes.KINEMATIC:
-            self.kinematics_worker.resume_pid()
+            if self._first_kinematic_entry:
+                # Primera entrada al modo: enviar el brazo al home.
+                self._first_kinematic_entry = False
+                self.send_enabled.emit(False)
+                self.kinematics_worker.go_home_sequence(
+                    on_done=lambda: self.send_enabled.emit(True))
+            else:
+                self.kinematics_worker.resume_pid()
+            if not self._ui_timer.isActive():
+                self._ui_timer.start()
         else:
             self.kinematics_worker.pause_pid()
+            self._first_kinematic_entry = True
+            self.kinematics_worker._pid_stop()
+            self._ui_timer.stop()
 
     def _update_shared_status(self, status):
         """
@@ -180,8 +201,39 @@ class KinematicsController(QObject):
             status (list): Vector de posiciones de servos.
         """
         self.status_updated.emit(status)
+        physical_signals = PhysicalSignalManager.get_instance()
+        if physical_signals.is_connected:
+            physical_signals.send_to_robot.emit(status)
+
         # Notificar el nuevo objetivo al bus propio. El DataController orquestará el resto.
         KinematicsSignalManager.get_instance().update_target_signal.emit(status)
+
+    def set_robot_worker(self, robot_worker):
+        """
+        Inyecta la referencia al RobotWorker en el worker de cinemática.
+
+        Permite al KinematicsWorker leer la telemetría por polling de
+        forma segura (variables compartidas bajo cerrojo).
+
+        Args:
+            robot_worker (RobotWorker): Worker serial del robot físico.
+        """
+        self.kinematics_worker.set_robot_worker(robot_worker)
+
+    def _sync_ui(self):
+        """
+        Sincroniza el modelo 3D y los sliders con la posición actual
+        del brazo físico a 30 Hz, desacoplando el renderizado del
+        lazo PID a 100 Hz.
+        """
+        # Usamos la posición COMANDADA (siempre disponible una vez
+        # enviado un comando) en lugar de la telemetría física, para
+        # que los sliders se muevan a la par del brazo aunque el
+        # robot no esté conectado por puerto serial.
+        pos = self.kinematics_worker.get_commanded_positions()
+        if not any(p is not None for p in pos):
+            return
+        SlidersSignalManager.get_instance().external_values.emit(pos)
 
     def get_widget(self):
         """

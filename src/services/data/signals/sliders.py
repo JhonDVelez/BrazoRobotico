@@ -8,6 +8,7 @@ orquesta el resto del sistema. De este modo la feature de sliders deja de
 conocer el bus de simulación.
 """
 
+from PyQt6.QtCore import pyqtSignal
 from .base import _SignalManager
 
 
@@ -25,6 +26,8 @@ class SlidersSignalManager(_SignalManager):
             Publica el nuevo vector de posiciones articulares deseadas.
     """
     _instance = None
+
+    external_values = pyqtSignal(list)
 
     @classmethod
     def get_instance(cls):

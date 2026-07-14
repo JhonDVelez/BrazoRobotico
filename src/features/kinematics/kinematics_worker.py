@@ -3,19 +3,22 @@ Módulo que define el KinematicsWorker para el cálculo de cinemática.
 
 Este módulo contiene la lógica para el cálculo de cinemática directa (CD) e
 inversa (CI) de un brazo robótico, además de gestionar el control
-realimentado mediante el uso de hilos (QThread).
+realimentado mediante una máquina de estados ejecutándose de forma
+constante a 100 Hz dentro del hilo (QThread).
 
 Conexiones:
     - Emite `commands_ready` cuando se calcula un nuevo comando de posición.
-    - Emite `error_occurred` en caso de fallos en el cálculo.
-    - Se conecta con `RobotWorker` (indirectamente a través de señales) para
-      recibir telemetría y enviar comandos.
+    - Emite `pid_iteration` en cada paso para el graficado cartesiano.
+    - Emite `control_finished` al concluir la secuencia (rehabilita la UI).
+    - Lee la telemetría del RobotWorker por polling (variables compartidas
+      bajo cerrojo), evitando dependencias del event loop del hilo.
 """
 
 import math
 import time
+import threading
 import numpy as np
-from PyQt6.QtCore import QThread, QTimer, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QThread, pyqtSignal
 from src.services.robot.robot_compensator import CartesianPidCompensator
 
 
@@ -24,60 +27,74 @@ class KinematicsWorker(QThread):
     Worker encargado exclusivamente del cálculo de cinemática y control.
 
     Esta clase implementa algoritmos de cinemática directa e inversa iterativa
-    para controlar un brazo robótico de 4 grados de libertad (DOF) activos.
+    para controlar un brazo robótico de 4 grados de libertad (DOF) activos,
+    gobernado por una máquina de estados a 100 Hz.
 
     Attributes:
         commands_ready (pyqtSignal): Señal que envía una lista de posiciones
             (float) para los servos del robot.
-        error_occurred (pyqtSignal): Señal que envía un mensaje de error (str)
-            en caso de fallas críticas.
+        error_occurred (pyqtSignal): Señal que envía un mensaje de error (str).
+        pid_iteration (pyqtSignal): Señal que reporta (iter, actual, target).
+        control_finished (pyqtSignal): Señal que indica fin de secuencia PID.
     """
     commands_ready = pyqtSignal(list)
     error_occurred = pyqtSignal(str)
     pid_iteration = pyqtSignal(int, list, list)
+    control_finished = pyqtSignal()
+
+    STATE_IDLE = "idle"
+    STATE_PHYSICAL_HOMING = "physical_homing"
+    STATE_PID_HOMING = "pid_homing"
+    STATE_PID_TARGET = "pid_target"
 
     def __init__(self):
         """
         Inicializa el worker de cinemática con las dimensiones del robot.
 
         Define las longitudes de los eslabones y establece el estado inicial
-        del sistema de control.
+        del sistema de control (máquina de estados a 100 Hz).
         """
         super().__init__()
         self._links = [155.0, 92.0, 111.0, 8.0, 150.0]
 
-        # Estado interno
+        # Estado interno del lazo de control
         self._current_positions = [150.0] * 6
+        self._last_commanded_positions = list(self._current_positions)
+        self._has_real_telemetry = False
         self._target_pos = None
-        self._target_waypoints = []
-        self._waypoint_index = 0
-        self._start_time = None
-        self._prev_positions = list(self._current_positions)
-        self._is_paused = False
 
-        # --- PID control state (initiative) ---
-        self._pid_active = False
-        self._pid_target = None
-        self._pid_limites = None
-        self._pid_on_done = None
+        # --- Máquina de estados (100 Hz) ---
+        self._state = self.STATE_IDLE
+        self._paused = False
+        self._running = True
+        self._robot_worker = None
+        self._last_seen_telemetry_version = -1
+        self._new_telemetry = False
+        self._state_deadline = 0.0
+        self._sequence_on_done = None
+
+        # Objetivos de la secuencia
+        self._tx_target = 0.0
+        self._ty_target = 0.0
+        self._tz_target = 0.0
+        self._home_target = np.array([185.0, 0.0, 170.0], dtype=float)
+        self._final_target = np.array([0.0, 0.0, 0.0], dtype=float)
+        self._home_limits = [(-10, 10), (-90, -40), (0, 130), (-30, 120)]
+        self._target_limits = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
+
+        # --- Estado del PID cartesiano ---
+        self._pid_iteracion = -1
+        self._pid_contador_estabilidad = 0
         self._pid_error_acumulado = np.zeros(3)
         self._pid_error_anterior = np.zeros(3)
         self._pid_primera_iteracion = True
-        self._pid_contador_estabilidad = 0
-        self._pid_paused = False
-
-        # --- Prueba_controlv11: stability counter, dead band, tolerances ---
-        self._stability_count = 0
-        self._stability_required = 10
-        self._tolerances = np.array([5.0, 5.0, 5.0])
         self._dead_band_threshold_deg = 0.5
-        self._umbral_mm = 1.5
-        self._integral_limit = 35.0
-        self._integral_error = np.zeros(3)
-        self._previous_error = np.zeros(3)
-        self._first_iteration = True
+        self._go_to_target_after_home = True
 
-    # --- Cinematica directa (Prueba_controlv11) ---
+        # Cerrojo para variables compartidas entre el hilo y la UI
+        self._lock = threading.Lock()
+
+    # --- Cinemática directa ---
 
     @staticmethod
     def _cinematica_directa(q, L=None):
@@ -88,7 +105,7 @@ class KinematicsWorker(QThread):
         arg23 = t2 + t3
         arg234 = t2 + t3 + t4
         projection = (L4 * math.cos(arg23) + L3 * math.sin(arg23) +
-                      L2 * math.sin(t2) + L5 * math.sin(arg234))
+                     L2 * math.sin(t2) + L5 * math.sin(arg234))
         px = math.cos(t1) * projection
         py = math.sin(t1) * projection
         pz = L1 + L3 * math.cos(arg23) - L4 * math.sin(arg23) + L2 * math.cos(t2) + L5 * math.cos(arg234)
@@ -123,21 +140,16 @@ class KinematicsWorker(QThread):
 
     def ci(self, px, py, pz, max_iter=100, tol=1.0, gain=0.5):
         """
-        Calcula cinematica inversa iterativa (Newton-Raphson) para un objetivo cartesiano.
-
-        Usa la pseudoinversa del Jacobiano para converger desde el origen
-        hasta las coordenadas objetivo. Fija q1 directamente de atan2(py, px).
+        Calcula cinemática inversa iterativa (Newton-Raphson) para un objetivo.
 
         Args:
-            px (float): Coordenada X objetivo en mm.
-            py (float): Coordenada Y objetivo en mm.
-            pz (float): Coordenada Z objetivo en mm.
-            max_iter (int): Maximo de iteraciones.
+            px, py, pz (float): Coordenadas objetivo en mm.
+            max_iter (int): Máximo de iteraciones.
             tol (float): Tolerancia de convergencia en mm.
-            gain (float): Factor de amortiguacion (0-1) para estabilidad.
+            gain (float): Factor de amortiguación (0-1).
 
         Returns:
-            np.ndarray: Angulos articulares [q1, q2, q3, q4] en radianes.
+            np.ndarray: Ángulos articulares [q1, q2, q3, q4] en radianes.
         """
         q = np.zeros(4, dtype=float)
         target = np.array([px, py, pz], dtype=float)
@@ -160,7 +172,7 @@ class KinematicsWorker(QThread):
     def _apply_dead_band(self, dq_rad):
         """
         Compensa la banda muerta de los servomotores incrementando
-        las ordenes pequeñas por encima del umbral.
+        las órdenes pequeñas por encima del umbral.
         """
         dq_deg = np.degrees(dq_rad)
         for j in range(len(dq_deg)):
@@ -168,32 +180,153 @@ class KinematicsWorker(QThread):
                 dq_deg[j] += math.copysign(self._dead_band_threshold_deg, dq_deg[j])
         return np.radians(dq_deg)
 
-    # --- Comunicacion de comandos al bus del sistema ---
+    # --- Comunicación de comandos al bus del sistema ---
+
+    def _emit_servo_positions(self, servo_positions):
+        self._last_commanded_positions = list(servo_positions)
+        self.commands_ready.emit(servo_positions)
 
     def _send_servo_command(self, q_deg_list):
         servo_positions = CartesianPidCompensator.angulos_robotang(*q_deg_list)
-        self.commands_ready.emit(servo_positions)
+        rounded = [round(p, 1) for p in servo_positions]
+        print(f"[CMD] servo_positions={rounded}")
+        self._emit_servo_positions(servo_positions)
 
-    # --- Control PID cartesiano iniciativa (timer-driven) ---
+    # --- Bucle principal (máquina de estados a 100 Hz) ---
 
-    def _init_pid_control(self, tx, ty, tz, limites_deg, on_done=None):
-        self._pid_target = np.array([tx, ty, tz], dtype=float)
-        self._pid_limites = limites_deg
-        self._pid_on_done = on_done
+    def run(self):
+        """
+        Bucle del hilo: sincroniza telemetría y ejecuta la máquina de
+        estados a ~100 Hz (10 ms) de forma ininterrumpida.
+        """
+        while self._running:
+            self._sync_telemetry()
+            if not self._paused:
+                self._state_machine_step()
+            time.sleep(0.01)
+
+    def _sync_telemetry(self):
+        """
+        Obtiene la telemetría más reciente del RobotWorker por polling.
+
+        Solo marca datos nuevos cuando el contador de telemetría avanza,
+        de modo que el PID ejecuta un paso por cada trama física recibida.
+        """
+        if self._robot_worker is None:
+            return
+        version = self._robot_worker.get_telemetry_counter()
+        if version == self._last_seen_telemetry_version:
+            return
+        self._last_seen_telemetry_version = version
+
+        pos = self._robot_worker.get_last_positions_locked()
+        temps = self._robot_worker.get_last_temperatures_locked()
+        if not any(p is not None for p in pos[:4]):
+            return
+
+        with self._lock:
+            self._current_positions = list(pos)
+            self._has_real_telemetry = True
+            self._new_telemetry = True
+
+    def _state_machine_step(self):
+        """Despacho de la máquina de estados según el estado actual."""
+        with self._lock:
+            state = self._state
+            has_tel = self._has_real_telemetry
+            new_tel = self._new_telemetry
+            home_t = self._home_target
+            home_l = self._home_limits
+            final_t = self._final_target
+            final_l = self._target_limits
+
+        if state == self.STATE_IDLE:
+            return
+        if not has_tel:
+            return
+
+        if state == self.STATE_PHYSICAL_HOMING:
+            if time.time() >= self._state_deadline:
+                self._enter_pid_home()
+            return
+
+        if not new_tel:
+            return
+        with self._lock:
+            self._new_telemetry = False
+
+        if state == self.STATE_PID_HOMING:
+            if self._pid_step(home_t, home_l):
+                if self._go_to_target_after_home:
+                    self._enter_pid_target()
+                else:
+                    self._finish_sequence()
+        elif state == self.STATE_PID_TARGET:
+            if self._pid_step(final_t, final_l):
+                self._finish_sequence()
+
+    # --- Transiciones de estado ---
+
+    def _enter_physical_home(self):
+        """Envía el home angular directo y espera 2.5 s en segundo plano."""
+        self._state = self.STATE_PHYSICAL_HOMING
+        home_servos = CartesianPidCompensator.angulos_robotang(
+            0, -45, 120, 0, 30, 0)
+        self._emit_servo_positions(home_servos)
+        self._state_deadline = time.time() + 2.5
+
+    def _enter_pid_home(self):
+        """Inicia el control PID hacia el Home Cartesiano [185, 0, 170]."""
+        self._state = self.STATE_PID_HOMING
+        from .coordinate_correction import corregir_xy, corregir_z
+        tx_home, ty_home, tz_home = 185, 0, 170
+        tz_home = corregir_z(tx_home, ty_home, tz_home)
+        tx_home, ty_home = corregir_xy(tx_home, ty_home)
+        self._home_target = np.array([tx_home, ty_home, tz_home], dtype=float)
+        self._home_limits = [(-10, 10), (-90, -40), (0, 130), (-30, 120)]
+        self._reset_pid_state()
+
+    def _enter_pid_target(self):
+        """Transición automática al control PID hacia el destino del usuario."""
+        self._state = self.STATE_PID_TARGET
+        self._final_target = np.array(
+            [self._tx_target, self._ty_target, self._tz_target], dtype=float)
+        self._target_limits = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
+        self._reset_pid_state()
+
+    def _finish_sequence(self):
+        """Concluye la secuencia: vuelve a IDLE y rehabilita la UI."""
+        self._state = self.STATE_IDLE
+        cb = self._sequence_on_done
+        self._sequence_on_done = None
+        self.control_finished.emit()
+        if cb is not None:
+            cb()
+
+    def _reset_pid_state(self):
+        """Reinicia los acumuladores del PID para una fase nueva."""
         self._pid_error_acumulado = np.zeros(3)
         self._pid_error_anterior = np.zeros(3)
         self._pid_primera_iteracion = True
         self._pid_contador_estabilidad = 0
-        self._pid_iteracion = 0
-        self._pid_active = True
-        QTimer.singleShot(0, self._pid_tick)
+        self._pid_iteracion = -1
 
-    def _pid_tick(self):
-        if not self._pid_active or self._pid_paused:
-            return
+    # --- Paso de control PID cartesiano ---
 
-        q_reales_deg = np.array(
-            CartesianPidCompensator.robotang_angulos(*self._current_positions))
+    def _pid_step(self, target, limits):
+        """
+        Ejecuta un paso del PID cartesiano hacia `target`.
+
+        Args:
+            target (np.ndarray): Objetivo cartesiano [x, y, z] en mm.
+            limits (list): Límites físicos por articulación.
+
+        Returns:
+            bool: True si se alcanzó la estabilidad (fin de fase).
+        """
+        with self._lock:
+            q_reales_deg = np.array(
+                CartesianPidCompensator.robotang_angulos(*self._current_positions))
         q_actual_rad = np.radians([
             q_reales_deg[0], q_reales_deg[1],
             q_reales_deg[2], q_reales_deg[4]])
@@ -201,32 +334,33 @@ class KinematicsWorker(QThread):
 
         self._pid_iteracion += 1
         self.pid_iteration.emit(
-            self._pid_iteracion, p_actual.tolist(), self._pid_target.tolist())
+            self._pid_iteracion, p_actual.tolist(), target.tolist())
 
-        error_actual = self._pid_target - p_actual
+        error_actual = target - p_actual
         dist_total = np.linalg.norm(error_actual)
+
+        if self._pid_iteracion % 100 == 0:
+            print(f"[PID] tick {self._pid_iteracion} "
+                  f"actual=({p_actual[0]:.1f}, {p_actual[1]:.1f}, {p_actual[2]:.1f}) "
+                  f"target=({target[0]:.1f}, {target[1]:.1f}, {target[2]:.1f}) "
+                  f"error=({error_actual[0]:.1f}, {error_actual[1]:.1f}, {error_actual[2]:.1f}) "
+                  f"dist={dist_total:.2f}")
 
         TOLERANCIAS = [5.0, 5.0, 5.0]
         error_abs = np.abs(error_actual)
         if (error_abs[0] < TOLERANCIAS[0] and
-            error_abs[1] < TOLERANCIAS[1] and
-            error_abs[2] < TOLERANCIAS[2]):
+                error_abs[1] < TOLERANCIAS[1] and
+                error_abs[2] < TOLERANCIAS[2]):
             self._pid_contador_estabilidad += 1
             self._pid_error_anterior = error_actual.copy()
             if self._pid_contador_estabilidad >= 10:
-                self._pid_active = False
-                print("PID converged!")
-                if self._pid_on_done:
-                    self._pid_on_done()
-                return
-            QTimer.singleShot(10, self._pid_tick)
-            return
+                print(f"[PID] CONVERGIO en iteracion {self._pid_iteracion}!")
+                return True
+            return False
         else:
+            if self._pid_contador_estabilidad > 0:
+                print(f"[PID] perdio tolerancia estabilidad={self._pid_contador_estabilidad}")
             self._pid_contador_estabilidad = 0
-
-        if self._pid_contador_estabilidad > 0:
-            QTimer.singleShot(10, self._pid_tick)
-            return
 
         KP_EJES = np.array([1.5, 1.0, 1.38])
         KI_EJES = np.array([0.9375, 0.0, 0.69])
@@ -265,234 +399,117 @@ class KinematicsWorker(QThread):
         dq = np.radians(dq_deg)
 
         q_next_rad = CartesianPidCompensator.apply_physical_limits(
-            q_actual_rad + dq, self._pid_limites)
-        q_next_rad[0] = math.atan2(
-            self._pid_target[1], self._pid_target[0])
+            q_actual_rad + dq, limits)
+        q_next_rad[0] = math.atan2(target[1], target[0])
         q_out_deg = np.degrees(q_next_rad)
         q_final = [q_out_deg[0], q_out_deg[1], q_out_deg[2],
                    0, q_out_deg[3], -80]
+        print(f"[PID] servo_cmd q_out_deg=({q_out_deg[0]:.1f}, {q_out_deg[1]:.1f}, "
+              f"{q_out_deg[2]:.1f}, {q_out_deg[3]:.1f})")
         self._send_servo_command(q_final)
+        return False
 
-        QTimer.singleShot(10, self._pid_tick)
+    # --- API de secuencia (invocada desde el controlador / UI) ---
 
-    # --- Secuencia de movimiento completa (home + target) ---
+    def set_robot_worker(self, robot_worker):
+        """Inyecta la referencia al RobotWorker para el polling de telemetría."""
+        self._robot_worker = robot_worker
 
-    def execute_target(self, tx, ty, tz):
+    def start_full_sequence(self, tx, ty, tz, on_done=None):
+        """
+        Secuencia completa al entrar a modo Cartesiano:
+        home físico (2.5 s) -> PID home -> PID target(final).
+        """
+        self._go_to_target_after_home = True
         self._tx_target = tx
         self._ty_target = ty
         self._tz_target = tz
+        self._target_pos = np.array([tx, ty, tz], dtype=float)
+        self._sequence_on_done = on_done
+        self._pid_stop()
+        self._enter_physical_home()
 
+    def start_target_only(self, tx, ty, tz):
+        """
+        Mover al destino del usuario rehaciendo el home PID (modo ya activo).
+        """
+        self._go_to_target_after_home = True
+        self._tx_target = tx
+        self._ty_target = ty
+        self._tz_target = tz
+        self._target_pos = np.array([tx, ty, tz], dtype=float)
+        self._pid_stop()
+        self._enter_pid_home()
+
+    def go_home_sequence(self, on_done=None):
+        """
+        Secuencia de home al entrar a modo Cartesiano:
+        home físico (2.5 s) -> PID home, sin ir al destino.
+        """
+        self._go_to_target_after_home = False
+        self._target_pos = None
+        self._sequence_on_done = on_done
+        self._pid_stop()
+        self._enter_physical_home()
+
+    def send_home_only(self):
+        """Home físico sin PID — solo al cambiar a modo Cinemática."""
+        self._pid_stop()
         home_servos = CartesianPidCompensator.angulos_robotang(
             0, -45, 120, 0, 30, 0)
-        self.commands_ready.emit(home_servos)
-        QTimer.singleShot(2500, self._start_home_pid)
+        self._emit_servo_positions(home_servos)
 
-    def _start_home_pid(self):
-        from .coordinate_correction import corregir_xy, corregir_z
-        tx_home, ty_home, tz_home = 185, 0, 170
-        tz_home = corregir_z(tx_home, ty_home, tz_home)
-        tx_home, ty_home = corregir_xy(tx_home, ty_home)
-        limites_home = [(10, -10), (-40, -90), (0, 130), (-30, 120)]
-        self._init_pid_control(
-            tx_home, ty_home, tz_home, limites_home,
-            self._go_to_final_target)
-
-    def _go_to_final_target(self):
-        limites = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
-        self._init_pid_control(
-            self._tx_target, self._ty_target, self._tz_target,
-            limites, None)
-
-    # --- Gestion de Control Realimentado ---
-
-    @pyqtSlot(list, list)
-    def update_sensor_data(self, positions, temp_data=None):
-        """
-        Recibe telemetría del robot y recalcula el siguiente comando de control.
-
-        Implementa el esquema PID cartesiano con anti-windup, banda muerta,
-        y contador de estabilidad, segun la logica de Prueba_controlv11.
-
-        Args:
-            positions (list): Posiciones actuales de los servos (0-300 grados).
-            temp_data (list, optional): Datos de temperatura de los motores.
-        """
-        self._current_positions = list(positions)
-        if self._target_pos is None or self._is_paused:
-            return
-
-        self._prev_positions = list(self._current_positions)
-        active_target = self._target_waypoints[self._waypoint_index]
-
-        # --- Un paso del control PID cartesiano (Prueba_controlv11) ---
-        q_reales_deg = np.array(
-            CartesianPidCompensator.robotang_angulos(*self._current_positions))
-        q_actual = np.radians([
-            q_reales_deg[0], q_reales_deg[1],
-            q_reales_deg[2], q_reales_deg[4]])
-        current_pos = self._cinematica_directa(q_actual)
-        error = active_target - current_pos
-        dist = np.linalg.norm(error)
-
-        # Comprobacion de tolerancias con contador de estabilidad
-        error_abs = np.abs(error)
-        if (error_abs[0] < self._tolerances[0] and
-            error_abs[1] < self._tolerances[1] and
-            error_abs[2] < self._tolerances[2]):
-
-            self._stability_count += 1
-        else:
-            self._stability_count = 0
-
-        # Si se alcanzaron las iteraciones requeridas de estabilidad -> waypoint completado
-        if self._stability_count >= self._stability_required:
-            self._stability_count = 0
-            self._integral_error = np.zeros(3)
-            self._previous_error = np.zeros(3)
-            self._first_iteration = True
-            self._waypoint_index += 1
-            if self._waypoint_index >= len(self._target_waypoints):
-                self._target_pos = None
-                self._target_waypoints = []
-                return
-            return
-
-        # Si estamos dentro de tolerancia pero aun no se cumple la estabilidad, no enviar comando
-        if self._stability_count > 0:
-            return
-
-        # --- Accion PID con anti-windup ---
-        dt = 0.01
-        KP = np.array([1.5, 1.0, 1.38])
-        KI = np.array([0.9375, 0.0, 0.69])
-        KD = np.array([0.06, 0.0, 0.069])
-
-        P = error * KP
-
-        if dist < self._umbral_mm * 2:
-            self._integral_error *= 0.7
-        else:
-            self._integral_error += error * dt
-
-        self._integral_error = np.clip(self._integral_error, -self._integral_limit, self._integral_limit)
-        I = self._integral_error * KI
-
-        if self._first_iteration:
-            D = np.zeros(3)
-            self._first_iteration = False
-        else:
-            d_error = (error - self._previous_error) / dt
-            D = d_error * KD
-
-        v_control = P + I + D
-        self._previous_error = error.copy()
-
-        # Inversion cinematica mediante pseudoinversa del Jacobiano (Prueba_controlv11)
-        J_inv = self._calcular_pseudoinversa(q_actual)
-        dq = J_inv @ v_control
-
-        # Compensacion de banda muerta de servomotores
-        dq = self._apply_dead_band(dq)
-
-        # Limites fisicos y fijacion directa de q1
-        q_next = CartesianPidCompensator.apply_physical_limits(q_actual + dq)
-        q_next[0] = math.atan2(active_target[1], active_target[0])
-
-        # Conversion a comando de servos
-        q_out_deg = np.degrees(q_next)
-        command = CartesianPidCompensator.angulos_robotang(
-            q_out_deg[0], q_out_deg[1], q_out_deg[2], 0, q_out_deg[3], -80)
-        self.commands_ready.emit(command)
-
-    # --- Getters / Setters ---
-
-    def set_target(self, px, py, pz):
-        """
-        Define un nuevo objetivo cartesiano para el robot.
-
-        Args:
-            px (float): Objetivo X en mm.
-            py (float): Objetivo Y en mm.
-            pz (float): Objetivo Z en mm.
-        """
-        if px is None or py is None or pz is None:
-            self._target_pos = None
-            self._target_waypoints = []
-            self._stability_count = 0
-        else:
-            self._target_pos = np.array([px, py, pz], dtype=float)
-            self._target_waypoints = self._build_target_waypoints(px, py, pz)
-            self._waypoint_index = 0
-            self._stability_count = 0
-            self._integral_error = np.zeros(3)
-            self._previous_error = np.zeros(3)
-            self._first_iteration = True
-            self._start_time = time.time()
-            self._prev_positions = list(self._current_positions)
-            self.update_sensor_data(self._current_positions)
-
-    def _build_target_waypoints(self, px, py, pz):
-        """
-        Construye una secuencia desacoplada de movimiento X, Y y Z.
-
-        Args:
-            px (float): Objetivo final X en mm.
-            py (float): Objetivo final Y en mm.
-            pz (float): Objetivo final Z en mm.
-
-        Returns:
-            list: Waypoints cartesianos para elevar, desplazar y descender.
-        """
-        q_reales_deg = np.array(
-            CartesianPidCompensator.robotang_angulos(*self._current_positions))
-        current_q = np.radians([
-            q_reales_deg[0], q_reales_deg[1],
-            q_reales_deg[2], q_reales_deg[4]])
-        current_xyz = self._cinematica_directa(current_q)
-        safe_z = pz + 30.0
-        return [
-            np.array([current_xyz[0], current_xyz[1], safe_z], dtype=float),
-            np.array([px, current_xyz[1], safe_z], dtype=float),
-            np.array([px, py, safe_z], dtype=float),
-            np.array([px, py, pz], dtype=float),
-        ]
-
-    def set_paused(self, paused: bool):
-        """
-        Pausa o reanuda el proceso de control.
-
-        Args:
-            paused (bool): True para pausar, False para reanudar.
-        """
-        self._is_paused = paused
+    def _pid_stop(self):
+        """Detiene el lazo PID y cancela la secuencia pendiente."""
+        self._state = self.STATE_IDLE
+        self._paused = False
+        self._sequence_on_done = None
+        self._target_pos = None
 
     def pause_pid(self):
-        """
-        Pausa el lazo PID cartesiano de forma externa (ej. cambio a modo sliders).
-
-        El estado del PID se conserva para poder reanudarse despues.
-        """
-        self._pid_paused = True
+        """Pausa el lazo PID cartesiano (sin perder el estado)."""
+        self._paused = True
 
     def resume_pid(self):
-        """
-        Reanuda el lazo PID cartesiano si hay un objetivo activo.
+        """Reanuda el lazo PID cartesiano."""
+        self._paused = False
 
-        Solo programa el siguiente tick si `_pid_target` esta definido,
-        permitiendo que el control continue desde donde se pauso.
-        """
-        self._pid_paused = False
-        if self._pid_target is not None:
-            QTimer.singleShot(0, self._pid_tick)
+    def set_paused(self, paused: bool):
+        """Pausa/reanuda el control (API alternativa)."""
+        self._paused = paused
+
+    def stop(self):
+        """Detiene el hilo de ejecución de forma ordenada."""
+        self._running = False
+        self.quit()
+        self.wait()
+
+    # --- Getters / Setters ---
 
     def get_current_positions(self):
         """
         Obtiene las últimas posiciones conocidas de los servos.
 
         Returns:
-            list: Lista de 6 flotantes (grados).
+            list: Lista de 6 flotantes (grados 0-300).
         """
-        return list(self._current_positions)
+        with self._lock:
+            return list(self._current_positions)
+
+    def get_commanded_positions(self):
+        """
+        Obtiene las últimas posiciones comandadas a los servos.
+
+        A diferencia de `get_current_positions` (telemetría física del
+        robot), este valor está siempre disponible una vez enviado un
+        comando, por lo que es ideal para mover los sliders aunque el
+        robot no esté conectado por puerto serial.
+
+        Returns:
+            list: Lista de 6 flotantes (grados 0-300).
+        """
+        with self._lock:
+            return list(self._last_commanded_positions)
 
     def get_target_pos(self):
         """

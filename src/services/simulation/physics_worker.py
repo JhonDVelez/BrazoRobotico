@@ -69,6 +69,7 @@ class PhysicsWorker(QThread):
         self.set_max_velocity(1.2)
         if self._paused:
             self._paused = False
+        pass
 
     def pause(self):
         """Pausa la simulación."""

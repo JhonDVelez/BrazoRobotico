@@ -142,6 +142,13 @@ class CartesianPIDPlot(QWidget):
             self._real_data[i].append(actual_xyz[i])
             self._target_data[i].append(target_xyz[i])
 
+    def redraw(self):
+        """
+        Redibuja el grafico de forma diferida (draw_idle).
+
+        Se invoca una sola vez tras vaciar el buffer acumulado, en
+        lugar de redibujar en cada punto, para evitar congelamientos.
+        """
         self._redraw()
 
     def _redraw(self):

@@ -135,6 +135,10 @@ class KinematicsWidget(QWidget):
             if key in self._spins:
                 self._spins[key].setValue(val)
 
+    def set_send_enabled(self, enabled: bool):
+        """Habilita o deshabilita el botón Enviar."""
+        self.coordinates_button.setEnabled(enabled)
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
 

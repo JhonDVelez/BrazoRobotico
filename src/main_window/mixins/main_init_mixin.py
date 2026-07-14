@@ -362,6 +362,11 @@ class MainInitMixin:
         self.robot_service = RobotController(com)
         self.robot_service.start_service()
 
+        # Inyectar el RobotWorker al controlador de cinemática para el
+        # polling de telemetría seguro (variables compartidas bajo cerrojo).
+        self.kinematics_controller.set_robot_worker(
+            self.robot_service.get_worker())
+
         self.connect_action.setEnabled(False)
 
     def init_graphics(self):

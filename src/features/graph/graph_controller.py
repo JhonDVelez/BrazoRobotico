@@ -12,7 +12,7 @@ Conexiones:
     - Gestiona el cambio entre vista Angular y Cartesiana en la UI.
 """
 
-from PyQt6.QtCore import QObject, pyqtSlot
+from PyQt6.QtCore import QObject, pyqtSlot, QTimer
 from src.features.graph.graph_widget import GraphWidget
 from src.features.graph.graph_worker import GraphWorker
 from src.features.graph.plots.plot_controller import PlotController
@@ -57,6 +57,17 @@ class GraphController(QObject):
 
         # 5. Establecer conexiones reactivas
         self.__setup_connections()
+
+        # 6. Buffer circular para el graficado cartesiano diferido.
+        # El KinematicsWorker emite iteraciones a ~100 Hz; acumulamos
+        # en un buffer y vaciamos de forma diferida (draw_idle) para
+        # evitar congelamientos del renderizado matplotlib.
+        self._pid_buffer = []
+        self._pid_buffer_max = 5000
+        self._pid_flush_timer = QTimer(self)
+        self._pid_flush_timer.setInterval(33)
+        self._pid_flush_timer.timeout.connect(self._flush_pid_plot)
+        self._pid_flush_timer.start()
 
     def _setup_plots(self):
         """
@@ -158,7 +169,6 @@ class GraphController(QObject):
             pos_data (list): Posiciones actuales de los servos.
             temp_data (list): Temperaturas de los motores.
         """
-        print(f"Datos de robot recibidos: Posiciones={pos_data}, Temperaturas={temp_data}")
         pos_ang = list(pos_data)
         pos_ang[0] -= 150
         pos_ang[1] = -pos_ang[1] + 150
@@ -178,9 +188,21 @@ class GraphController(QObject):
 
     @pyqtSlot(int, list, list)
     def _on_pid_iteration(self, iteration, actual_xyz, target_xyz):
+        # Acumular en el buffer circular; el vaciado es diferido.
         if iteration == 0:
             self._cartesian_pid_plot.reset_plot(target_xyz)
-        self._cartesian_pid_plot.append_data(iteration, actual_xyz, target_xyz)
+        self._pid_buffer.append((iteration, actual_xyz, target_xyz))
+        if len(self._pid_buffer) > self._pid_buffer_max:
+            self._pid_buffer = self._pid_buffer[-self._pid_buffer_max:]
+
+    def _flush_pid_plot(self):
+        """Vacia el buffer cartesiano en una sola actualización diferida."""
+        if not self._pid_buffer:
+            return
+        for iteration, actual_xyz, target_xyz in self._pid_buffer:
+            self._cartesian_pid_plot.append_data(iteration, actual_xyz, target_xyz)
+        self._pid_buffer.clear()
+        self._cartesian_pid_plot.redraw()
 
     def _on_mode_changed(self, is_angular):
         """

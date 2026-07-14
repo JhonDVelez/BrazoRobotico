@@ -15,7 +15,10 @@ from PyQt6.QtCore import QObject
 from src.features.sliders.sliders_widget import SlidersWidget
 from src.features.sliders.sliders_worker import SlidersWorker
 from src.services.data.enums import Modes
-from src.services.data.signals import SlidersSignalManager
+from src.services.data.signals import (KinematicsSignalManager,
+                                       PhysicalSignalManager,
+                                       SimulationSignalManager,
+                                       SlidersSignalManager)
 
 
 class SlidersController(QObject):
@@ -40,8 +43,10 @@ class SlidersController(QObject):
         super().__init__()
         self._widget = SlidersWidget(parent)
         self._worker = SlidersWorker()
+        self._current_mode = Modes.SLIDERS
         
         self.__setup_connections()
+        self.__setup_mode_listeners()
 
     def __setup_connections(self):
         """
@@ -53,6 +58,26 @@ class SlidersController(QObject):
         # Worker -> Estado Compartido (Actualización lógica terminada)
         self._worker.status_changed.connect(self._update_shared_status)
 
+        # Sincronización externa (modo Cinemática) -> sliders visuales
+        SlidersSignalManager.get_instance().external_values.connect(
+            self.set_external_values)
+
+    def __setup_mode_listeners(self):
+        """Escucha cambios de modo global desde todos los orígenes."""
+        SimulationSignalManager.get_instance().change_mode_signal.connect(
+            self._on_global_mode_changed)
+        PhysicalSignalManager.get_instance().change_mode_signal.connect(
+            self._on_global_mode_changed)
+        SlidersSignalManager.get_instance().change_mode_signal.connect(
+            self._on_global_mode_changed)
+        KinematicsSignalManager.get_instance().change_mode_signal.connect(
+            self._on_global_mode_changed)
+
+    def _on_global_mode_changed(self, mode):
+        """Deshabilita sliders al salir de modo SLIDERS."""
+        self._current_mode = mode
+        self._widget.setEnabled(mode == Modes.SLIDERS)
+
     def _on_ui_value_changed(self, index, value):
         """
         Maneja el cambio de posición solicitado desde la interfaz.
@@ -63,6 +88,9 @@ class SlidersController(QObject):
             index (int): Indice del motor modificado (0-5).
             value (int): Nuevo valor de angulo (0-300).
         """
+        if self._current_mode != Modes.SLIDERS:
+            return
+
         # Cambiar modo global a SLIDERS mediante el bus propio de la feature.
         # El DataController escucha y orquesta el resto del sistema.
         SlidersSignalManager.get_instance().change_mode_signal.emit(Modes.SLIDERS)

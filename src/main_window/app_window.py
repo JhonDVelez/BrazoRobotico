@@ -155,6 +155,9 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
                 if key == 'sliders' and not state:
                     self.kinematics_controller.get_widget().set_horizontal_layout()
 
+        # Forzar inicio en modo Sliders
+        self.sliders_action.setChecked(True)
+
         # Conectar señal al cambio de tema del sistema
         QApplication.instance().styleHints().colorSchemeChanged.connect(
             self.theme_manager.update_theme)

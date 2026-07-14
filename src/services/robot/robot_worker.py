@@ -13,7 +13,9 @@ Conexiones:
 
 import re
 import queue
+import time
 import serial
+import threading
 from PyQt6.QtCore import QThread, pyqtSignal
 
 class RobotWorker(QThread):
@@ -59,6 +61,8 @@ class RobotWorker(QThread):
         self._last_temperaturas = [None] * 6
         self._last_valid_positions = [150.0] * 6
         self._jump_freeze_count = [0] * 6
+        self._lock = threading.Lock()
+        self._telemetry_counter = 0
 
     # --- Getters and Setters ---
     def get_com(self) -> str:
@@ -86,7 +90,8 @@ class RobotWorker(QThread):
         Returns:
             list: Lista de 6 posiciones (grados) o None.
         """
-        return self._last_positions.copy()
+        with self._lock:
+            return list(self._last_positions)
 
     def get_last_temperatures(self) -> list:
         """
@@ -95,7 +100,41 @@ class RobotWorker(QThread):
         Returns:
             list: Lista de 6 temperaturas (Celsius) o None.
         """
-        return self._last_temperaturas.copy()
+        with self._lock:
+            return list(self._last_temperaturas)
+
+    def get_last_positions_locked(self) -> list:
+        """
+        Lectura segura (bajo cerrojo) de posiciones de servos.
+
+        Returns:
+            list: Copia de 6 posiciones (grados).
+        """
+        with self._lock:
+            return list(self._last_positions)
+
+    def get_last_temperatures_locked(self) -> list:
+        """
+        Lectura segura (bajo cerrojo) de temperaturas de motores.
+
+        Returns:
+            list: Copia de 6 temperaturas (Celsius).
+        """
+        with self._lock:
+            return list(self._last_temperaturas)
+
+    def get_telemetry_counter(self) -> int:
+        """
+        Devuelve un contador incremental de telemetria procesada.
+
+        Permite a los consumidores detectar de forma atomica si hay
+        datos nuevos sin necesidad de comparar listas completas.
+
+        Returns:
+            int: Numero de tramas validas procesadas.
+        """
+        with self._lock:
+            return self._telemetry_counter
 
     def enqueue_data(self, valorm):
         """
@@ -116,24 +155,33 @@ class RobotWorker(QThread):
 
     def run(self):
         """
-        Bucle principal del hilo de comunicación.
+        Bucle principal del hilo de comunicación continuo y asíncrono.
 
-        Extrae comandos de la cola y ejecuta la transaccion serial.
+        En cada ciclo intenta extraer un comando de la cola de envío con un
+        tiempo de espera corto; si lo hay, lo transmite. De forma
+        independiente, lee de inmediato cualquier telemetria pendiente en el
+        buffer de entrada del puerto serie y la procesa, actualizando el
+        estado interno bajo cerrojo. Esto garantiza telemetria en tiempo real
+        y a la maxima velocidad del hardware, sin bloqueos ni congelamiento.
         """
         while self._running:
             try:
-                valorm = self._send_queue.get(timeout=0.1)
+                valorm = self._send_queue.get(timeout=0.005)
             except queue.Empty:
-                continue
+                valorm = None
 
-            self._send_and_receive(valorm)
+            if valorm is not None:
+                self._send_command(valorm)
 
-    def _send_and_receive(self, valorm):
+            self._read_telemetry_continuous()
+
+    def _send_command(self, valorm):
         """
-        Realiza la transacción de bajo nivel: envía PWMs y recibe telemetría.
+        Transmite una trama de comando al microcontrolador sin descartar
+        la telemetria pendiente en el buffer de entrada.
 
         Args:
-            valorm (list): Comandos de posición originales.
+            valorm (list): Comandos de posición originales (grados 0-300).
         """
         if not all(0 <= x <= 300 for x in valorm):
             print("Error de envío de datos: Valores fuera de rango")
@@ -149,14 +197,6 @@ class RobotWorker(QThread):
                 self.connection_status_changed.emit(False)
                 return
 
-        try:
-            self._cm904.reset_input_buffer()
-        except (serial.SerialException, OSError) as e:
-            print(f"[DEBUG] Error limpiando buffer serial: {e}")
-            self.connection_status_changed.emit(False)
-            self._cm904 = None
-            return
-
         # Envío de trama compacta: A<pwm>B<pwm>C<pwm>D<pwm>E<pwm>F<pwm>\n
         try:
             frame = self._build_command_frame(valorm)
@@ -169,28 +209,6 @@ class RobotWorker(QThread):
                 if self._cm904:
                     self._cm904.close()
             except (serial.SerialException, OSError):
-                pass
-            self._cm904 = None
-            return
-
-        # Recepción y parseo de telemetría
-        try:
-            result = self._read_and_filter()
-            if result is None:
-                return
-
-            self._last_positions, self._last_temperaturas = result
-
-            self.data_received.emit(
-                self._last_positions.copy(), self._last_temperaturas.copy())
-
-        except Exception as e:
-            print(f"Error lectura: {e}")
-            self.connection_status_changed.emit(False)
-            try:
-                if self._cm904:
-                    self._cm904.close()
-            except Exception:
                 pass
             self._cm904 = None
 
@@ -211,39 +229,50 @@ class RobotWorker(QThread):
             frame += f"{char}{pwm_value}"
         return f"{frame}\n".encode('ascii')
 
-    def _read_and_filter(self):
+    def _read_telemetry_continuous(self):
         """
-        Lee una linea del puerto serial, parsea y filtra la telemetria.
-
-        Integra lectura, parseo regex, deteccion de tramas nulas,
-        filtro anti-ruido electromagnetico con escape de seguridad
-        (si un salto >35° persiste mas de 4 tramas, se acepta como movimiento real).
-
-        Returns:
-            tuple[list, list] | None: (posiciones, temperaturas) o None si no hay datos validos.
+        Lee de forma continua las lineas de telemetria disponibles en el
+        puerto serie y actualiza el estado interno cuando se completa una
+        trama valida de 6 motores. No bloquea: solo procesa lo disponible.
         """
+        if self._cm904 is None or not getattr(self._cm904, 'is_open', False):
+            return
         try:
-            if not self._cm904.in_waiting:
-                return None
-        except Exception:
+            waiting = self._cm904.in_waiting
+        except (serial.SerialException, OSError):
             self.connection_status_changed.emit(False)
             self._cm904 = None
-            return None
+            return
+        if not waiting:
+            return
 
-        try:
-            line = self._cm904.readline().decode('ascii', errors='ignore').strip()
+        while self._cm904.in_waiting:
+            try:
+                line = self._cm904.readline().decode(
+                    'ascii', errors='ignore').strip()
+            except (serial.SerialException, OSError):
+                self.connection_status_changed.emit(False)
+                self._cm904 = None
+                return
             if not line:
-                return None
-        except Exception as e:
-            print(f"Error leyendo del serial: {e}")
-            return None
+                continue
+            matches = self._TELEMETRY_PATTERN.findall(line)
+            if len(matches) >= 6:
+                self._update_from_matches(matches)
 
-        matches = self._TELEMETRY_PATTERN.findall(line)
-        if len(matches) < 6:
-            return None
+    def _update_from_matches(self, matches):
+        """
+        Procesa 6+ coincidencias de telemetria, aplica los filtros anti-ruido
+        y de trama nula, y actualiza el estado interno bajo cerrojo.
 
+        Args:
+            matches (list): Lista de tuplas (motor, posicion, temperatura).
+        """
         temp_pos = [None] * 6
-        temperatures = list(self._last_temperaturas)
+        with self._lock:
+            temperatures = list(self._last_temperaturas)
+            last_valid = list(self._last_valid_positions)
+
         for motor_char, position_value, temperature_value in matches:
             idx = ord(motor_char) - ord('A')
             if idx < 6:
@@ -252,13 +281,17 @@ class RobotWorker(QThread):
 
         # Deteccion de tramas nulas / caidas de tension
         if all(v is not None and abs(v) < 0.001 for v in temp_pos[:4]):
-            return list(self._last_valid_positions), list(self._last_temperaturas)
+            with self._lock:
+                positions = list(self._last_valid_positions)
+                temps = list(self._last_temperaturas)
+            self._emit_telemetry(positions, temps)
+            return
 
         # Filtro anti-ruido electromagnetico con escape de seguridad
         trama_valida = True
         for i in range(6):
             if temp_pos[i] is not None:
-                diff = abs(temp_pos[i] - self._last_valid_positions[i])
+                diff = abs(temp_pos[i] - last_valid[i])
                 if diff > 35.0:
                     self._jump_freeze_count[i] += 1
                     if self._jump_freeze_count[i] <= 4:
@@ -267,16 +300,35 @@ class RobotWorker(QThread):
                     self._jump_freeze_count[i] = 0
 
         if not trama_valida:
-            return list(self._last_valid_positions), list(self._last_temperaturas)
+            with self._lock:
+                positions = list(self._last_valid_positions)
+                temps = list(self._last_temperaturas)
+            self._emit_telemetry(positions, temps)
+            return
 
         # Actualizacion limpia de la telemetria
-        positions = list(self._last_valid_positions)
+        positions = list(last_valid)
         for i in range(6):
             if temp_pos[i] is not None:
                 positions[i] = temp_pos[i]
-                self._last_valid_positions[i] = temp_pos[i]
 
-        return positions, temperatures
+        with self._lock:
+            self._last_valid_positions = list(positions)
+            self._last_positions = list(positions)
+            self._last_temperaturas = list(temperatures)
+            self._telemetry_counter += 1
+
+        self._emit_telemetry(positions, temperatures)
+
+    def _emit_telemetry(self, positions, temperatures):
+        """
+        Re-emite la telemetria procesada hacia los suscriptores.
+
+        Args:
+            positions (list): Posiciones de servos (grados).
+            temperatures (list): Temperaturas de motores (Celsius).
+        """
+        self.data_received.emit(list(positions), list(temperatures))
 
     def stop(self):
         """

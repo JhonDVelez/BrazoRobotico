@@ -7,9 +7,10 @@ y la inicialización de ventanas de calibración.
 """
 
 from PyQt6.QtCore import pyqtSlot
+from src.services.data.enums import Modes
 from src.services.data.signals import (
-    SearchSignalManager, ConfigSignalManager,
-    SimulationSignalManager, PhysicalSignalManager
+    KinematicsSignalManager, SearchSignalManager, ConfigSignalManager,
+    SimulationSignalManager, PhysicalSignalManager, SlidersSignalManager
 )
 
 
@@ -258,6 +259,8 @@ class MainActionsMixin:
         if checked:
             self.sliders_controller.get_widget().show()
             self.kinematics_controller.get_widget().set_vertical_layout()
+            SlidersSignalManager.get_instance().change_mode_signal.emit(
+                Modes.SLIDERS)
         else:
             self.sliders_controller.get_widget().hide()
             self.kinematics_controller.get_widget().set_horizontal_layout()
@@ -273,6 +276,8 @@ class MainActionsMixin:
         """
         if checked:
             self.kinematics_controller.get_widget().show()
+            KinematicsSignalManager.get_instance().change_mode_signal.emit(
+                Modes.KINEMATIC)
         else:
             self.kinematics_controller.get_widget().hide()
         ConfigSignalManager.get_instance().request_change(
@@ -285,6 +290,9 @@ class MainActionsMixin:
         Args:
             checked (bool): True para mostrar el panel de controles
         """
+        if checked:
+            SimulationSignalManager.get_instance().change_mode_signal.emit(
+                Modes.PICK_PLACE)
         from src.services.data.signals import PickPlaceSignalManager
         PickPlaceSignalManager.get_instance().set_state(checked)
 

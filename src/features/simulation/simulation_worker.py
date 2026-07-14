@@ -45,6 +45,11 @@ class SimulationWorker(QThread):
             "z",
             "x"
         ]
+        self._motor_objects = {}
+        for name in self.joint_names:
+            motor = self.root_object.findChild(QObject, name)
+            self._motor_objects[name] = motor
+
         self.colors = {
             "amarillo":  ["sphereYellowPos", "sphereYellowRot"],
             "verde": ["sphereGreenPos", "sphereGreenRot"],
@@ -68,7 +73,7 @@ class SimulationWorker(QThread):
         for motor_name, angle, direction in zip(self.joint_names,
                                                 joint_positions,
                                                 self.direction_rotation):
-            motor = self.root_object.findChild(QObject, motor_name)
+            motor = self._motor_objects.get(motor_name)
             if motor is not None:
                 if direction == "z":
                     motor.setProperty("eulerRotation", QVector3D(0, 0, angle))

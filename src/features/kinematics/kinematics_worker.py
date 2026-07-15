@@ -66,6 +66,11 @@ class KinematicsWorker(QThread):
         self._pid_contador_estabilidad = 0
         self._pid_paused = False
 
+        # Ganancias PID (configurables desde la GUI)
+        self.KP = np.array([1.5, 1.0, 1.38])
+        self.KI = np.array([0.9375, 0.0, 0.69])
+        self.KD = np.array([0.06, 0.0, 0.069])
+
         # --- Prueba_controlv11: stability counter, dead band, tolerances ---
         self._stability_count = 0
         self._stability_required = 10
@@ -76,6 +81,18 @@ class KinematicsWorker(QThread):
         self._integral_error = np.zeros(3)
         self._previous_error = np.zeros(3)
         self._first_iteration = True
+
+    def set_pid_gains(self, kp: list, ki: list, kd: list):
+        """Actualiza las ganancias PID desde la GUI.
+
+        Args:
+            kp: Ganancia proporcional [x, y, z].
+            ki: Ganancia integral [x, y, z].
+            kd: Ganancia derivativa [x, y, z].
+        """
+        self.KP = np.array(kp, dtype=np.float64)
+        self.KI = np.array(ki, dtype=np.float64)
+        self.KD = np.array(kd, dtype=np.float64)
 
     # --- Cinematica directa (Prueba_controlv11) ---
 
@@ -228,11 +245,7 @@ class KinematicsWorker(QThread):
             QTimer.singleShot(10, self._pid_tick)
             return
 
-        KP_EJES = np.array([1.5, 1.0, 1.38])
-        KI_EJES = np.array([0.9375, 0.0, 0.69])
-        KD_EJES = np.array([0.06, 0.0, 0.069])
-
-        P = error_actual * KP_EJES
+        P = error_actual * self.KP
 
         umbral_mm = 1.5
         if dist_total < umbral_mm * 2:
@@ -242,14 +255,14 @@ class KinematicsWorker(QThread):
 
         self._pid_error_acumulado = np.clip(
             self._pid_error_acumulado, -35, 35)
-        I = self._pid_error_acumulado * KI_EJES
+        I = self._pid_error_acumulado * self.KI
 
         if self._pid_primera_iteracion:
             D = np.zeros(3)
             self._pid_primera_iteracion = False
         else:
             d_cruda = (error_actual - self._pid_error_anterior) / 0.01
-            D = d_cruda * KD_EJES
+            D = d_cruda * self.KD
 
         v_control = P + I + D
         self._pid_error_anterior = error_actual.copy()
@@ -363,11 +376,8 @@ class KinematicsWorker(QThread):
 
         # --- Accion PID con anti-windup ---
         dt = 0.01
-        KP = np.array([1.5, 1.0, 1.38])
-        KI = np.array([0.9375, 0.0, 0.69])
-        KD = np.array([0.06, 0.0, 0.069])
 
-        P = error * KP
+        P = error * self.KP
 
         if dist < self._umbral_mm * 2:
             self._integral_error *= 0.7
@@ -375,14 +385,14 @@ class KinematicsWorker(QThread):
             self._integral_error += error * dt
 
         self._integral_error = np.clip(self._integral_error, -self._integral_limit, self._integral_limit)
-        I = self._integral_error * KI
+        I = self._integral_error * self.KI
 
         if self._first_iteration:
             D = np.zeros(3)
             self._first_iteration = False
         else:
             d_error = (error - self._previous_error) / dt
-            D = d_error * KD
+            D = d_error * self.KD
 
         v_control = P + I + D
         self._previous_error = error.copy()

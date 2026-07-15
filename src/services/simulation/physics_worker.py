@@ -119,19 +119,15 @@ class PhysicsWorker(QThread):
 
     @pyqtSlot(list)
     def update_target(self, target_position):
-        """        Actualiza los ángulos objetivo de la simulación.
-
-        Aplica un offset de -2.617994 rad a cada posicion para
-        alinear el sistema de coordenadas de la GUI con el de PyBullet.
+        """Actualiza los ángulos objetivo de la simulación.
 
         Args:
-            target_position (list): Lista de 6 posiciones objetivo en radianes.
+            target_position (list): Lista de 6 posiciones objetivo en radianes
+                (espacio angular, centrado en 0).
         """
         self.model_updated.emit(
             self.physic.get_joint_positions(), self.physic.get_sphere_position())
-        # print(f'on sim {self.target_position}')
-        self.target_position = [
-            pos - 2.617994 for pos in target_position]
+        self.target_position = target_position
         self.update_simulation()
 
     def update_sphere_initial_positions(self, poses: dict):

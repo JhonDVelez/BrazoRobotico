@@ -18,6 +18,7 @@ from src.features.graph.graph_worker import GraphWorker
 from src.features.graph.plots.plot_controller import PlotController
 from src.features.graph.cartesian_pid_plot import CartesianPIDPlot
 from src.services.data.signals import SimulationSignalManager, PhysicalSignalManager, ConfigSignalManager, ThemeSignalManager
+from src.services.data.utils import robotang_angulos
 
 
 class GraphController(QObject):
@@ -141,13 +142,18 @@ class GraphController(QObject):
         """
         Maneja la recepción de datos de la simulación.
 
+        En modo conectado: almacena sim como pendiente, flush por add_phy_data.
+        En modo standalone: flush inmediato (no hay phy que espere).
+
         Args:
             data (list): Lista de ángulos en grados.
         """
         ang_data = list(data)
-        ang_data[1] *= -1
-        ang_data[2] *= -1
+        ang_data[4] *= -1
+        ang_data[5] *= -1
         self._angular_worker.add_sim_data(ang_data)
+        if not PhysicalSignalManager.get_instance().is_connected:
+            self._angular_worker.flush_pending()
 
     @pyqtSlot(list, list)
     def _on_phy_data_received(self, pos_data, temp_data):
@@ -155,17 +161,10 @@ class GraphController(QObject):
         Maneja la recepción de datos reales del robot físico.
 
         Args:
-            pos_data (list): Posiciones actuales de los servos.
+            pos_data (list): Posiciones actuales de los servos (espacio robot 0-300).
             temp_data (list): Temperaturas de los motores.
         """
-        print(f"Datos de robot recibidos: Posiciones={pos_data}, Temperaturas={temp_data}")
-        pos_ang = list(pos_data)
-        pos_ang[0] -= 150
-        pos_ang[1] = -pos_ang[1] + 150
-        pos_ang[2] = -pos_ang[2] + 150
-        pos_ang[3] -= 150
-        pos_ang[4] -= 150
-        pos_ang[5] -= 150
+        pos_ang = list(robotang_angulos(*pos_data))
         self._angular_worker.add_phy_data(pos_ang, temp_data)
 
     def _update_angular_plot(self, idx, y_sim, y_phy, temp, w_idx, full, x):

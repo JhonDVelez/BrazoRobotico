@@ -98,6 +98,10 @@ class KinematicsController(QObject):
 
         coords = self.kinematics_widget.get_coordinates()
 
+        # Aplicar ganancias PID desde la GUI
+        gains = self.kinematics_widget.get_pid_gains()
+        self.kinematics_worker.set_pid_gains(gains["kp"], gains["ki"], gains["kd"])
+
         # Aplicar offset y correccion de coordenadas
         tx, ty, tz = coords['x'], coords['y'], coords['z']
         tx = tx + 110

@@ -22,7 +22,7 @@ from src.services.data.signals import (
 )
 from src.services.data.enums import Modes, Units
 from src.services.data.timers import GlobalTimer
-from src.services.data.utils import deg_to_rad, rad_to_deg
+from src.services.data.utils import deg_to_rad, rad_to_deg, angulos_robotang, robotang_angulos
 
 
 class DataController(QObject):
@@ -69,7 +69,6 @@ class DataController(QObject):
         # Temporizador de sincronización centralizado
         self._sync_timer = GlobalTimer.get_instance()
         self._sync_timer.start()
-        self._sync_timer.sync_simulation_tick.connect(self._handle_sync_tick)
         self._sync_timer.sync_robot_tick.connect(self._handle_sync_tick)
 
     def _load_initial_config(self):
@@ -166,13 +165,11 @@ class DataController(QObject):
         self.sim_signals.update_pybullet_signal.emit(data_rad.tolist())
 
         if self.phys_signals.is_connected:
-            self.phys_signals.send_to_robot.emit(self._target_data)
+            robot_positions = list(angulos_robotang(*self._target_data))
+            self.phys_signals.send_to_robot.emit(robot_positions)
 
         if self._last_feedback is not None:
-            feedback = [-x+150 if i in (4, 5) else x+150 for i,
-                        x in enumerate(self._last_feedback)]
-            # print(f'target {self._target_data}')
-            # print(f'feedback rad {feedback}')
+            feedback = list(robotang_angulos(*self._last_feedback))
             if all(
                 abs(self._target_data[i] - feedback[i])
                 < self._TARGET_TOLERANCE

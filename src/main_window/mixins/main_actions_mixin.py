@@ -12,6 +12,7 @@ from src.services.data.signals import (
     SimulationSignalManager, PhysicalSignalManager,
     SlidersSignalManager
 )
+from src.services.data.utils import angulos_robotang
 
 
 class MainActionsMixin:
@@ -298,6 +299,7 @@ class MainActionsMixin:
     def connect_robot(self):
         """
         Inicia la conexión con el microcontrolador en el puerto COM seleccionado.
+        Envía posición home [0,0,0,0,0,0] al robot y configura el target global.
         """
         if not self.com:
             print("Error: Dispositivo no detectado")
@@ -306,6 +308,7 @@ class MainActionsMixin:
         self.init_openbotv(self.com)
         self.com_connected_label.setText(self.com)
 
-        slider_values = self.sliders_controller._worker.get_sliders_state()
-        SlidersSignalManager.get_instance().update_target_signal.emit(slider_values)
-        PhysicalSignalManager.get_instance().send_to_robot.emit(slider_values)
+        home = [0, 0, 0, 0, 0, 0]
+        self.sliders_controller.set_external_values(home)
+        robot_positions = list(angulos_robotang(*home))
+        PhysicalSignalManager.get_instance().send_to_robot.emit(robot_positions)

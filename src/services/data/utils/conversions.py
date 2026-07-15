@@ -1,9 +1,9 @@
 """
 Módulo de funciones de conversión entre unidades angulares.
 
-Proporciona las funciones auxiliares deg_to_rad y rad_to_deg para
-la transformación de datos entre los distintos componentes del
-sistema (UI, simulación PyBullet, hardware).
+Proporciona las funciones auxiliares deg_to_rad, rad_to_deg,
+angulos_robotang y robotang_angulos para la transformación de datos
+entre los distintos componentes del sistema (UI, simulación PyBullet, hardware).
 """
 
 import numpy as np
@@ -40,3 +40,27 @@ def rad_to_deg(pos):
     if pos is None:
         pos = []
     return np.rad2deg(np.array(pos))
+
+
+def angulos_robotang(q1, q2, q3, q4, q5, q6):
+    """Convierte ángulos del espacio de usuario a espacio robot (0-300).
+
+    Args:
+        q1-q6: Ángulos articulares en el espacio del usuario.
+
+    Returns:
+        list: Posiciones en el espacio del robot (0-300).
+    """
+    return [q1 + 150, 150 - q2, 150 - q3, q4 + 150, q5 + 150, q6 + 150]
+
+
+def robotang_angulos(q1, q2, q3, q4, q5, q6):
+    """Convierte posiciones del robot (0-300) a ángulos del espacio de usuario.
+
+    Args:
+        q1-q6: Posiciones en el espacio del robot (0-300).
+
+    Returns:
+        list: Ángulos articulares en el espacio del usuario.
+    """
+    return [q1 - 150, 150 - q2, 150 - q3, q4 - 150, q5 - 150, q6 - 150]

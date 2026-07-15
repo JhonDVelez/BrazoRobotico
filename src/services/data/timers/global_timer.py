@@ -72,11 +72,8 @@ class GlobalTimer(QObject):
             self._model_counter = 0
 
         if self._sync_counter >= 25:
-            if not self.signal_manager.is_connected:
-                self.sync_simulation_tick.emit()
-            else:
-                self.sync_robot_tick.emit()
-                self.sync_simulation_tick.emit()
+            self.sync_robot_tick.emit()
+            self.sync_simulation_tick.emit()
             self._sync_counter = 0
         else:
             self.update_tick.emit()

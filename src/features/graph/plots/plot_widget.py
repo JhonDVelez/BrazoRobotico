@@ -79,7 +79,6 @@ class PlotCursor:
 
         self._cursor_line.setValue(init_pos)
         self._plot_item.addItem(self._cursor_line, ignoreBounds=True)
-        self._plot_item.addItem(self._cursor_label, ignoreBounds=True)
 
     def update_data(self, x_data, y_sim, y_phy, write_index):
         """
@@ -222,7 +221,7 @@ class PlotWidget(pg.PlotWidget):
             pass
 
         # Optimizaciones de rendimiento para hilos de alta frecuencia
-        self.plot_item.setDownsampling(mode='peak')
+        self.plot_item.setDownsampling(ds=1, auto=False, mode='peak')
         self.plot_item.setClipToView(True)
         self.plot_item.enableAutoRange(axis='y', enable=False)
         self.plot_item.enableAutoRange(axis='x', enable=False)
@@ -232,11 +231,17 @@ class PlotWidget(pg.PlotWidget):
         self.view_box.setLimits(xMin=-self._display_window * 1.05, xMax=0,
                                 yMin=self._y_range[0], yMax=self._y_range[1])
 
-        # Definición de curvas: Simulado (Verde) y Físico (Naranja)
+        # Definición de curvas
         self._curve_sim = self.plot_item.plot(pen=pg.mkPen(
-            color=(42, 176, 147), width=3), skipFiniteCheck=True)
+            color=(42, 176, 147), width=1.5))
         self._curve_phy = self.plot_item.plot(pen=pg.mkPen(
-            color=(189, 89, 42), width=2), skipFiniteCheck=True)
+            color=(189, 89, 42), width=1.5))
+
+        # Leyenda como ítem independiente del PlotItem
+        self._legend = pg.LegendItem(offset=(5, 10), brush=pg.mkBrush(0, 0, 0, 80))
+        self._legend.addItem(self._curve_sim, "Simulación")
+        self._legend.addItem(self._curve_phy, "Robot Físico")
+        self._legend.setParentItem(self.view_box)
 
         # Texto informativo de temperatura en esquina
         self._temp_text = pg.TextItem("", anchor=(1, 0))

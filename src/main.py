@@ -96,7 +96,6 @@ class CompletePreloader:
             return True
 
         except RuntimeError as e:
-            print(f"[DEBUG] RuntimeError al crear widget padre: {e}")
             self.noti_manager.notify(
                 f"Error creando widget padre: {e}", NotificationType.DIALOG_ERROR)
             return False
@@ -154,8 +153,6 @@ class CompletePreloader:
             return container
 
         except (RuntimeError, OSError) as e:
-            print(
-                f"[DEBUG] Error en precarga Quick3D: {type(e).__name__}: {e}")
             self.noti_manager.notify(
                 f"Error en precarga completa: {e}", NotificationType.DIALOG_ERROR)
             traceback.print_exc()
@@ -176,7 +173,6 @@ class CompletePreloader:
                 QGuiApplication.processEvents()
                 time.sleep(0.2)
         except RuntimeError as e:
-            print(f"[DEBUG] RuntimeError en renderizado inicial: {e}")
             self.noti_manager.notify(
                 f"Error en renderizado inicial: {e}", NotificationType.DIALOG_ERROR)
 
@@ -252,7 +248,6 @@ class CompletePreloader:
             return robot_id
 
         except (RuntimeError, OSError, FileNotFoundError) as e:
-            print(f"[DEBUG] Error en PyBullet ({type(e).__name__}): {e}")
             self.noti_manager.notify(
                 f"Error en PyBullet: {e}", NotificationType.DIALOG_ERROR)
             return None
@@ -266,10 +261,19 @@ class CompletePreloader:
                 self.dummy_parent.deleteLater()
                 self.dummy_parent = None
         except RuntimeError as e:
-            print(f"[DEBUG] RuntimeError en cleanup de preload: {e}")
             self.noti_manager.notify(
                 f"Error en cleanup: {e}", NotificationType.DIALOG_ERROR)
 
+
+def _excepthook(exc_type, exc_value, exc_tb):
+    traceback.print_exception(exc_type, exc_value, exc_tb)
+    try:
+        from PyQt6.QtWidgets import QMessageBox
+        QMessageBox.critical(None, "Error", f"{exc_type.__name__}: {exc_value}")
+    except Exception:
+        pass
+
+sys.excepthook = _excepthook
 
 if __name__ == '__main__':
     if sys.platform == "win32":

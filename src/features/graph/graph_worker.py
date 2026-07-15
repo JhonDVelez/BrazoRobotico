@@ -57,11 +57,16 @@ class GraphWorker(QObject):
         self._x_data = np.arange(-self._display_window, 0, dtype=np.float32)
         self._write_index = 0
         self._buffer_full = False
+        self._sim_pending = False
+        self._sim_pending_data = None
 
     @pyqtSlot(list)
     def add_sim_data(self, data: list):
         """
-        Agrega datos de simulación para todos los canales y avanza el índice.
+        Almacena datos de simulación como pendientes.
+
+        Los datos se escriben al buffer solo cuando add_phy_data flush
+        (modo conectado) o flush_pending (modo standalone).
 
         Args:
             data (list): Lista de valores flotantes de la simulación.
@@ -69,16 +74,14 @@ class GraphWorker(QObject):
         if self._is_paused:
             return
 
-        for i, val in enumerate(data):
-            if i < self._graphs_amount:
-                self._y_sim[i, self._write_index] = val
-
-        self._advance_index()
+        self._sim_pending = True
+        self._sim_pending_data = list(data)
 
     @pyqtSlot(list, list)
     def add_phy_data(self, pos_data: list, temp_data: list):
         """
         Agrega datos físicos y de temperatura para todos los canales.
+        Flush pendiente sim al mismo índice antes de escribir phy.
 
         Args:
             pos_data (list): Lista de posiciones reales recibidas.
@@ -86,6 +89,13 @@ class GraphWorker(QObject):
         """
         if self._is_paused:
             return
+
+        if self._sim_pending and self._sim_pending_data is not None:
+            for i, val in enumerate(self._sim_pending_data):
+                if i < self._graphs_amount:
+                    self._y_sim[i, self._write_index] = val
+            self._sim_pending = False
+            self._sim_pending_data = None
 
         for i, pos in enumerate(pos_data):
             if i < self._graphs_amount:
@@ -96,6 +106,18 @@ class GraphWorker(QObject):
                     self._temp_phy[i] = ""
 
         self._advance_index()
+
+    def flush_pending(self):
+        """
+        Fallback para modo standalone: flush sim pendiente sin phy.
+        """
+        if self._sim_pending and self._sim_pending_data is not None:
+            for i, val in enumerate(self._sim_pending_data):
+                if i < self._graphs_amount:
+                    self._y_sim[i, self._write_index] = val
+            self._sim_pending = False
+            self._sim_pending_data = None
+            self._advance_index()
 
     def _advance_index(self):
         """

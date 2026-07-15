@@ -12,6 +12,7 @@ Conexiones:
 """
 
 import re
+import time
 import queue
 import serial
 from PyQt6.QtCore import QThread, pyqtSignal
@@ -149,21 +150,12 @@ class RobotWorker(QThread):
                 self.connection_status_changed.emit(False)
                 return
 
-        try:
-            self._cm904.reset_input_buffer()
-        except (serial.SerialException, OSError) as e:
-            print(f"[DEBUG] Error limpiando buffer serial: {e}")
-            self.connection_status_changed.emit(False)
-            self._cm904 = None
-            return
-
         # Envío de trama compacta: A<pwm>B<pwm>C<pwm>D<pwm>E<pwm>F<pwm>\n
         try:
             frame = self._build_command_frame(valorm)
             self._cm904.write(frame)
             self._cm904.flush()
         except (serial.SerialException, OSError) as e:
-            print(f"[DEBUG] Error al escribir en serial: {e}")
             self.connection_status_changed.emit(False)
             try:
                 if self._cm904:
@@ -223,12 +215,22 @@ class RobotWorker(QThread):
             tuple[list, list] | None: (posiciones, temperaturas) o None si no hay datos validos.
         """
         try:
-            if not self._cm904.in_waiting:
-                return None
+            waiting = self._cm904.in_waiting
         except Exception:
             self.connection_status_changed.emit(False)
             self._cm904 = None
             return None
+
+        if waiting == 0:
+            time.sleep(0.05)
+            try:
+                waiting = self._cm904.in_waiting
+            except Exception:
+                self.connection_status_changed.emit(False)
+                self._cm904 = None
+                return None
+            if waiting == 0:
+                return None
 
         try:
             line = self._cm904.readline().decode('ascii', errors='ignore').strip()
@@ -250,9 +252,16 @@ class RobotWorker(QThread):
                 temp_pos[idx] = float(position_value)
                 temperatures[idx] = int(temperature_value)
 
+        # Validacion de rango: rechazar tramas con valores fuera de rango fisico
+        for i in range(6):
+            if temp_pos[i] is not None and not (0 <= temp_pos[i] <= 300):
+                return None
+            if temperatures[i] is not None and not (0 <= temperatures[i] <= 100):
+                temperatures[i] = None
+
         # Deteccion de tramas nulas / caidas de tension
         if all(v is not None and abs(v) < 0.001 for v in temp_pos[:4]):
-            return list(self._last_valid_positions), list(self._last_temperaturas)
+            return None
 
         # Filtro anti-ruido electromagnetico con escape de seguridad
         trama_valida = True
@@ -267,7 +276,7 @@ class RobotWorker(QThread):
                     self._jump_freeze_count[i] = 0
 
         if not trama_valida:
-            return list(self._last_valid_positions), list(self._last_temperaturas)
+            return None
 
         # Actualizacion limpia de la telemetria
         positions = list(self._last_valid_positions)

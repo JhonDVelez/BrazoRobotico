@@ -191,6 +191,12 @@ class GraphController(QObject):
         for p in self._angular_plots: p.set_visible(is_angular)
         self._cartesian_pid_plot.setVisible(not is_angular)
 
+    def set_graph_mode(self, is_angular):
+        self._widget.set_graph_mode(is_angular)
+
+    def reset_cartesian_plot(self):
+        self._cartesian_pid_plot.reset_plot([0, 0, 0])
+
     # --- API de Control ---
 
     def start(self):

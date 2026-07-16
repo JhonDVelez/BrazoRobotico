@@ -46,6 +46,7 @@ class RobotWorker(QThread):
         self._cm904 = None
         self._send_queue = queue.Queue()
         self._running = True
+        self._suspended = False
 
         # Intentar abrir el puerto serial
         try:
@@ -140,8 +141,8 @@ class RobotWorker(QThread):
             print("Error de envío de datos: Valores fuera de rango")
             return
 
-        # Reconexión automática si el puerto se cerró
-        if self._cm904 is None or not getattr(self._cm904, 'is_open', False):
+        # Reconexión automática si el puerto se cerró (excepto durante suspensión)
+        if not self._suspended and (self._cm904 is None or not getattr(self._cm904, 'is_open', False)):
             try:
                 self._cm904 = serial.Serial(self._com, 9600, timeout=1)
                 self.connection_status_changed.emit(True)
@@ -300,3 +301,33 @@ class RobotWorker(QThread):
         self.connection_status_changed.emit(False)
         self.quit()
         self.wait()
+
+    def suspend_serial(self):
+        """
+        Cierra el puerto serial para liberar el recurso COM.
+
+        Util cuando otro hilo (ej. cinematica) necesita abrir
+        su propia conexion al mismo puerto.
+        """
+        self._suspended = True
+        try:
+            if self._cm904 and getattr(self._cm904, 'is_open', False):
+                self._cm904.close()
+        except (serial.SerialException, OSError):
+            pass
+
+    def resume_serial(self):
+        """
+        Reabre el puerto serial despues de una suspension.
+
+        Usa el nombre de COM registrado en la construccion.
+        """
+        self._suspended = False
+        try:
+            if self._cm904 is None or not getattr(self._cm904, 'is_open', False):
+                self._cm904 = serial.Serial(self._com, 9600, timeout=1)
+                self.connection_status_changed.emit(True)
+        except (serial.SerialException, PermissionError, OSError) as e:
+            print(f"Error reabriendo {self._com}: {e}")
+            self._cm904 = None
+            self.connection_status_changed.emit(False)

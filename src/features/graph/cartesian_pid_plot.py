@@ -132,12 +132,18 @@ class CartesianPIDPlot(QWidget):
     def append_data(self, iteration, actual_xyz, target_xyz):
         """
         Agrega un punto de datos y actualiza el grafico.
+        Skipea puntos duplicados para evitar grafica de escalones.
 
         Args:
             iteration (int): Numero de iteracion actual del PID.
             actual_xyz (list): Posicion real [x, y, z] en mm.
             target_xyz (list): Posicion objetivo [x, y, z] en mm.
         """
+        if self._real_data[0]:
+            last = [self._real_data[i][-1] for i in range(3)]
+            if all(abs(actual_xyz[i] - last[i]) < 0.01 for i in range(3)):
+                return
+
         for i in range(3):
             self._real_data[i].append(actual_xyz[i])
             self._target_data[i].append(target_xyz[i])

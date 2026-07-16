@@ -58,22 +58,13 @@ class GraphWidget(QWidget):
         self.main_layout.setSpacing(0)
         self.setObjectName("graph_widget")
 
-        # 1. Selector de modo (Radios)
-        radio_style = "QRadioButton::indicator {margin-left: 0px; background-color: transparent}"
+        # 1. Selector de modo (Radios - ocultos, controlados programáticamente)
         self.angular_radio = QRadioButton("Angular")
-        self.angular_radio.setStyleSheet(radio_style)
         self.angular_radio.setChecked(True)
-        self.angular_radio.toggled.connect(self._on_mode_toggled)
+        self.angular_radio.hide()
 
         self.cartesian_radio = QRadioButton("Cartesiano")
-        self.cartesian_radio.setStyleSheet(radio_style)
-
-        self.selector_layout = QHBoxLayout()
-        self.selector_layout.addWidget(self.angular_radio)
-        self.selector_layout.addWidget(self.cartesian_radio)
-        self.selector_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self.selector_layout.setSpacing(10)
-        self.main_layout.addLayout(self.selector_layout)
+        self.cartesian_radio.hide()
 
         # 2. Imagen estatica de placeholder
         self.image_label = QLabel()
@@ -122,6 +113,11 @@ class GraphWidget(QWidget):
             self.stacked_widget.setCurrentIndex(1)
             self.mode_changed.emit(False)
 
+    def set_graph_mode(self, is_angular):
+        self.angular_radio.setChecked(is_angular)
+        self.stacked_widget.setCurrentIndex(0 if is_angular else 1)
+        self.mode_changed.emit(is_angular)
+
     def _set_ui_running_state(self, running: bool):
         """
         Intercambia la visibilidad entre el placeholder y las gráficas reales.
@@ -132,12 +128,8 @@ class GraphWidget(QWidget):
         if running:
             self.image_label.hide()
             self.stacked_widget.show()
-            self.angular_radio.show()
-            self.cartesian_radio.show()
         else:
             self.stacked_widget.hide()
-            self.angular_radio.hide()
-            self.cartesian_radio.hide()
             self.image_label.show()
 
     # --- API Pública ---

@@ -1,100 +1,100 @@
 """
-Módulo que define el KinematicsWorker para el cálculo de cinemática.
+Modulo que define el KinematicsWorker como hilo independiente.
 
-Este módulo contiene la lógica para el cálculo de cinemática directa (CD) e
-inversa (CI) de un brazo robótico, además de gestionar el control
-realimentado mediante el uso de hilos (QThread).
+Implementa la logica de control PID cartesiano basada en el codigo
+standalone Prueba_controlv11. El worker abre su propia conexion serial,
+ejecuta el lazo de control de forma autonoma y emite senales al GUI
+para actualizacion de graficas y estado.
 
-Conexiones:
-    - Emite `commands_ready` cuando se calcula un nuevo comando de posición.
-    - Emite `error_occurred` en caso de fallos en el cálculo.
-    - Se conecta con `RobotWorker` (indirectamente a través de señales) para
-      recibir telemetría y enviar comandos.
+Flujo de ejecucion:
+    1. Al activar modo cinematica: HOME directo sin PID (2.5s).
+    2. Al recibir coordenadas del usuario:
+       a. PID al HOME con compensaciones.
+       b. PID al TARGET con compensaciones.
+    3. Emite pid_iteration para la grafica CartesianPIDPlot.
+    4. Emite status_changed para la barra de estado de la UI.
+    5. Emite movement_finished al completar.
 """
 
 import math
 import time
+import re
+import queue
+import threading
+import serial
 import numpy as np
-from PyQt6.QtCore import QThread, QTimer, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QThread, pyqtSignal
 from src.services.robot.robot_compensator import CartesianPidCompensator
 
 
 class KinematicsWorker(QThread):
     """
-    Worker encargado exclusivamente del cálculo de cinemática y control.
+    Worker independiente para control PID cartesiano en tiempo real.
 
-    Esta clase implementa algoritmos de cinemática directa e inversa iterativa
-    para controlar un brazo robótico de 4 grados de libertad (DOF) activos.
+    Abre su propia conexion serial y ejecuta el lazo de control
+    de forma autonoma, sin depender del RobotWorker ni del DataController.
 
-    Attributes:
-        commands_ready (pyqtSignal): Señal que envía una lista de posiciones
-            (float) para los servos del robot.
-        error_occurred (pyqtSignal): Señal que envía un mensaje de error (str)
-            en caso de fallas críticas.
+    Senales (emitidas desde el hilo worker, procesadas en el main thread):
+        pid_iteration(iteracion, pos_real_xyz, pos_target_xyz):
+            Para la grafica CartesianPIDPlot.
+        status_changed(mensaje):
+            Para la barra de estado de la UI.
+        movement_finished():
+            Notifica que el movimiento completo finalizo.
+        input_enabled():
+            Notifica que la UI puede habilitar la entrada de coordenadas.
     """
-    commands_ready = pyqtSignal(list)
-    error_occurred = pyqtSignal(str)
     pid_iteration = pyqtSignal(int, list, list)
+    status_changed = pyqtSignal(str)
+    movement_finished = pyqtSignal()
+    input_enabled = pyqtSignal()
 
     def __init__(self):
-        """
-        Inicializa el worker de cinemática con las dimensiones del robot.
-
-        Define las longitudes de los eslabones y establece el estado inicial
-        del sistema de control.
-        """
         super().__init__()
         self._links = [155.0, 92.0, 111.0, 8.0, 150.0]
 
-        # Estado interno
-        self._current_positions = [150.0] * 6
-        self._target_pos = None
-        self._target_waypoints = []
-        self._waypoint_index = 0
-        self._start_time = None
-        self._prev_positions = list(self._current_positions)
-        self._is_paused = False
+        self._serial = None
+        self._running = False
+        self._telemetry_running = False
+        self._paused = False
+        self._pid_abort = False
+        self._pause_event = threading.Event()
+        self._pause_event.set()
 
-        # --- PID control state (initiative) ---
-        self._pid_active = False
-        self._pid_target = None
-        self._pid_limites = None
-        self._pid_on_done = None
-        self._pid_error_acumulado = np.zeros(3)
-        self._pid_error_anterior = np.zeros(3)
-        self._pid_primera_iteracion = True
-        self._pid_contador_estabilidad = 0
-        self._pid_paused = False
+        self._telemetry_lock = threading.Lock()
+        self._current_pos = [150.0] * 6
+        self._last_valid = [150.0] * 6
+        self._jump_freeze_count = [0] * 6
 
-        # Ganancias PID (configurables desde la GUI)
-        self.KP = np.array([1.5, 1.0, 1.38])
-        self.KI = np.array([0.9375, 0.0, 0.69])
-        self.KD = np.array([0.06, 0.0, 0.069])
+        self._work_queue = queue.Queue()
 
-        # --- Prueba_controlv11: stability counter, dead band, tolerances ---
-        self._stability_count = 0
-        self._stability_required = 10
-        self._tolerances = np.array([5.0, 5.0, 5.0])
-        self._dead_band_threshold_deg = 0.5
-        self._umbral_mm = 1.5
-        self._integral_limit = 35.0
-        self._integral_error = np.zeros(3)
-        self._previous_error = np.zeros(3)
-        self._first_iteration = True
+        self._com_port = None
+        self._kp = np.array([1.5, 1.0, 1.38])
+        self._ki = np.array([0.12, 0.0, 0.09])
+        self._kd = np.array([0.48, 0.0, 0.55])
 
-    def set_pid_gains(self, kp: list, ki: list, kd: list):
-        """Actualiza las ganancias PID desde la GUI.
+    def set_pid_gains(self, kp, ki, kd):
+        self._kp = np.array(kp, dtype=np.float64)
+        self._ki = np.array(ki, dtype=np.float64)
+        self._kd = np.array(kd, dtype=np.float64)
 
-        Args:
-            kp: Ganancia proporcional [x, y, z].
-            ki: Ganancia integral [x, y, z].
-            kd: Ganancia derivativa [x, y, z].
-        """
-        self.KP = np.array(kp, dtype=np.float64)
-        self.KI = np.array(ki, dtype=np.float64)
-        self.KD = np.array(kd, dtype=np.float64)
+    def pause(self):
+        self._paused = True
+        self._pause_event.clear()
 
-    # --- Cinematica directa (Prueba_controlv11) ---
+    def resume(self):
+        self._paused = False
+        self._pause_event.set()
+
+    def abort_pid(self):
+        self._pid_abort = True
+        if self._paused:
+            self._paused = False
+            self._pause_event.set()
+
+    # ------------------------------------------------------------------ #
+    #                     CINEMATICA DIRECTA Y JACOBIANO                   #
+    # ------------------------------------------------------------------ #
 
     @staticmethod
     def _cinematica_directa(q, L=None):
@@ -108,7 +108,8 @@ class KinematicsWorker(QThread):
                       L2 * math.sin(t2) + L5 * math.sin(arg234))
         px = math.cos(t1) * projection
         py = math.sin(t1) * projection
-        pz = L1 + L3 * math.cos(arg23) - L4 * math.sin(arg23) + L2 * math.cos(t2) + L5 * math.cos(arg234)
+        pz = (L1 + L3 * math.cos(arg23) - L4 * math.sin(arg23)
+              + L2 * math.cos(t2) + L5 * math.cos(arg234))
         return np.array([px, py, pz])
 
     @staticmethod
@@ -129,386 +130,356 @@ class KinematicsWorker(QThread):
         dz_dt3 = -L3 * s23 - L4 * c23 - L5 * s234
         dz_dt4 = -L5 * s234
         J = np.array([
-            [-s1 * f,  c1 * df_dt2,  c1 * df_dt3,  c1 * df_dt4],
-            [ c1 * f,  s1 * df_dt2,  s1 * df_dt3,  s1 * df_dt4],
-            [ 0,       dz_dt2,       dz_dt3,       dz_dt4]
+            [-s1 * f, c1 * df_dt2, c1 * df_dt3, c1 * df_dt4],
+            [c1 * f, s1 * df_dt2, s1 * df_dt3, s1 * df_dt4],
+            [0, dz_dt2, dz_dt3, dz_dt4]
         ])
         return np.linalg.pinv(J)
 
-    def cd(self, t1, t2, t3, t4):
-        return self._cinematica_directa(np.array([t1, t2, t3, t4], dtype=float))
+    # ------------------------------------------------------------------ #
+    #                     COMUNICACION SERIAL PROPIA                       #
+    # ------------------------------------------------------------------ #
 
-    def ci(self, px, py, pz, max_iter=100, tol=1.0, gain=0.5):
-        """
-        Calcula cinematica inversa iterativa (Newton-Raphson) para un objetivo cartesiano.
+    def _open_serial(self, com_port):
+        try:
+            self._serial = serial.Serial(com_port, 9600, timeout=0.05)
+            return True
+        except (serial.SerialException, PermissionError, OSError) as e:
+            print(f"Error abriendo serial {com_port}: {e}")
+            self._serial = None
+            return False
 
-        Usa la pseudoinversa del Jacobiano para converger desde el origen
-        hasta las coordenadas objetivo. Fija q1 directamente de atan2(py, px).
+    def _close_serial(self):
+        try:
+            if self._serial and self._serial.is_open:
+                self._serial.close()
+        except (serial.SerialException, OSError):
+            pass
+        self._serial = None
 
-        Args:
-            px (float): Coordenada X objetivo en mm.
-            py (float): Coordenada Y objetivo en mm.
-            pz (float): Coordenada Z objetivo en mm.
-            max_iter (int): Maximo de iteraciones.
-            tol (float): Tolerancia de convergencia en mm.
-            gain (float): Factor de amortiguacion (0-1) para estabilidad.
+    def _enviar_robot(self, q_servos):
+        if self._serial is None or not self._serial.is_open:
+            return
+        try:
+            trama = ""
+            motores = ['A', 'B', 'C', 'D', 'E', 'F']
+            for i, char in enumerate(motores):
+                val_pwm = int(round(
+                    max(0, min(300, float(q_servos[i]))) * (1023 / 300)))
+                trama += f"{char}{val_pwm}"
+            trama += "\n"
+            self._serial.write(trama.encode('ascii'))
+            self._serial.flush()
+        except (serial.SerialException, OSError) as e:
+            print(f"Error enviando comando: {e}")
 
-        Returns:
-            np.ndarray: Angulos articulares [q1, q2, q3, q4] en radianes.
-        """
-        q = np.zeros(4, dtype=float)
-        target = np.array([px, py, pz], dtype=float)
+    def _telemetry_reader(self):
+        pattern = re.compile(r"([A-F])(\d+\.?\d*)T[A-F](\d+)")
+        congelado_count = [0] * 6
+        buffer = b""
 
-        for _ in range(max_iter):
-            current_xyz = self._cinematica_directa(q)
-            error = target - current_xyz
+        while self._telemetry_running:
+            try:
+                if self._serial is None or not self._serial.is_open:
+                    time.sleep(0.01)
+                    continue
 
-            if np.linalg.norm(error) < tol:
+                data = self._serial.read(1024)
+                if not data:
+                    continue
+
+                buffer += data
+
+                while b'\n' in buffer:
+                    line_bytes, buffer = buffer.split(b'\n', 1)
+                    line = line_bytes.decode('ascii', errors='ignore').strip()
+                    if not line:
+                        continue
+
+                    matches = pattern.findall(line)
+
+                    if len(matches) < 6:
+                        continue
+
+                    temp_pos = [None] * 6
+                    for motor_char, pos_val, _ in matches:
+                        idx = ord(motor_char) - ord('A')
+                        if idx < 6:
+                            temp_pos[idx] = float(pos_val)
+
+                    with self._telemetry_lock:
+                        for i in range(6):
+                            if temp_pos[i] is not None and not (0 <= temp_pos[i] <= 300):
+                                temp_pos[i] = None
+                        if all(v is None for v in temp_pos):
+                            continue
+
+                        if all(v is not None and abs(v) < 0.001
+                               for v in temp_pos[:4]):
+                            temp_pos = list(self._last_valid)
+                        else:
+                            trama_valida = True
+                            for i in range(6):
+                                if temp_pos[i] is not None:
+                                    diff = abs(
+                                        temp_pos[i] - self._last_valid[i])
+                                    if diff > 35.0:
+                                        congelado_count[i] += 1
+                                        if congelado_count[i] <= 4:
+                                            trama_valida = False
+                                    else:
+                                        congelado_count[i] = 0
+
+                            if not trama_valida:
+                                temp_pos = list(self._last_valid)
+
+                        for i in range(6):
+                            if temp_pos[i] is not None:
+                                self._current_pos[i] = temp_pos[i]
+                                self._last_valid[i] = temp_pos[i]
+
+                if len(buffer) > 200:
+                    buffer = b""
+
+            except Exception as e:
+                print(f"Alerta: Hilo de telemetria interrumpido: {e}")
                 break
 
-            J_inv = self._calcular_pseudoinversa(q)
-            dq = J_inv @ error
-            q = q + dq * gain
-            q = CartesianPidCompensator.apply_physical_limits(q)
-            q[0] = math.atan2(py, px)
+    # ------------------------------------------------------------------ #
+    #                          LECTURA SEGURA                              #
+    # ------------------------------------------------------------------ #
 
-        return q
+    def _read_positions(self):
+        with self._telemetry_lock:
+            return list(self._current_pos)
 
-    def _apply_dead_band(self, dq_rad):
-        """
-        Compensa la banda muerta de los servomotores incrementando
-        las ordenes pequeñas por encima del umbral.
-        """
-        dq_deg = np.degrees(dq_rad)
-        for j in range(len(dq_deg)):
-            if 0 < abs(dq_deg[j]) < self._dead_band_threshold_deg:
-                dq_deg[j] += math.copysign(self._dead_band_threshold_deg, dq_deg[j])
-        return np.radians(dq_deg)
+    # ------------------------------------------------------------------ #
+    #                PID CARTESIANO (port de Prueba_controlv11)            #
+    # ------------------------------------------------------------------ #
 
-    # --- Comunicacion de comandos al bus del sistema ---
+    def _pid_control_loop(self, target_xyz, limites_deg,
+                          max_iter=3000, tolerancias=None):
+        if tolerancias is None:
+            tolerancias = np.array([3.0, 5.0, 3.0])
 
-    def _send_servo_command(self, q_deg_list):
-        servo_positions = CartesianPidCompensator.angulos_robotang(*q_deg_list)
-        self.commands_ready.emit(servo_positions)
+        target = np.array(target_xyz, dtype=float)
+        error_acumulado = np.zeros(3)
+        error_anterior = np.zeros(3)
+        primera_iteracion = True
+        contador_estabilidad = 0
+        iteraciones_requeridas = 10
+        umbral_mm = 1
+        t_anterior = time.time()
+        p_anterior = np.zeros(3)
 
-    # --- Control PID cartesiano iniciativa (timer-driven) ---
+        for i in range(max_iter):
+            if not self._running or self._pid_abort:
+                return False
+            self._pause_event.wait()
 
-    def _init_pid_control(self, tx, ty, tz, limites_deg, on_done=None):
-        self._pid_target = np.array([tx, ty, tz], dtype=float)
-        self._pid_limites = limites_deg
-        self._pid_on_done = on_done
-        self._pid_error_acumulado = np.zeros(3)
-        self._pid_error_anterior = np.zeros(3)
-        self._pid_primera_iteracion = True
-        self._pid_contador_estabilidad = 0
-        self._pid_iteracion = 0
-        self._pid_active = True
-        QTimer.singleShot(0, self._pid_tick)
+            t_actual = time.time()
+            dt = t_actual - t_anterior
+            if dt < 0.01:
+                dt = 0.01
 
-    def _pid_tick(self):
-        if not self._pid_active or self._pid_paused:
-            return
+            raw_pos = self._read_positions()
+            q_reales_deg = np.array(
+                CartesianPidCompensator.robotang_angulos(
+                    *raw_pos))
+            q_actual_rad = np.radians([
+                q_reales_deg[0], q_reales_deg[1],
+                q_reales_deg[2], q_reales_deg[4]])
+            p_actual = self._cinematica_directa(q_actual_rad, self._links)
 
-        q_reales_deg = np.array(
-            CartesianPidCompensator.robotang_angulos(*self._current_positions))
-        q_actual_rad = np.radians([
-            q_reales_deg[0], q_reales_deg[1],
-            q_reales_deg[2], q_reales_deg[4]])
-        p_actual = self._cinematica_directa(q_actual_rad)
+            if i > 0 and np.allclose(p_actual, p_anterior, atol=0.1):
+                self.pid_iteration.emit(
+                    i + 1, p_actual.tolist(), target.tolist())
+                t_anterior = time.time()
+                time.sleep(0.08)
+                continue
+            p_anterior = p_actual.copy()
 
-        self._pid_iteracion += 1
-        self.pid_iteration.emit(
-            self._pid_iteracion, p_actual.tolist(), self._pid_target.tolist())
+            self.pid_iteration.emit(
+                i + 1, p_actual.tolist(), target.tolist())
 
-        error_actual = self._pid_target - p_actual
-        dist_total = np.linalg.norm(error_actual)
+            error_actual = target - p_actual
+            error_abs = np.abs(error_actual)
 
-        TOLERANCIAS = [5.0, 5.0, 5.0]
-        error_abs = np.abs(error_actual)
-        if (error_abs[0] < TOLERANCIAS[0] and
-            error_abs[1] < TOLERANCIAS[1] and
-            error_abs[2] < TOLERANCIAS[2]):
-            self._pid_contador_estabilidad += 1
-            self._pid_error_anterior = error_actual.copy()
-            if self._pid_contador_estabilidad >= 10:
-                self._pid_active = False
-                print("PID converged!")
-                if self._pid_on_done:
-                    self._pid_on_done()
-                return
-            QTimer.singleShot(10, self._pid_tick)
-            return
-        else:
-            self._pid_contador_estabilidad = 0
+            if (error_abs[0] < tolerancias[0] and
+                    error_abs[1] < tolerancias[1] and
+                    error_abs[2] < tolerancias[2]):
+                contador_estabilidad += 1
+                error_anterior = error_actual.copy()
+                if contador_estabilidad >= iteraciones_requeridas:
+                    return True
+                t_anterior = t_actual
+                time.sleep(0.01)
+                continue
+            else:
+                contador_estabilidad = 0
 
-        if self._pid_contador_estabilidad > 0:
-            QTimer.singleShot(10, self._pid_tick)
-            return
+            if contador_estabilidad > 0:
+                t_anterior = t_actual
+                time.sleep(0.01)
+                continue
 
-        P = error_actual * self.KP
+            dist_total = np.linalg.norm(error_actual)
 
-        umbral_mm = 1.5
-        if dist_total < umbral_mm * 2:
-            self._pid_error_acumulado *= 0.7
-        else:
-            self._pid_error_acumulado += error_actual * 0.01
+            P = error_actual * self._kp
 
-        self._pid_error_acumulado = np.clip(
-            self._pid_error_acumulado, -35, 35)
-        I = self._pid_error_acumulado * self.KI
+            if dist_total < umbral_mm * 2:
+                error_acumulado *= 0.7
+            else:
+                error_acumulado += error_actual * dt
 
-        if self._pid_primera_iteracion:
-            D = np.zeros(3)
-            self._pid_primera_iteracion = False
-        else:
-            d_cruda = (error_actual - self._pid_error_anterior) / 0.01
-            D = d_cruda * self.KD
+            error_acumulado = np.clip(error_acumulado, -35, 35)
+            I = error_acumulado * self._ki
 
-        v_control = P + I + D
-        self._pid_error_anterior = error_actual.copy()
+            if primera_iteracion:
+                D = np.zeros(3)
+                primera_iteracion = False
+            else:
+                d_cruda = (error_actual - error_anterior) / dt
+                D = d_cruda * self._kd
 
-        J_inv = self._calcular_pseudoinversa(q_actual_rad)
-        dq = J_inv @ v_control
+            v_control = P + I + D
+            error_anterior = error_actual.copy()
+            t_anterior = t_actual
 
-        dq_deg = np.degrees(dq)
-        umbral_motor = 0.5
-        for j in range(len(dq_deg)):
-            if 0 < abs(dq_deg[j]) < umbral_motor:
-                dq_deg[j] += np.sign(dq_deg[j]) * umbral_motor
-        dq = np.radians(dq_deg)
+            J_inv = self._calcular_pseudoinversa(q_actual_rad, self._links)
+            dq = J_inv @ v_control
 
-        q_next_rad = CartesianPidCompensator.apply_physical_limits(
-            q_actual_rad + dq, self._pid_limites)
-        q_next_rad[0] = math.atan2(
-            self._pid_target[1], self._pid_target[0])
-        q_out_deg = np.degrees(q_next_rad)
-        q_final = [q_out_deg[0], q_out_deg[1], q_out_deg[2],
-                   0, q_out_deg[3], -80]
-        self._send_servo_command(q_final)
+            dq_deg = np.degrees(dq)
+            umbral_motor = 0.5
+            for j in range(len(dq_deg)):
+                if 0 < abs(dq_deg[j]) < umbral_motor:
+                    dq_deg[j] += np.sign(dq_deg[j]) * umbral_motor
+            dq = np.radians(dq_deg)
 
-        QTimer.singleShot(10, self._pid_tick)
+            q_next_rad = CartesianPidCompensator.apply_physical_limits(
+                q_actual_rad + dq, limites_deg)
+            q_next_rad[0] = math.atan2(target[1], target[0])
+            q_out_deg = np.degrees(q_next_rad)
+            q_final = [q_out_deg[0], q_out_deg[1], q_out_deg[2],
+                       0, q_out_deg[3], -80]
+            servo_positions = CartesianPidCompensator.angulos_robotang(
+                *q_final)
 
-    # --- Secuencia de movimiento completa (home + target) ---
+            print(f"[PID] iter={i} "
+                  f"xyz={[round(v,2) for v in p_actual.tolist()]} "
+                  f"target={[round(v,2) for v in target.tolist()]} "
+                  f"err={[round(e,2) for e in error_actual.tolist()]} "
+                  f"servo={[round(s,1) for s in servo_positions]}")
 
-    def execute_target(self, tx, ty, tz):
-        self._tx_target = tx
-        self._ty_target = ty
-        self._tz_target = tz
+            self._enviar_robot(servo_positions)
 
-        home_servos = CartesianPidCompensator.angulos_robotang(
-            0, -45, 120, 0, 30, 0)
-        self.commands_ready.emit(home_servos)
-        QTimer.singleShot(2500, self._start_home_pid)
+            time.sleep(0.01)
 
-    def _start_home_pid(self):
+        return False
+
+    # ------------------------------------------------------------------ #
+    #              EJECUCION DE SECUENCIA PID (en el hilo worker)          #
+    # ------------------------------------------------------------------ #
+
+    def _run_pid_sequence(self, tx, ty, tz):
         from .coordinate_correction import corregir_xy, corregir_z
+
         tx_home, ty_home, tz_home = 185, 0, 170
         tz_home = corregir_z(tx_home, ty_home, tz_home)
         tx_home, ty_home = corregir_xy(tx_home, ty_home)
         limites_home = [(10, -10), (-40, -90), (0, 130), (-30, 120)]
-        self._init_pid_control(
-            tx_home, ty_home, tz_home, limites_home,
-            self._go_to_final_target)
 
-    def _go_to_final_target(self):
-        limites = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
-        self._init_pid_control(
-            self._tx_target, self._ty_target, self._tz_target,
-            limites, None)
+        self.status_changed.emit("PID: Moviendo a HOME...")
+        converged_home = self._pid_control_loop(
+            [tx_home, ty_home, tz_home], limites_home)
+        if converged_home:
+            print("PID HOME convergido")
+        else:
+            print("PID HOME: max iteraciones alcanzadas")
 
-    # --- Gestion de Control Realimentado ---
-
-    @pyqtSlot(list, list)
-    def update_sensor_data(self, positions, temp_data=None):
-        """
-        Recibe telemetría del robot y recalcula el siguiente comando de control.
-
-        Implementa el esquema PID cartesiano con anti-windup, banda muerta,
-        y contador de estabilidad, segun la logica de Prueba_controlv11.
-
-        Args:
-            positions (list): Posiciones actuales de los servos (0-300 grados).
-            temp_data (list, optional): Datos de temperatura de los motores.
-        """
-        self._current_positions = list(positions)
-        if self._target_pos is None or self._is_paused:
+        if self._pid_abort:
+            self._pid_abort = False
             return
 
-        self._prev_positions = list(self._current_positions)
-        active_target = self._target_waypoints[self._waypoint_index]
-
-        # --- Un paso del control PID cartesiano (Prueba_controlv11) ---
-        q_reales_deg = np.array(
-            CartesianPidCompensator.robotang_angulos(*self._current_positions))
-        q_actual = np.radians([
-            q_reales_deg[0], q_reales_deg[1],
-            q_reales_deg[2], q_reales_deg[4]])
-        current_pos = self._cinematica_directa(q_actual)
-        error = active_target - current_pos
-        dist = np.linalg.norm(error)
-
-        # Comprobacion de tolerancias con contador de estabilidad
-        error_abs = np.abs(error)
-        if (error_abs[0] < self._tolerances[0] and
-            error_abs[1] < self._tolerances[1] and
-            error_abs[2] < self._tolerances[2]):
-
-            self._stability_count += 1
+        self.status_changed.emit("PID: Moviendo a target...")
+        limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
+        converged_target = self._pid_control_loop(
+            [tx, ty, tz], limites_target)
+        if converged_target:
+            print("PID TARGET convergido")
         else:
-            self._stability_count = 0
+            print("PID TARGET: max iteraciones alcanzadas")
 
-        # Si se alcanzaron las iteraciones requeridas de estabilidad -> waypoint completado
-        if self._stability_count >= self._stability_required:
-            self._stability_count = 0
-            self._integral_error = np.zeros(3)
-            self._previous_error = np.zeros(3)
-            self._first_iteration = True
-            self._waypoint_index += 1
-            if self._waypoint_index >= len(self._target_waypoints):
-                self._target_pos = None
-                self._target_waypoints = []
-                return
+        self.status_changed.emit("Movimiento completado")
+        self.movement_finished.emit()
+
+    # ------------------------------------------------------------------ #
+    #                  API PUBLICA (llamada desde el main thread)           #
+    # ------------------------------------------------------------------ #
+
+    def send_home_direct(self, com_port):
+        self._com_port = com_port
+        self._running = True
+        self.start()
+
+    def execute_target(self, tx, ty, tz):
+        self._work_queue.put(('execute_target', tx, ty, tz))
+
+    def send_home(self):
+        self._work_queue.put(('send_home',))
+
+    def stop(self):
+        self._running = False
+        self._telemetry_running = False
+        self._work_queue.put(('stop',))
+        self.wait(3000)
+        self._close_serial()
+
+    # ------------------------------------------------------------------ #
+    #                  FLUJO PRINCIPAL (run del QThread)                   #
+    # ------------------------------------------------------------------ #
+
+    def run(self):
+        if not self._com_port:
             return
 
-        # Si estamos dentro de tolerancia pero aun no se cumple la estabilidad, no enviar comando
-        if self._stability_count > 0:
+        self.status_changed.emit("Abriendo conexion serial...")
+        if not self._open_serial(self._com_port):
+            self.status_changed.emit("Error: No se pudo abrir serial")
+            self.movement_finished.emit()
             return
 
-        # --- Accion PID con anti-windup ---
-        dt = 0.01
+        self._telemetry_running = True
+        telemetry_thread = threading.Thread(
+            target=self._telemetry_reader, daemon=True)
+        telemetry_thread.start()
 
-        P = error * self.KP
+        time.sleep(1)
 
-        if dist < self._umbral_mm * 2:
-            self._integral_error *= 0.7
-        else:
-            self._integral_error += error * dt
+        self.status_changed.emit("Moviendo a HOME...")
+        home_servos = CartesianPidCompensator.angulos_robotang(
+            0, -45, 120, 0, 30, 0)
+        self._enviar_robot(home_servos)
+        time.sleep(2.5)
 
-        self._integral_error = np.clip(self._integral_error, -self._integral_limit, self._integral_limit)
-        I = self._integral_error * self.KI
+        self.input_enabled.emit()
 
-        if self._first_iteration:
-            D = np.zeros(3)
-            self._first_iteration = False
-        else:
-            d_error = (error - self._previous_error) / dt
-            D = d_error * self.KD
+        while self._running:
+            try:
+                work = self._work_queue.get(timeout=0.1)
+            except queue.Empty:
+                continue
 
-        v_control = P + I + D
-        self._previous_error = error.copy()
+            if work[0] == 'execute_target':
+                _, tx, ty, tz = work
+                self._run_pid_sequence(tx, ty, tz)
+            elif work[0] == 'send_home':
+                home_servos = CartesianPidCompensator.angulos_robotang(
+                    0, -45, 120, 0, 30, 0)
+                self._enviar_robot(home_servos)
+            elif work[0] == 'stop':
+                break
 
-        # Inversion cinematica mediante pseudoinversa del Jacobiano (Prueba_controlv11)
-        J_inv = self._calcular_pseudoinversa(q_actual)
-        dq = J_inv @ v_control
-
-        # Compensacion de banda muerta de servomotores
-        dq = self._apply_dead_band(dq)
-
-        # Limites fisicos y fijacion directa de q1
-        q_next = CartesianPidCompensator.apply_physical_limits(q_actual + dq)
-        q_next[0] = math.atan2(active_target[1], active_target[0])
-
-        # Conversion a comando de servos
-        q_out_deg = np.degrees(q_next)
-        command = CartesianPidCompensator.angulos_robotang(
-            q_out_deg[0], q_out_deg[1], q_out_deg[2], 0, q_out_deg[3], -80)
-        self.commands_ready.emit(command)
-
-    # --- Getters / Setters ---
-
-    def set_target(self, px, py, pz):
-        """
-        Define un nuevo objetivo cartesiano para el robot.
-
-        Args:
-            px (float): Objetivo X en mm.
-            py (float): Objetivo Y en mm.
-            pz (float): Objetivo Z en mm.
-        """
-        if px is None or py is None or pz is None:
-            self._target_pos = None
-            self._target_waypoints = []
-            self._stability_count = 0
-        else:
-            self._target_pos = np.array([px, py, pz], dtype=float)
-            self._target_waypoints = self._build_target_waypoints(px, py, pz)
-            self._waypoint_index = 0
-            self._stability_count = 0
-            self._integral_error = np.zeros(3)
-            self._previous_error = np.zeros(3)
-            self._first_iteration = True
-            self._start_time = time.time()
-            self._prev_positions = list(self._current_positions)
-            self.update_sensor_data(self._current_positions)
-
-    def _build_target_waypoints(self, px, py, pz):
-        """
-        Construye una secuencia desacoplada de movimiento X, Y y Z.
-
-        Args:
-            px (float): Objetivo final X en mm.
-            py (float): Objetivo final Y en mm.
-            pz (float): Objetivo final Z en mm.
-
-        Returns:
-            list: Waypoints cartesianos para elevar, desplazar y descender.
-        """
-        q_reales_deg = np.array(
-            CartesianPidCompensator.robotang_angulos(*self._current_positions))
-        current_q = np.radians([
-            q_reales_deg[0], q_reales_deg[1],
-            q_reales_deg[2], q_reales_deg[4]])
-        current_xyz = self._cinematica_directa(current_q)
-        safe_z = pz + 30.0
-        return [
-            np.array([current_xyz[0], current_xyz[1], safe_z], dtype=float),
-            np.array([px, current_xyz[1], safe_z], dtype=float),
-            np.array([px, py, safe_z], dtype=float),
-            np.array([px, py, pz], dtype=float),
-        ]
-
-    def set_paused(self, paused: bool):
-        """
-        Pausa o reanuda el proceso de control.
-
-        Args:
-            paused (bool): True para pausar, False para reanudar.
-        """
-        self._is_paused = paused
-
-    def pause_pid(self):
-        """
-        Pausa el lazo PID cartesiano de forma externa (ej. cambio a modo sliders).
-
-        El estado del PID se conserva para poder reanudarse despues.
-        """
-        self._pid_paused = True
-
-    def resume_pid(self):
-        """
-        Reanuda el lazo PID cartesiano si hay un objetivo activo.
-
-        Solo programa el siguiente tick si `_pid_target` esta definido,
-        permitiendo que el control continue desde donde se pauso.
-        """
-        self._pid_paused = False
-        if self._pid_target is not None:
-            QTimer.singleShot(0, self._pid_tick)
-
-    def get_current_positions(self):
-        """
-        Obtiene las últimas posiciones conocidas de los servos.
-
-        Returns:
-            list: Lista de 6 flotantes (grados).
-        """
-        return list(self._current_positions)
-
-    def get_target_pos(self):
-        """
-        Obtiene el objetivo cartesiano actual.
-
-        Returns:
-            np.ndarray: Vector 3x1 o None si no hay objetivo.
-        """
-        return self._target_pos.copy() if self._target_pos is not None else None
+        self._telemetry_running = False
+        telemetry_thread.join(timeout=2)
+        self._close_serial()

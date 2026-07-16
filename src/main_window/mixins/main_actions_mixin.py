@@ -260,6 +260,7 @@ class MainActionsMixin:
         if checked:
             self.sliders_controller.get_widget().show()
             self.kinematics_controller.get_widget().set_vertical_layout()
+            self.graph_controller.set_graph_mode(True)
         else:
             self.sliders_controller.get_widget().hide()
             self.kinematics_controller.get_widget().set_horizontal_layout()
@@ -268,15 +269,23 @@ class MainActionsMixin:
 
     def toggle_kinematics_controls(self, checked: bool):
         """
-        Alterna la visibilidad del panel de control cinemático.
+        Alterna la visibilidad del panel de control cinematico.
+
+        Al activar el modo cinematico:
+        - Verifica conexion del robot.
+        - Envia HOME directo y espera 2.5s.
+        - Habilita la entrada de coordenadas.
 
         Args:
-            checked (bool): True para mostrar cinemática.
+            checked (bool): True para mostrar cinematica.
         """
         if checked:
             self.kinematics_controller.get_widget().show()
+            self.kinematics_controller.enter_kinematics_mode()
+            self.graph_controller.set_graph_mode(False)
         else:
             self.kinematics_controller.get_widget().hide()
+            self.kinematics_controller.exit_kinematics_mode()
         ConfigSignalManager.get_instance().request_change(
             'settings.json', ["mode", 'kinematics'], checked)
 

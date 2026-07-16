@@ -28,6 +28,10 @@ class KinematicsWidget(QWidget):
         send_clicked (pyqtSignal): Emite al presionar el boton 'Enviar'.
     """
     send_clicked = pyqtSignal()
+    home_clicked = pyqtSignal()
+    pause_clicked = pyqtSignal()
+    resume_clicked = pyqtSignal()
+    restart_clicked = pyqtSignal()
 
     # Valores por defecto de las ganancias PID
     DEFAULT_KP = [1.5, 1.0, 1.38]
@@ -76,6 +80,12 @@ class KinematicsWidget(QWidget):
         self.coordinates_button.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
+        self.home_button = QPushButton("Home")
+        self.home_button.setMinimumHeight(40)
+        self.home_button.clicked.connect(self.home_clicked)
+        self.home_button.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
         self.main_layout.addWidget(self.holder_widget)
 
         # --- Sección de Ganancias PID ---
@@ -120,8 +130,38 @@ class KinematicsWidget(QWidget):
         h = QHBoxLayout()
         h.addStretch()
         h.addWidget(self.coordinates_button)
+        h.addWidget(self.home_button)
         h.addStretch()
         self.main_layout.addLayout(h)
+
+        self.pause_button = QPushButton("Pausar")
+        self.pause_button.setMinimumHeight(36)
+        self.pause_button.setEnabled(False)
+        self.pause_button.clicked.connect(self.pause_clicked)
+        self.pause_button.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+        self.resume_button = QPushButton("Reanudar")
+        self.resume_button.setMinimumHeight(36)
+        self.resume_button.setEnabled(False)
+        self.resume_button.clicked.connect(self.resume_clicked)
+        self.resume_button.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+        self.restart_button = QPushButton("Reiniciar")
+        self.restart_button.setMinimumHeight(36)
+        self.restart_button.setEnabled(False)
+        self.restart_button.clicked.connect(self.restart_clicked)
+        self.restart_button.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+        ctrl_layout = QHBoxLayout()
+        ctrl_layout.addStretch()
+        ctrl_layout.addWidget(self.pause_button)
+        ctrl_layout.addWidget(self.resume_button)
+        ctrl_layout.addWidget(self.restart_button)
+        ctrl_layout.addStretch()
+        self.main_layout.addLayout(ctrl_layout)
 
     def set_horizontal_layout(self):
         self._clear_layout()
@@ -162,6 +202,37 @@ class KinematicsWidget(QWidget):
             for gain in self._pid_spins
         }
 
+    def set_inputs_enabled(self, enabled):
+        """Habilita o deshabilita todos los campos de entrada.
+
+        Util para bloquear la UI durante movimientos del robot.
+
+        Args:
+            enabled (bool): True para habilitar, False para deshabilitar.
+        """
+        for spin in self._spins.values():
+            spin.setEnabled(enabled)
+        for gain_spins in self._pid_spins.values():
+            for spin in gain_spins.values():
+                spin.setEnabled(enabled)
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.coordinates_button.setFixedWidth(self.width() // 2)
+
+    def set_control_state(self, state):
+        if state == "running":
+            self.coordinates_button.setEnabled(False)
+            self.pause_button.setEnabled(True)
+            self.resume_button.setEnabled(False)
+            self.restart_button.setEnabled(True)
+        elif state == "paused":
+            self.coordinates_button.setEnabled(False)
+            self.pause_button.setEnabled(False)
+            self.resume_button.setEnabled(True)
+            self.restart_button.setEnabled(True)
+        elif state == "idle":
+            self.coordinates_button.setEnabled(True)
+            self.pause_button.setEnabled(False)
+            self.resume_button.setEnabled(False)
+            self.restart_button.setEnabled(False)

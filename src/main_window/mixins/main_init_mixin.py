@@ -362,6 +362,8 @@ class MainInitMixin:
         self.robot_service = RobotController(com)
         self.robot_service.start_service()
 
+        self.kinematics_controller.set_robot_service(self.robot_service)
+
         self.connect_action.setEnabled(False)
 
     def init_graphics(self):
@@ -379,6 +381,7 @@ class MainInitMixin:
         self.graph_controller = GraphController(
             self, self.kinematics_controller.get_worker())
         self.graphsBox.layout().addWidget(self.graph_controller.get_widget())
+        self.kinematics_controller.set_graph_controller(self.graph_controller)
 
     def center_window(self):
         """

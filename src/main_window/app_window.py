@@ -142,18 +142,15 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         self.hab_simulation = settings.get(
             "simulation", {}).get("activated", True)
 
-        # Configurar modo de control inicial (Sliders o Cinemática)
-        mapping_mode = {
-            'sliders': self.sliders_controller.get_widget(),
-            'kinematics': self.kinematics_controller.get_widget()
-        }
+        # Siempre iniciar en modo Sliders al arrancar la aplicación
+        self.sliders_controller.get_widget().show()
+        self.kinematics_controller.get_widget().hide()
 
-        for key, widget in mapping_mode.items():
-            if key in mode:
-                state = bool(mode[key])
-                widget.setVisible(state)
-                if key == 'sliders' and not state:
-                    self.kinematics_controller.get_widget().set_horizontal_layout()
+        self.sliders_action.setChecked(True)
+        self.kinematics_action.setChecked(False)
+
+        if self.graph_controller:
+            self.graph_controller.set_graph_mode(True)
 
         # Conectar señal al cambio de tema del sistema
         QApplication.instance().styleHints().colorSchemeChanged.connect(
@@ -247,9 +244,8 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
                 self.toggle_pick_place_controls)
 
         # Sincronizacion Kinematics -> Sliders
-        if hasattr(self, 'kinematics_controller') and hasattr(self, 'sliders_controller'):
-            self.kinematics_controller.status_updated.connect(
-                self.sliders_controller.set_external_values)
+        # (El worker de cinematica ahora opera de forma independiente
+        # con su propio serial, por lo que esta conexion ya no es necesaria)
 
         # Botones de control de flujo (Start, Pause, Stop, Reset)
         if hasattr(self, 'start_action'):

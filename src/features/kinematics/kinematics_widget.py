@@ -29,10 +29,11 @@ class KinematicsWidget(QWidget):
     """
     send_clicked = pyqtSignal()
 
+
     # Valores por defecto de las ganancias PID
     DEFAULT_KP = [1.5, 1.0, 1.38]
-    DEFAULT_KI = [0.9375, 0.0, 0.69]
-    DEFAULT_KD = [0.06, 0.0, 0.069]
+    DEFAULT_KI = [0.05, 0.05, 0.6]
+    DEFAULT_KD = [0.01, 0.01, 0.04]
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -123,6 +124,7 @@ class KinematicsWidget(QWidget):
         h.addStretch()
         self.main_layout.addLayout(h)
 
+
     def set_horizontal_layout(self):
         self._clear_layout()
         for i, key in enumerate(self._keys):
@@ -162,6 +164,28 @@ class KinematicsWidget(QWidget):
             for gain in self._pid_spins
         }
 
+    def set_inputs_enabled(self, enabled):
+        """Habilita o deshabilita todos los campos de entrada.
+
+        Util para bloquear la UI durante movimientos del robot.
+
+        Args:
+            enabled (bool): True para habilitar, False para deshabilitar.
+        """
+        for spin in self._spins.values():
+            spin.setEnabled(enabled)
+        for gain_spins in self._pid_spins.values():
+            for spin in gain_spins.values():
+                spin.setEnabled(enabled)
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.coordinates_button.setFixedWidth(self.width() // 2)
+
+    def set_control_state(self, state):
+        if state == "running":
+            self.coordinates_button.setEnabled(False)
+        elif state == "paused":
+            self.coordinates_button.setEnabled(False)
+        elif state == "idle":
+            self.coordinates_button.setEnabled(True)

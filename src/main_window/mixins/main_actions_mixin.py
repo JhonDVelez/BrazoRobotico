@@ -7,10 +7,11 @@ y la inicialización de ventanas de calibración.
 """
 
 from PyQt6.QtCore import pyqtSlot
+from src.services.data.enums.types import Modes
 from src.services.data.signals import (
     SearchSignalManager, ConfigSignalManager,
     SimulationSignalManager, PhysicalSignalManager,
-    SlidersSignalManager
+    SlidersSignalManager, KinematicsSignalManager
 )
 from src.services.data.utils import angulos_robotang
 
@@ -46,8 +47,14 @@ class MainActionsMixin:
         self.camera_controller.show_controls()
         self.com_submenu.setEnabled(True)
 
+        if hasattr(self, 'kinematics_controller') and self.kinematics_controller and self.kinematics_controller._mode_active:
+            self.kinematics_controller.get_worker().resume()
+
         if self.connected_to_robot:
-            PhysicalSignalManager.get_instance().start_request.emit()
+            if self.stopped:
+                PhysicalSignalManager.get_instance().start_request.emit()
+            else:
+                PhysicalSignalManager.get_instance().resume_service.emit()
 
         self.graph_controller.start()
 
@@ -76,7 +83,10 @@ class MainActionsMixin:
 
         # El RobotController manejará la pausa si escucha el bus, o podemos enviar stop
         if self.connected_to_robot:
-            PhysicalSignalManager.get_instance().stop_request.emit()
+            PhysicalSignalManager.get_instance().pause_service.emit()
+
+        if hasattr(self, 'kinematics_controller') and self.kinematics_controller:
+            self.kinematics_controller.get_worker().pause()
 
         self.pause_action.setEnabled(False)
         self.pause_action.setChecked(True)
@@ -113,9 +123,12 @@ class MainActionsMixin:
 
     def reset(self):
         """
-        Reinicia los valores de los sliders a su posición central.
+        Reinicia los controles según el modo activo.
         """
-        self.sliders_controller.reset_controls()
+        if hasattr(self, 'kinematics_controller') and self.kinematics_controller and self.kinematics_controller._mode_active:
+            self.kinematics_controller._on_restart()
+        else:
+            self.sliders_controller.reset_controls()
 
     @pyqtSlot(bool)
     def toggle_visibility_camera_event(self, checked: bool):
@@ -260,6 +273,19 @@ class MainActionsMixin:
         if checked:
             self.sliders_controller.get_widget().show()
             self.kinematics_controller.get_widget().set_vertical_layout()
+            self.graph_controller.set_graph_mode(True)
+            SlidersSignalManager.get_instance().change_mode_signal.emit(Modes.SLIDERS)
+
+            # Sincronización a HOME
+            home = [0, 0, 0, 0, 0, 0]
+            # 1. Sliders UI
+            self.sliders_controller.set_external_values(home)
+            # 2. 3D Model
+            SimulationSignalManager.get_instance().update_robot_from_sliders.emit(home)
+            # 3. Physical Robot
+            if self.connected_to_robot:
+                robot_positions = list(angulos_robotang(*home))
+                PhysicalSignalManager.get_instance().send_to_robot.emit(robot_positions)
         else:
             self.sliders_controller.get_widget().hide()
             self.kinematics_controller.get_widget().set_horizontal_layout()
@@ -268,15 +294,24 @@ class MainActionsMixin:
 
     def toggle_kinematics_controls(self, checked: bool):
         """
-        Alterna la visibilidad del panel de control cinemático.
+        Alterna la visibilidad del panel de control cinematico.
+
+        Al activar el modo cinematico:
+        - Verifica conexion del robot.
+        - Envia HOME directo y espera 2.5s.
+        - Habilita la entrada de coordenadas.
 
         Args:
-            checked (bool): True para mostrar cinemática.
+            checked (bool): True para mostrar cinematica.
         """
         if checked:
             self.kinematics_controller.get_widget().show()
+            self.kinematics_controller.enter_kinematics_mode()
+            self.graph_controller.set_graph_mode(False)
+            KinematicsSignalManager.get_instance().change_mode_signal.emit(Modes.KINEMATIC)
         else:
             self.kinematics_controller.get_widget().hide()
+            self.kinematics_controller.exit_kinematics_mode()
         ConfigSignalManager.get_instance().request_change(
             'settings.json', ["mode", 'kinematics'], checked)
 

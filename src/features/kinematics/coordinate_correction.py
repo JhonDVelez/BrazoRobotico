@@ -36,3 +36,11 @@ def corregir_z(x_objetivo, y_objetivo, z_objetivo):
     radio = math.sqrt(x_objetivo**2 + y_objetivo**2)
     errorz = 0.0007 * radio**2 - 0.1316 * radio + 14.694
     return round(z_objetivo + errorz)
+
+def apertura_de_garra(xmm):
+    if xmm > 110:
+        xmm = 110
+    if xmm < 10:
+        xmm = 10
+    angulo = -xmm + 30
+    return angulo

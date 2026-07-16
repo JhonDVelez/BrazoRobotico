@@ -15,6 +15,7 @@ import re
 import time
 import queue
 import serial
+import threading
 from PyQt6.QtCore import QThread, pyqtSignal
 
 class RobotWorker(QThread):
@@ -46,6 +47,9 @@ class RobotWorker(QThread):
         self._cm904 = None
         self._send_queue = queue.Queue()
         self._running = True
+        self._suspended = False
+        self._pause_event = threading.Event()
+        self._pause_event.set()
 
         # Intentar abrir el puerto serial
         try:
@@ -122,6 +126,7 @@ class RobotWorker(QThread):
         Extrae comandos de la cola y ejecuta la transaccion serial.
         """
         while self._running:
+            self._pause_event.wait()
             try:
                 valorm = self._send_queue.get(timeout=0.1)
             except queue.Empty:
@@ -140,8 +145,8 @@ class RobotWorker(QThread):
             print("Error de envío de datos: Valores fuera de rango")
             return
 
-        # Reconexión automática si el puerto se cerró
-        if self._cm904 is None or not getattr(self._cm904, 'is_open', False):
+        # Reconexión automática si el puerto se cerró (excepto durante suspensión)
+        if not self._suspended and (self._cm904 is None or not getattr(self._cm904, 'is_open', False)):
             try:
                 self._cm904 = serial.Serial(self._com, 9600, timeout=1)
                 self.connection_status_changed.emit(True)
@@ -252,10 +257,10 @@ class RobotWorker(QThread):
                 temp_pos[idx] = float(position_value)
                 temperatures[idx] = int(temperature_value)
 
-        # Validacion de rango: rechazar tramas con valores fuera de rango fisico
+        # Validacion de rango: filtrar valores fuera de rango fisico individualmente
         for i in range(6):
             if temp_pos[i] is not None and not (0 <= temp_pos[i] <= 300):
-                return None
+                temp_pos[i] = self._last_valid_positions[i]
             if temperatures[i] is not None and not (0 <= temperatures[i] <= 100):
                 temperatures[i] = None
 
@@ -263,20 +268,16 @@ class RobotWorker(QThread):
         if all(v is not None and abs(v) < 0.001 for v in temp_pos[:4]):
             return None
 
-        # Filtro anti-ruido electromagnetico con escape de seguridad
-        trama_valida = True
+        # Filtro anti-ruido electromagnetico con correccion individual
         for i in range(6):
             if temp_pos[i] is not None:
                 diff = abs(temp_pos[i] - self._last_valid_positions[i])
                 if diff > 35.0:
                     self._jump_freeze_count[i] += 1
                     if self._jump_freeze_count[i] <= 4:
-                        trama_valida = False
+                        temp_pos[i] = self._last_valid_positions[i]
                 else:
                     self._jump_freeze_count[i] = 0
-
-        if not trama_valida:
-            return None
 
         # Actualizacion limpia de la telemetria
         positions = list(self._last_valid_positions)
@@ -300,3 +301,39 @@ class RobotWorker(QThread):
         self.connection_status_changed.emit(False)
         self.quit()
         self.wait()
+
+    def suspend_serial(self):
+        """
+        Cierra el puerto serial para liberar el recurso COM.
+
+        Util cuando otro hilo (ej. cinematica) necesita abrir
+        su propia conexion al mismo puerto.
+        """
+        self._suspended = True
+        try:
+            if self._cm904 and getattr(self._cm904, 'is_open', False):
+                self._cm904.close()
+        except (serial.SerialException, OSError):
+            pass
+
+    def resume_serial(self):
+        """
+        Reabre el puerto serial despues de una suspension.
+
+        Usa el nombre de COM registrado en la construccion.
+        """
+        self._suspended = False
+        try:
+            if self._cm904 is None or not getattr(self._cm904, 'is_open', False):
+                self._cm904 = serial.Serial(self._com, 9600, timeout=1)
+                self.connection_status_changed.emit(True)
+        except (serial.SerialException, PermissionError, OSError) as e:
+            print(f"Error reabriendo {self._com}: {e}")
+            self._cm904 = None
+            self.connection_status_changed.emit(False)
+
+    def pause_transmission(self):
+        self._pause_event.clear()
+
+    def resume_transmission(self):
+        self._pause_event.set()

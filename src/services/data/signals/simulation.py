@@ -28,7 +28,12 @@ class SimulationSignalManager(_SignalManager):
     sphere_radius_changed = pyqtSignal(float)
     start_simulation = pyqtSignal()
     pause_simulation = pyqtSignal(bool)
+    resume_simulation = pyqtSignal()
     stop_simulation = pyqtSignal()
+    
+    update_robot_from_kinematics = pyqtSignal(list)
+    update_robot_from_sliders = pyqtSignal(list)
+    update_robot_from_simulation = pyqtSignal(list)
     
     start_request = pyqtSignal()
     pause_request = pyqtSignal(bool)

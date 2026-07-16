@@ -55,6 +55,8 @@ class GraphController(QObject):
         self._kinematics_service = kinematics_worker
         self._cartesian_pid_plot = CartesianPIDPlot()
         self._widget.set_cartesian_pid_widget(self._cartesian_pid_plot)
+        
+        self._is_angular_mode = True
 
         # 5. Establecer conexiones reactivas
         self.__setup_connections()
@@ -134,8 +136,9 @@ class GraphController(QObject):
         self._widget.resize_requested.connect(self._rearrange_plots)
 
         # Cambio de Tema visual
-        ThemeSignalManager.get_instance().theme_changed.connect(
-            self._widget.get_image_handler().update_theme)
+        theme_signal = ThemeSignalManager.get_instance()
+        theme_signal.theme_changed.connect(self._widget.get_image_handler().update_theme)
+        theme_signal.theme_changed.connect(self._cartesian_pid_plot.update_theme)
 
     @pyqtSlot(list)
     def _on_sim_data_received(self, data):
@@ -175,11 +178,11 @@ class GraphController(QObject):
             self._angular_plots[idx].update_buffers(
                 y_sim, y_phy, temp, w_idx, full, x)
 
-    @pyqtSlot(int, list, list)
-    def _on_pid_iteration(self, iteration, actual_xyz, target_xyz):
-        if iteration == 0:
-            self._cartesian_pid_plot.reset_plot(target_xyz)
-        self._cartesian_pid_plot.append_data(iteration, actual_xyz, target_xyz)
+    @pyqtSlot(float, list, list)
+    def _on_pid_iteration(self, time_s, actual_xyz, target_xyz):
+        actual_adj = [actual_xyz[0] - 110, actual_xyz[1], actual_xyz[2]]
+        target_adj = [target_xyz[0] - 110, target_xyz[1], target_xyz[2]]
+        self._cartesian_pid_plot.append_data(time_s, actual_adj, target_adj)
 
     def _on_mode_changed(self, is_angular):
         """
@@ -191,6 +194,13 @@ class GraphController(QObject):
         for p in self._angular_plots: p.set_visible(is_angular)
         self._cartesian_pid_plot.setVisible(not is_angular)
 
+    def set_graph_mode(self, is_angular):
+        self._is_angular_mode = is_angular
+        self._widget.set_graph_mode(is_angular)
+
+    def reset_cartesian_plot(self):
+        self._cartesian_pid_plot.reset_plot([0, 0, 0])
+
     # --- API de Control ---
 
     def start(self):
@@ -201,8 +211,9 @@ class GraphController(QObject):
         self._angular_worker.set_paused(False)
 
         for p in self._angular_plots: p.set_paused(False)
-
-        self._on_mode_changed(self._widget.angular_radio.isChecked())
+        
+        # Usar el estado interno en lugar de consultar la UI
+        self._on_mode_changed(self._is_angular_mode)
 
     def pause(self):
         """

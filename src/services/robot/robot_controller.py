@@ -40,6 +40,8 @@ class RobotController(QObject):
         self._signal_manager.send_to_robot.connect(self.move_to)
         self._signal_manager.start_service.connect(self.start_service)
         self._signal_manager.stop_service.connect(self.stop_service)
+        self._signal_manager.pause_service.connect(self.pause_service)
+        self._signal_manager.resume_service.connect(self.resume_service)
         
         self._on_connection_changed(self._worker.get_is_connected())
 
@@ -89,3 +91,28 @@ class RobotController(QObject):
         Detiene el ciclo de comunicación y cierra el puerto serial.
         """
         self._worker.stop()
+
+    def pause_service(self):
+        self._worker.pause_transmission()
+
+    def resume_service(self):
+        self._worker.resume_transmission()
+
+    def get_com(self) -> str:
+        """Retorna el nombre del puerto COM configurado.
+
+        Returns:
+            str: Nombre del puerto (e.g. 'COM7').
+        """
+        return self._worker.get_com()
+
+    def suspend_serial(self):
+        """Cierra el serial para liberar el puerto COM.
+
+        Util cuando el modo cinematico necesita abrir su propia conexion.
+        """
+        self._worker.suspend_serial()
+
+    def resume_serial(self):
+        """Reabre el serial despues de liberar el puerto COM."""
+        self._worker.resume_serial()

@@ -25,6 +25,8 @@ class PhysicalSignalManager(_SignalManager):
     data_received = pyqtSignal(list, list)
     start_service = pyqtSignal()
     stop_service = pyqtSignal()
+    pause_service = pyqtSignal()
+    resume_service = pyqtSignal()
     
     start_request = pyqtSignal()
     stop_request = pyqtSignal()

@@ -60,6 +60,7 @@ class CartesianPIDPlot(QWidget):
         super().__init__(parent)
         self._real_data = [[] for _ in range(3)]
         self._target_data = [[] for _ in range(3)]
+        self._time_data = []
 
         self._setup_figure()
         self._setup_canvas()
@@ -96,7 +97,7 @@ class CartesianPIDPlot(QWidget):
             self._lines_reales.append(line_real)
             self._lines_targets.append(line_target)
 
-        self.axes[-1].set_xlabel("Iteración Total", fontsize=TAMANO_ETIQUETAS_EJES)
+        self.axes[-1].set_xlabel("Tiempo (s)", fontsize=TAMANO_ETIQUETAS_EJES)
         self.figure.tight_layout(rect=[0, 0, 1, 0.97])
 
     def _setup_canvas(self):
@@ -119,6 +120,7 @@ class CartesianPIDPlot(QWidget):
         for i in range(3):
             self._real_data[i].clear()
             self._target_data[i].clear()
+        self._time_data.clear()
 
         for i, ax in enumerate(self.axes):
             self._lines_reales[i].set_data([], [])
@@ -129,24 +131,25 @@ class CartesianPIDPlot(QWidget):
         self._target_xyz = list(target_xyz)
         self._redraw()
 
-    def append_data(self, iteration, actual_xyz, target_xyz):
+    def append_data(self, time_s, actual_xyz, target_xyz):
         """
         Agrega un punto de datos y actualiza el grafico.
         Skipea puntos duplicados para evitar grafica de escalones.
 
         Args:
-            iteration (int): Numero de iteracion actual del PID.
+            time_s (float): Tiempo transcurrido en segundos desde el inicio del PID.
             actual_xyz (list): Posicion real [x, y, z] en mm.
             target_xyz (list): Posicion objetivo [x, y, z] en mm.
         """
-        if self._real_data[0]:
-            last = [self._real_data[i][-1] for i in range(3)]
-            if all(abs(actual_xyz[i] - last[i]) < 0.01 for i in range(3)):
-                return
+        # if self._real_data[0]:
+        #     last = [self._real_data[i][-1] for i in range(3)]
+        #     if all(abs(actual_xyz[i] - last[i]) < 0.01 for i in range(3)):
+        #         return
 
         for i in range(3):
             self._real_data[i].append(actual_xyz[i])
             self._target_data[i].append(target_xyz[i])
+        self._time_data.append(time_s)
 
         self._redraw()
 
@@ -155,7 +158,7 @@ class CartesianPIDPlot(QWidget):
         if n == 0:
             return
 
-        x_vals = list(range(n))
+        x_vals = self._time_data
 
         for i, ax in enumerate(self.axes):
             self._lines_reales[i].set_data(x_vals, self._real_data[i])
@@ -164,7 +167,8 @@ class CartesianPIDPlot(QWidget):
             all_y = self._real_data[i] + self._target_data[i]
             y_min, y_max = min(all_y), max(all_y)
             margin = max((y_max - y_min) * 0.15, 5.0)
-            ax.set_xlim(-0.5, max(n - 1 + 0.5, 4.5))
+            t_max = x_vals[-1] if x_vals else 2.0
+            ax.set_xlim(-0.1, max(t_max + 0.5, 2.0))
             ax.set_ylim(y_min - margin, y_max + margin)
 
         self.canvas.draw_idle()

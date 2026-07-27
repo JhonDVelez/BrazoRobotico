@@ -102,6 +102,8 @@ class SimulationController(QObject):
             self.start_simulation)
         self.simulation_signal_manager.pause_simulation.connect(
             self.pause_simulation)
+        self.simulation_signal_manager.resume_simulation.connect(
+            self.resume_simulation)
         self.simulation_signal_manager.stop_simulation.connect(
             self.stop_simulation)
 
@@ -110,6 +112,8 @@ class SimulationController(QObject):
             self.start_simulation)
         self.simulation_signal_manager.pause_simulation.connect(
             self.pause_simulation)
+        self.simulation_signal_manager.resume_simulation.connect(
+            self.resume_simulation)
         self.simulation_signal_manager.stop_simulation.connect(
             self.stop_simulation)
 
@@ -271,6 +275,13 @@ class SimulationController(QObject):
         """
         if self.physics_worker:
             self.physics_worker.pause()
+
+    def resume_simulation(self):
+        """
+        Reanuda el motor de física después de una pausa.
+        """
+        if self.physics_worker:
+            self.physics_worker.resume()
 
     def stop_simulation(self):
         """

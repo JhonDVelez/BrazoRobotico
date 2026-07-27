@@ -44,7 +44,8 @@ class KinematicsWorker(QThread):
         input_enabled():
             Notifica que la UI puede habilitar la entrada de coordenadas.
     """
-    pid_iteration = pyqtSignal(int, list, list)
+    pid_iteration = pyqtSignal(float, list, list)
+    joint_update = pyqtSignal(list)
     status_changed = pyqtSignal(str)
     movement_finished = pyqtSignal()
     input_enabled = pyqtSignal()
@@ -58,6 +59,7 @@ class KinematicsWorker(QThread):
         self._telemetry_running = False
         self._paused = False
         self._pid_abort = False
+        self._t_resume_pending = False
         self._pause_event = threading.Event()
         self._pause_event.set()
 
@@ -70,8 +72,8 @@ class KinematicsWorker(QThread):
 
         self._com_port = None
         self._kp = np.array([1.5, 1.0, 1.38])
-        self._ki = np.array([0.12, 0.0, 0.09])
-        self._kd = np.array([0.48, 0.0, 0.55])
+        self._ki = np.array([0.9375, 0.0, 0.69])  
+        self._kd = np.array([0.06, 0.0, 0.069])   
 
     def set_pid_gains(self, kp, ki, kd):
         self._kp = np.array(kp, dtype=np.float64)
@@ -84,6 +86,7 @@ class KinematicsWorker(QThread):
 
     def resume(self):
         self._paused = False
+        self._t_resume_pending = True
         self._pause_event.set()
 
     def abort_pid(self):
@@ -142,7 +145,7 @@ class KinematicsWorker(QThread):
 
     def _open_serial(self, com_port):
         try:
-            self._serial = serial.Serial(com_port, 9600, timeout=0.05)
+            self._serial = serial.Serial(com_port, 9600, timeout=1)
             return True
         except (serial.SerialException, PermissionError, OSError) as e:
             print(f"Error abriendo serial {com_port}: {e}")
@@ -176,7 +179,6 @@ class KinematicsWorker(QThread):
     def _telemetry_reader(self):
         pattern = re.compile(r"([A-F])(\d+\.?\d*)T[A-F](\d+)")
         congelado_count = [0] * 6
-        buffer = b""
 
         while self._telemetry_running:
             try:
@@ -184,20 +186,13 @@ class KinematicsWorker(QThread):
                     time.sleep(0.01)
                     continue
 
-                data = self._serial.read(1024)
-                if not data:
-                    continue
-
-                buffer += data
-
-                while b'\n' in buffer:
-                    line_bytes, buffer = buffer.split(b'\n', 1)
-                    line = line_bytes.decode('ascii', errors='ignore').strip()
+                if self._serial.in_waiting > 0:
+                    line = self._serial.readline().decode(
+                        'ascii', errors='ignore').strip()
                     if not line:
                         continue
 
                     matches = pattern.findall(line)
-
                     if len(matches) < 6:
                         continue
 
@@ -238,9 +233,6 @@ class KinematicsWorker(QThread):
                                 self._current_pos[i] = temp_pos[i]
                                 self._last_valid[i] = temp_pos[i]
 
-                if len(buffer) > 200:
-                    buffer = b""
-
             except Exception as e:
                 print(f"Alerta: Hilo de telemetria interrumpido: {e}")
                 break
@@ -258,9 +250,11 @@ class KinematicsWorker(QThread):
     # ------------------------------------------------------------------ #
 
     def _pid_control_loop(self, target_xyz, limites_deg,
-                          max_iter=3000, tolerancias=None):
+                          max_iter=3000, tolerancias=None, t_start=None):
+        TS = 0.08
+
         if tolerancias is None:
-            tolerancias = np.array([3.0, 5.0, 3.0])
+            tolerancias = np.array([5.0, 5.0, 5.0])
 
         target = np.array(target_xyz, dtype=float)
         error_acumulado = np.zeros(3)
@@ -268,8 +262,10 @@ class KinematicsWorker(QThread):
         primera_iteracion = True
         contador_estabilidad = 0
         iteraciones_requeridas = 10
-        umbral_mm = 1
-        t_anterior = time.time()
+        umbral_mm = 2.5
+        if t_start is None:
+            t_start = time.time()
+        t_anterior = t_start
         p_anterior = np.zeros(3)
 
         for i in range(max_iter):
@@ -278,9 +274,14 @@ class KinematicsWorker(QThread):
             self._pause_event.wait()
 
             t_actual = time.time()
+            t_iter_start = t_actual
             dt = t_actual - t_anterior
-            if dt < 0.01:
-                dt = 0.01
+            if dt < 0.01: 
+                dt = 0.01  # Acota el dt mínimo para evitar divisiones por cero
+
+            if self._t_resume_pending:
+                dt = TS
+                self._t_resume_pending = False
 
             raw_pos = self._read_positions()
             q_reales_deg = np.array(
@@ -292,15 +293,18 @@ class KinematicsWorker(QThread):
             p_actual = self._cinematica_directa(q_actual_rad, self._links)
 
             if i > 0 and np.allclose(p_actual, p_anterior, atol=0.1):
+                q_deg = np.degrees(q_actual_rad)
+                self.joint_update.emit([q_deg[0], q_deg[1], q_deg[2], 0, q_deg[3], -80])
                 self.pid_iteration.emit(
-                    i + 1, p_actual.tolist(), target.tolist())
-                t_anterior = time.time()
-                time.sleep(0.08)
+                    round(time.time() - t_start, 4), p_actual.tolist(), target.tolist())
+                t_anterior = time.time()  # Sincroniza el tiempo antes de saltar la iteración
+                elapsed = time.time() - t_iter_start
+                time.sleep(max(0, TS - elapsed))
                 continue
             p_anterior = p_actual.copy()
 
             self.pid_iteration.emit(
-                i + 1, p_actual.tolist(), target.tolist())
+                round(time.time() - t_start, 4), p_actual.tolist(), target.tolist())
 
             error_actual = target - p_actual
             error_abs = np.abs(error_actual)
@@ -312,16 +316,11 @@ class KinematicsWorker(QThread):
                 error_anterior = error_actual.copy()
                 if contador_estabilidad >= iteraciones_requeridas:
                     return True
-                t_anterior = t_actual
-                time.sleep(0.01)
+                elapsed = time.time() - t_iter_start
+                time.sleep(max(0, TS - elapsed))
                 continue
             else:
                 contador_estabilidad = 0
-
-            if contador_estabilidad > 0:
-                t_anterior = t_actual
-                time.sleep(0.01)
-                continue
 
             dist_total = np.linalg.norm(error_actual)
 
@@ -343,8 +342,8 @@ class KinematicsWorker(QThread):
                 D = d_cruda * self._kd
 
             v_control = P + I + D
+            print(f"valor de v_control: {v_control}")
             error_anterior = error_actual.copy()
-            t_anterior = t_actual
 
             J_inv = self._calcular_pseudoinversa(q_actual_rad, self._links)
             dq = J_inv @ v_control
@@ -362,6 +361,7 @@ class KinematicsWorker(QThread):
             q_out_deg = np.degrees(q_next_rad)
             q_final = [q_out_deg[0], q_out_deg[1], q_out_deg[2],
                        0, q_out_deg[3], -80]
+            self.joint_update.emit(q_final)
             servo_positions = CartesianPidCompensator.angulos_robotang(
                 *q_final)
 
@@ -373,7 +373,10 @@ class KinematicsWorker(QThread):
 
             self._enviar_robot(servo_positions)
 
-            time.sleep(0.01)
+            t_anterior = t_actual  # Guarda el marcador de tiempo de esta iteración
+
+            elapsed = time.time() - t_iter_start
+            time.sleep(max(0, TS - elapsed))
 
         return False
 
@@ -384,14 +387,18 @@ class KinematicsWorker(QThread):
     def _run_pid_sequence(self, tx, ty, tz):
         from .coordinate_correction import corregir_xy, corregir_z
 
+        self._pid_abort = False
+
         tx_home, ty_home, tz_home = 185, 0, 170
         tz_home = corregir_z(tx_home, ty_home, tz_home)
         tx_home, ty_home = corregir_xy(tx_home, ty_home)
-        limites_home = [(10, -10), (-40, -90), (0, 130), (-30, 120)]
+        limites_home = [(-10, 10), (-50, -40), (0, 130), (0, 120)]
+
+        t_start = time.time()
 
         self.status_changed.emit("PID: Moviendo a HOME...")
         converged_home = self._pid_control_loop(
-            [tx_home, ty_home, tz_home], limites_home)
+            [tx_home, ty_home, tz_home], limites_home, t_start=t_start)
         if converged_home:
             print("PID HOME convergido")
         else:
@@ -404,7 +411,7 @@ class KinematicsWorker(QThread):
         self.status_changed.emit("PID: Moviendo a target...")
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
         converged_target = self._pid_control_loop(
-            [tx, ty, tz], limites_target)
+            [tx, ty, tz], limites_target, t_start=t_start)
         if converged_target:
             print("PID TARGET convergido")
         else:
@@ -460,6 +467,7 @@ class KinematicsWorker(QThread):
         home_servos = CartesianPidCompensator.angulos_robotang(
             0, -45, 120, 0, 30, 0)
         self._enviar_robot(home_servos)
+        self.joint_update.emit([0, -45, 120, 0, 30, 0])
         time.sleep(2.5)
 
         self.input_enabled.emit()
@@ -477,6 +485,7 @@ class KinematicsWorker(QThread):
                 home_servos = CartesianPidCompensator.angulos_robotang(
                     0, -45, 120, 0, 30, 0)
                 self._enviar_robot(home_servos)
+                self.joint_update.emit([0, -45, 120, 0, 30, 0])
             elif work[0] == 'stop':
                 break
 

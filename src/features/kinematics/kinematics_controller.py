@@ -61,8 +61,6 @@ class KinematicsController(QObject):
     def __setup_connections(self):
         self.kinematics_widget.send_clicked.connect(
             self.execute_kinematics)
-        self.kinematics_widget.home_clicked.connect(
-            self._on_home)
         self.kinematics_widget.pause_clicked.connect(
             self._on_pause)
         self.kinematics_widget.resume_clicked.connect(
@@ -76,6 +74,8 @@ class KinematicsController(QObject):
             self._on_movement_finished)
         self.kinematics_worker.input_enabled.connect(
             self._on_input_enabled)
+        self.kinematics_worker.joint_update.connect(
+            self._on_joint_update)
 
         SlidersSignalManager.get_instance().change_mode_signal.connect(
             self._on_global_mode_changed)
@@ -105,6 +105,8 @@ class KinematicsController(QObject):
         KinematicsSignalManager.get_instance().change_mode_signal.emit(
             Modes.KINEMATIC)
 
+        SimulationSignalManager.get_instance().pause_simulation.emit(True)
+
         self._set_inputs_enabled(False)
         self._robot_service.suspend_serial()
 
@@ -117,6 +119,8 @@ class KinematicsController(QObject):
 
         self._mode_active = False
         self.kinematics_worker.stop()
+
+        SimulationSignalManager.get_instance().resume_simulation.emit()
 
         if self._robot_service is not None:
             self._robot_service.resume_serial()
@@ -147,6 +151,8 @@ class KinematicsController(QObject):
 
         self._set_inputs_enabled(False)
         self.kinematics_widget.set_control_state("running")
+        if self._graph_controller:
+            self._graph_controller.reset_cartesian_plot()
         self.kinematics_worker.execute_target(tx, ty, tz)
 
     @pyqtSlot(str)
@@ -165,6 +171,10 @@ class KinematicsController(QObject):
             self._set_inputs_enabled(True)
             self.kinematics_widget.set_control_state("idle")
 
+    @pyqtSlot(list)
+    def _on_joint_update(self, joints):
+        SimulationSignalManager.get_instance().update_robot_signal.emit(joints)
+
     @pyqtSlot(object)
     def _on_global_mode_changed(self, mode):
         if mode != Modes.KINEMATIC and self._mode_active:
@@ -174,9 +184,6 @@ class KinematicsController(QObject):
         self.kinematics_worker.pause()
         self.kinematics_widget.set_control_state("paused")
 
-    def _on_home(self):
-        self.kinematics_worker.send_home()
-
     def _on_resume(self):
         self.kinematics_worker.resume()
         self.kinematics_widget.set_control_state("running")
@@ -185,6 +192,7 @@ class KinematicsController(QObject):
         self.kinematics_worker.abort_pid()
         if self._graph_controller:
             self._graph_controller.reset_cartesian_plot()
+        self.kinematics_worker.send_home()
         self.kinematics_widget.set_control_state("idle")
         self._set_inputs_enabled(True)
 

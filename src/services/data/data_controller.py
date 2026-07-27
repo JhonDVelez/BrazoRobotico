@@ -161,6 +161,9 @@ class DataController(QObject):
         if self._target_data is None:
             return
 
+        if self._mode == Modes.KINEMATIC:
+            return
+
         data_rad = deg_to_rad(self._target_data)
         self.sim_signals.update_pybullet_signal.emit(data_rad.tolist())
 
@@ -202,8 +205,9 @@ class DataController(QObject):
     @pyqtSlot(list, dict)
     def _on_model_feedback(self, motor_positions, sphere_positions):
         """Procesa feedback de la simulación para el modelo 3D."""
-        pos_deg = rad_to_deg(motor_positions)
-        self.sim_signals.update_robot_signal.emit(pos_deg)
+        if self._mode != Modes.KINEMATIC:
+            pos_deg = rad_to_deg(motor_positions)
+            self.sim_signals.update_robot_signal.emit(pos_deg)
         self.sim_signals.sphere_pos_from_pybullet.emit(sphere_positions)
 
     @pyqtSlot(list, list)

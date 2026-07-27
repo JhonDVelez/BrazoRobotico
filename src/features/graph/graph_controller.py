@@ -175,11 +175,11 @@ class GraphController(QObject):
             self._angular_plots[idx].update_buffers(
                 y_sim, y_phy, temp, w_idx, full, x)
 
-    @pyqtSlot(int, list, list)
-    def _on_pid_iteration(self, iteration, actual_xyz, target_xyz):
-        if iteration == 0:
-            self._cartesian_pid_plot.reset_plot(target_xyz)
-        self._cartesian_pid_plot.append_data(iteration, actual_xyz, target_xyz)
+    @pyqtSlot(float, list, list)
+    def _on_pid_iteration(self, time_s, actual_xyz, target_xyz):
+        actual_adj = [actual_xyz[0] - 110, actual_xyz[1], actual_xyz[2]]
+        target_adj = [target_xyz[0] - 110, target_xyz[1], target_xyz[2]]
+        self._cartesian_pid_plot.append_data(time_s, actual_adj, target_adj)
 
     def _on_mode_changed(self, is_angular):
         """

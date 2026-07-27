@@ -28,7 +28,6 @@ class KinematicsWidget(QWidget):
         send_clicked (pyqtSignal): Emite al presionar el boton 'Enviar'.
     """
     send_clicked = pyqtSignal()
-    home_clicked = pyqtSignal()
     pause_clicked = pyqtSignal()
     resume_clicked = pyqtSignal()
     restart_clicked = pyqtSignal()
@@ -80,12 +79,6 @@ class KinematicsWidget(QWidget):
         self.coordinates_button.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
-        self.home_button = QPushButton("Home")
-        self.home_button.setMinimumHeight(40)
-        self.home_button.clicked.connect(self.home_clicked)
-        self.home_button.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-
         self.main_layout.addWidget(self.holder_widget)
 
         # --- Sección de Ganancias PID ---
@@ -130,7 +123,6 @@ class KinematicsWidget(QWidget):
         h = QHBoxLayout()
         h.addStretch()
         h.addWidget(self.coordinates_button)
-        h.addWidget(self.home_button)
         h.addStretch()
         self.main_layout.addLayout(h)
 

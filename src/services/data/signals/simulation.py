@@ -31,6 +31,10 @@ class SimulationSignalManager(_SignalManager):
     resume_simulation = pyqtSignal()
     stop_simulation = pyqtSignal()
     
+    update_robot_from_kinematics = pyqtSignal(list)
+    update_robot_from_sliders = pyqtSignal(list)
+    update_robot_from_simulation = pyqtSignal(list)
+    
     start_request = pyqtSignal()
     pause_request = pyqtSignal(bool)
     stop_request = pyqtSignal()

@@ -134,8 +134,9 @@ class GraphController(QObject):
         self._widget.resize_requested.connect(self._rearrange_plots)
 
         # Cambio de Tema visual
-        ThemeSignalManager.get_instance().theme_changed.connect(
-            self._widget.get_image_handler().update_theme)
+        theme_signal = ThemeSignalManager.get_instance()
+        theme_signal.theme_changed.connect(self._widget.get_image_handler().update_theme)
+        theme_signal.theme_changed.connect(self._cartesian_pid_plot.update_theme)
 
     @pyqtSlot(list)
     def _on_sim_data_received(self, data):

@@ -7,10 +7,11 @@ y la inicialización de ventanas de calibración.
 """
 
 from PyQt6.QtCore import pyqtSlot
+from src.services.data.enums.types import Modes
 from src.services.data.signals import (
     SearchSignalManager, ConfigSignalManager,
     SimulationSignalManager, PhysicalSignalManager,
-    SlidersSignalManager
+    SlidersSignalManager, KinematicsSignalManager
 )
 from src.services.data.utils import angulos_robotang
 
@@ -261,13 +262,14 @@ class MainActionsMixin:
             self.sliders_controller.get_widget().show()
             self.kinematics_controller.get_widget().set_vertical_layout()
             self.graph_controller.set_graph_mode(True)
+            SlidersSignalManager.get_instance().change_mode_signal.emit(Modes.SLIDERS)
 
             # Sincronización a HOME
             home = [0, 0, 0, 0, 0, 0]
             # 1. Sliders UI
             self.sliders_controller.set_external_values(home)
             # 2. 3D Model
-            SimulationSignalManager.get_instance().update_robot_signal.emit(home)
+            SimulationSignalManager.get_instance().update_robot_from_sliders.emit(home)
             # 3. Physical Robot
             if self.connected_to_robot:
                 robot_positions = list(angulos_robotang(*home))
@@ -294,6 +296,7 @@ class MainActionsMixin:
             self.kinematics_controller.get_widget().show()
             self.kinematics_controller.enter_kinematics_mode()
             self.graph_controller.set_graph_mode(False)
+            KinematicsSignalManager.get_instance().change_mode_signal.emit(Modes.KINEMATIC)
         else:
             self.kinematics_controller.get_widget().hide()
             self.kinematics_controller.exit_kinematics_mode()

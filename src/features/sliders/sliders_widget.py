@@ -40,7 +40,7 @@ class SlidersWidget(QWidget):
         ("θ3", -130, 130),
         ("θ4", -100, 100),
         ("θ5", -90, 120),
-        ("θ6", -100, 20),
+        ("θ6", -80, 20),
     ]
 
     def __init__(self, parent=None):

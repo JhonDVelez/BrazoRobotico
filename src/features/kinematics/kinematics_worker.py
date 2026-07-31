@@ -338,7 +338,6 @@ class KinematicsWorker(QThread):
                 D = d_cruda * self._kd
 
             v_control = P + I + D
-            print(f"valor de v_control: {v_control}")
             error_anterior = error_actual.copy()
 
             J_inv = self._calcular_pseudoinversa(q_actual_rad, self._links)
@@ -360,12 +359,6 @@ class KinematicsWorker(QThread):
             self.joint_update.emit(q_final)
             servo_positions = CartesianPidCompensator.angulos_robotang(
                 *q_final)
-
-            print(f"[PID] iter={i} "
-                  f"xyz={[round(v,2) for v in p_actual.tolist()]} "
-                  f"target={[round(v,2) for v in target.tolist()]} "
-                  f"err={[round(e,2) for e in error_actual.tolist()]} "
-                  f"servo={[round(s,1) for s in servo_positions]}")
 
             self._enviar_robot(servo_positions)
 

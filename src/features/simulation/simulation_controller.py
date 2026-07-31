@@ -14,9 +14,13 @@ Conexiones:
 from PyQt6.QtCore import pyqtSlot, QObject
 from src.services.simulation import PhysicsWorker
 from src.services.styling.theme_manger import ThemeSignalManager
-from src.services.data.signals import SimulationSignalManager, ConfigSignalManager
+from src.services.data.signals import (
+    SimulationSignalManager, ConfigSignalManager,
+    SlidersSignalManager, KinematicsSignalManager
+)
 from src.services.data.signals.pick_place import PickPlaceSignalManager
 from src.services.data.timers import GlobalTimer
+from src.services.data.enums import Modes
 from src.services.ui.notification_manager import NotificationManager
 from src.services.data.enums.types import NotificationType
 from src.features.simulation.simulation_worker import SimulationWorker
@@ -82,8 +86,22 @@ class SimulationController(QObject):
         self.theme_manager = ThemeSignalManager().get_instance()
         self.theme_manager.theme_changed.connect(self._apply_root_theme)
 
-        self.simulation_signal_manager.update_robot_signal.connect(
-            self.update_simulation)
+        # Gestion de prioridad de modo
+        self._active_source = Modes.SLIDERS
+        
+        SlidersSignalManager.get_instance().change_mode_signal.connect(
+            lambda mode: self._set_active_source(Modes.SLIDERS))
+        KinematicsSignalManager.get_instance().change_mode_signal.connect(
+            lambda mode: self._set_active_source(Modes.KINEMATIC))
+
+        # Escuchar señales especificas
+        self.simulation_signal_manager.update_robot_from_kinematics.connect(
+            self._update_from_kinematics)
+        self.simulation_signal_manager.update_robot_from_sliders.connect(
+            self._update_from_sliders)
+        self.simulation_signal_manager.update_robot_from_simulation.connect(
+            self._update_from_simulation)
+            
         self.simulation_signal_manager.sphere_pos_from_camera.connect(
             self.update_sphere_pose_from_camera)
         self.simulation_signal_manager.sphere_pos_from_pybullet.connect(
@@ -211,13 +229,27 @@ class SimulationController(QObject):
                     if config_key in keys:
                         self._root_object.setProperty(qml_prop, value)
 
+    def _set_active_source(self, mode):
+        self._active_source = mode
+
+    @pyqtSlot(list)
+    def _update_from_kinematics(self, joint_positions: list):
+        if self._active_source == Modes.KINEMATIC:
+            self.update_simulation(joint_positions)
+
+    @pyqtSlot(list)
+    def _update_from_sliders(self, joint_positions: list):
+        if self._active_source == Modes.SLIDERS:
+            self.update_simulation(joint_positions)
+
+    @pyqtSlot(list)
+    def _update_from_simulation(self, joint_positions: list):
+        self.update_simulation(joint_positions)
+
     @pyqtSlot(list)
     def update_simulation(self, joint_positions: list):
         """
         Slot para actualizar las posiciones de las articulaciones en el modelo 3D.
-
-        Args:
-            joint_positions (list): Lista de ángulos.
         """
         if self.simulation_worker is not None:
             self.simulation_worker.update_simulation(joint_positions)

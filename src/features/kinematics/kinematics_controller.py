@@ -29,6 +29,7 @@ from src.services.data.signals import (
     SlidersSignalManager, SimulationSignalManager
 )
 from src.services.data.enums import Modes
+from src.services.data.utils import robotang_angulos
 from .coordinate_correction import corregir_xy, corregir_z
 
 
@@ -49,6 +50,8 @@ class KinematicsController(QObject):
         self._robot_service = None
         self._graph_controller = None
         self._mode_active = False
+        self._last_emitted_angulos = None
+        self._last_processed_pos = None
         self.telemetry_timer = QTimer(self)
         self.telemetry_timer.timeout.connect(self._sync_visualization)
 
@@ -114,7 +117,7 @@ class KinematicsController(QObject):
 
         com = self._robot_service.get_com()
         self.kinematics_worker.send_home_direct(com)
-        self.telemetry_timer.start(30)
+        self.telemetry_timer.start(10)
 
     def exit_kinematics_mode(self):
         if not self._mode_active:
@@ -132,19 +135,36 @@ class KinematicsController(QObject):
         self._set_inputs_enabled(False)
 
     def _sync_visualization(self):
-        """Sincroniza el modelo 3D con la telemetría actual."""
+        """Sincroniza el modelo 3D con la telemetría actual (con conversión y filtrado de umbral)."""
         raw_pos = self.kinematics_worker._read_positions()
         
-        # Procesamiento: invertir motor 5 y 6 (índices 4 y 5), redondear a entero
+        # 1. Convertir de unidades de servo (0-300) a ángulos (°)
+        angulos = robotang_angulos(*raw_pos)
+        
+        # 2. Filtro: verificar si hubo cambios significativos (>= 1 grado)
+        if self._last_emitted_angulos is not None:
+            cambio_significativo = any(abs(new - old) >= 1.0 for new, old in zip(angulos, self._last_emitted_angulos))
+            
+            # Si no hubo cambios, re-emitir el último valor procesado para mantener la estabilidad
+            if not cambio_significativo:
+                if self._last_processed_pos is not None:
+                    SimulationSignalManager.get_instance().update_robot_from_kinematics.emit(self._last_processed_pos)
+                return
+
+        self._last_emitted_angulos = angulos
+        
+        # 3. Procesamiento: invertir motores 5 y 6 (índices 4 y 5) y redondear a entero
         processed_pos = []
-        for i, val in enumerate(raw_pos):
+        for i, val in enumerate(angulos):
             if i in [4, 5]: # Motores 5 y 6
                 processed_pos.append(int(round(-val)))
             else:
                 processed_pos.append(int(round(val)))
         
-        # Enviar procesado
-        SimulationSignalManager.get_instance().update_robot_signal.emit(processed_pos)
+        self._last_processed_pos = processed_pos
+        
+        # 4. Enviar procesado a la simulación
+        SimulationSignalManager.get_instance().update_robot_from_kinematics.emit(processed_pos)
 
     def execute_kinematics(self):
         if not self._mode_active:

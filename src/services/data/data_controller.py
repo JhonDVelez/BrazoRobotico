@@ -207,7 +207,7 @@ class DataController(QObject):
         """Procesa feedback de la simulación para el modelo 3D."""
         if self._mode != Modes.KINEMATIC:
             pos_deg = rad_to_deg(motor_positions)
-            self.sim_signals.update_robot_signal.emit(pos_deg)
+            self.sim_signals.update_robot_from_simulation.emit(pos_deg)
         self.sim_signals.sphere_pos_from_pybullet.emit(sphere_positions)
 
     @pyqtSlot(list, list)

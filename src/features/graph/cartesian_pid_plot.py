@@ -1,59 +1,27 @@
 """
-Modulo que define el widget de grafico cartesiano basado en matplotlib.
+Modulo que define el widget de grafico cartesiano basado en PyQtGraph.
 
-Proporciona la clase CartesianPIDPlot, un widget Qt que embebe una figura
-matplotlib con tres subplots (X, Y, Z) para visualizar la convergencia
-del control PID cartesiano en tiempo real, mostrando el valor real vs el
-objetivo (target) por iteracion.
-
-Estilo configurado para formato de tesis (fuente serif, colores sobrios,
-tamanos definidos).
+Proporciona la clase CartesianPIDPlot, un widget Qt que contiene tres
+subplots (X, Y, Z) de PyQtGraph para visualizar la convergencia del control
+PID cartesiano en tiempo real, mostrando el valor real vs el objetivo
+(target) por iteracion.
 """
 
-import matplotlib
-matplotlib.use("QtAgg")
-
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
-from matplotlib.backends.backend_qtagg import NavigationToolbar2QT
+import pyqtgraph as pg
 from PyQt6.QtWidgets import QWidget, QVBoxLayout
-
-plt.ioff()
+from PyQt6.QtCore import Qt
 
 # ==========================================================================
-# CONFIGURACION ESTETICA Y FORMATO PARA LA TESIS (MODIFICABLE)
+# CONFIGURACION ESTETICA Y FORMATO (MODIFICABLE)
 # ==========================================================================
-TAMANO_TITULO = 14
-TAMANO_ETIQUETAS_EJES = 11
-TAMANO_NUMEROS_EJES = 10
-TAMANO_LEYENDA = 10
-
-GROSOR_LINEA = 2.0
-TAMANO_MARCADOR = 4
-GROSOR_LINEA_TARGET = 1.5
-
 COLORES_REALES = ["#FF0000", "#026807", "#02488D"]
 COLORES_TARGET = ["#000000", "#000000", "#000000"]
-
-plt.rcParams.update({
-    "font.family": "serif",
-    "font.size": TAMANO_NUMEROS_EJES
-})
-
 ETIQUETAS = ["X", "Y", "Z"]
-TITULO_SUPERIOR = "PID eje X,Z y P eje Y — Seguimiento en Tiempo Real"
-
 
 class CartesianPIDPlot(QWidget):
     """
-    Widget que grafica la convergencia del PID cartesiano en tiempo real.
-
-    Mantiene tres subplots (X, Y, Z) con dos series cada uno:
-    - Linea solida con marcadores: posicion real del robot.
-    - Linea discontinua negra: posicion objetivo (target).
-
-    Se reinicia en cada nueva ejecucion de `execute_target`.
+    Widget que grafica la convergencia del PID cartesiano en tiempo real
+    utilizando PyQtGraph para alto rendimiento.
     """
 
     def __init__(self, parent=None):
@@ -62,90 +30,84 @@ class CartesianPIDPlot(QWidget):
         self._target_data = [[] for _ in range(3)]
         self._time_data = []
 
-        self._setup_figure()
-        self._setup_canvas()
+        self._setup_ui()
 
-    def _setup_figure(self):
-        self.figure, self.axes = plt.subplots(3, 1, figsize=(8, 10), sharex=True)
-        self.figure.suptitle(TITULO_SUPERIOR, fontsize=TAMANO_TITULO)
-        self._lines_reales = []
-        self._lines_targets = []
-
-        for i, ax in enumerate(self.axes):
-            line_real, = ax.plot(
-                [], [],
-                color=COLORES_REALES[i],
-                linewidth=GROSOR_LINEA,
-                marker="o",
-                linestyle="-",
-                markersize=TAMANO_MARCADOR,
-                label=f"{ETIQUETAS[i]} Real"
-            )
-            line_target, = ax.plot(
-                [], [],
-                color=COLORES_TARGET[i],
-                linestyle="--",
-                linewidth=GROSOR_LINEA_TARGET,
-                label=f"{ETIQUETAS[i]} Target"
-            )
-
-            ax.set_ylabel(f"{ETIQUETAS[i]} (mm)", fontsize=TAMANO_ETIQUETAS_EJES)
-            ax.tick_params(axis="both", labelsize=TAMANO_NUMEROS_EJES)
-            ax.grid(True, alpha=0.3)
-            ax.legend(loc="lower right", fontsize=TAMANO_LEYENDA)
-
-            self._lines_reales.append(line_real)
-            self._lines_targets.append(line_target)
-
-        self.axes[-1].set_xlabel("Tiempo (s)", fontsize=TAMANO_ETIQUETAS_EJES)
-        self.figure.tight_layout(rect=[0, 0, 1, 0.97])
-
-    def _setup_canvas(self):
-        self.canvas = FigureCanvasQTAgg(self.figure)
-        self.toolbar = NavigationToolbar2QT(self.canvas, self)
-
+    def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        layout.addWidget(self.toolbar)
-        layout.addWidget(self.canvas)
+        layout.setSpacing(5)
+
+        self.plots = []
+        self.real_lines = []
+        self.target_lines = []
+
+        for i in range(3):
+            plot = pg.PlotWidget()
+            plot.setBackground(None)
+            plot.showGrid(x=True, y=True, alpha=0.3)
+            plot.setLabel('left', ETIQUETAS[i], units='mm')
+            if i == 2:
+                plot.setLabel('bottom', 'Tiempo', units='s')
+            
+            # Crear las curvas
+            # Real: línea sólida con marcadores
+            pen_real = pg.mkPen(color=COLORES_REALES[i], width=2)
+            line_real = plot.plot(pen=pen_real, symbol='o', symbolSize=4, symbolBrush=COLORES_REALES[i])
+            
+            # Target: línea discontinua
+            line_target = plot.plot(pen=pg.mkPen(color=COLORES_TARGET[i], width=1.5, style=Qt.PenStyle.DashLine))
+            
+            layout.addWidget(plot)
+            self.plots.append(plot)
+            self.real_lines.append(line_real)
+            self.target_lines.append(line_target)
+
+    def update_theme(self, is_dark: bool):
+        """
+        Actualiza los colores de los gráficos según el tema (claro/oscuro).
+        """
+        bg_color = '#1e1e1e' if is_dark else '#ffffff'
+        text_color = '#ffffff' if is_dark else '#000000'
+        target_color = '#ffffff' if is_dark else '#000000'
+
+        for i in range(3):
+            self.plots[i].setBackground(bg_color)
+            
+            # Actualizar ejes
+            styles = {'color': text_color, 'font-size': '8pt'}
+            self.plots[i].getAxis('left').setLabel(ETIQUETAS[i], units='mm', **styles)
+            self.plots[i].getAxis('left').setPen(color=text_color)
+            self.plots[i].getAxis('left').setTextPen(color=text_color)
+            
+            if i == 2:
+                self.plots[i].getAxis('bottom').setLabel('Tiempo', units='s', **styles)
+                self.plots[i].getAxis('bottom').setPen(color=text_color)
+                self.plots[i].getAxis('bottom').setTextPen(color=text_color)
+                self.plots[i].getAxis('bottom').setHeight(60) # Aumentar altura reservada
+                self.plots[i].getAxis('bottom').setStyle(tickTextOffset=10) # Ajustar margen del texto
+            else:
+                self.plots[i].getAxis('bottom').setPen(color=text_color)
+                self.plots[i].getAxis('bottom').setTextPen(color=text_color)
+
+            # Actualizar linea target
+            self.target_lines[i].setPen(color=target_color, width=1.5, style=Qt.PenStyle.DashLine)
 
     def reset_plot(self, target_xyz):
         """
         Limpia los datos acumulados y prepara el grafico para un nuevo movimiento.
-
-        Args:
-            target_xyz (list): Coordenadas [x, y, z] del objetivo.
         """
         for i in range(3):
             self._real_data[i].clear()
             self._target_data[i].clear()
+            self.real_lines[i].setData([], [])
+            self.target_lines[i].setData([], [])
+            
         self._time_data.clear()
-
-        for i, ax in enumerate(self.axes):
-            self._lines_reales[i].set_data([], [])
-            self._lines_targets[i].set_data([], [])
-            ax.relim()
-            ax.autoscale_view()
-
-        self._target_xyz = list(target_xyz)
-        self._redraw()
 
     def append_data(self, time_s, actual_xyz, target_xyz):
         """
         Agrega un punto de datos y actualiza el grafico.
-        Skipea puntos duplicados para evitar grafica de escalones.
-
-        Args:
-            time_s (float): Tiempo transcurrido en segundos desde el inicio del PID.
-            actual_xyz (list): Posicion real [x, y, z] en mm.
-            target_xyz (list): Posicion objetivo [x, y, z] en mm.
         """
-        # if self._real_data[0]:
-        #     last = [self._real_data[i][-1] for i in range(3)]
-        #     if all(abs(actual_xyz[i] - last[i]) < 0.01 for i in range(3)):
-        #         return
-
         for i in range(3):
             self._real_data[i].append(actual_xyz[i])
             self._target_data[i].append(target_xyz[i])
@@ -154,21 +116,15 @@ class CartesianPIDPlot(QWidget):
         self._redraw()
 
     def _redraw(self):
-        n = len(self._real_data[0])
-        if n == 0:
+        if not self._time_data:
             return
 
         x_vals = self._time_data
-
-        for i, ax in enumerate(self.axes):
-            self._lines_reales[i].set_data(x_vals, self._real_data[i])
-            self._lines_targets[i].set_data(x_vals, self._target_data[i])
-
-            all_y = self._real_data[i] + self._target_data[i]
-            y_min, y_max = min(all_y), max(all_y)
-            margin = max((y_max - y_min) * 0.15, 5.0)
-            t_max = x_vals[-1] if x_vals else 2.0
-            ax.set_xlim(-0.1, max(t_max + 0.5, 2.0))
-            ax.set_ylim(y_min - margin, y_max + margin)
-
-        self.canvas.draw_idle()
+        
+        for i in range(3):
+            self.real_lines[i].setData(x_vals, self._real_data[i])
+            self.target_lines[i].setData(x_vals, self._target_data[i])
+            
+            # Auto-ajuste simple
+            self.plots[i].enableAutoRange(axis='y')
+            self.plots[i].enableAutoRange(axis='x')

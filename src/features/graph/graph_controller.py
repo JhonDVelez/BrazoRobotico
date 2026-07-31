@@ -55,6 +55,8 @@ class GraphController(QObject):
         self._kinematics_service = kinematics_worker
         self._cartesian_pid_plot = CartesianPIDPlot()
         self._widget.set_cartesian_pid_widget(self._cartesian_pid_plot)
+        
+        self._is_angular_mode = True
 
         # 5. Establecer conexiones reactivas
         self.__setup_connections()
@@ -193,6 +195,7 @@ class GraphController(QObject):
         self._cartesian_pid_plot.setVisible(not is_angular)
 
     def set_graph_mode(self, is_angular):
+        self._is_angular_mode = is_angular
         self._widget.set_graph_mode(is_angular)
 
     def reset_cartesian_plot(self):
@@ -208,8 +211,9 @@ class GraphController(QObject):
         self._angular_worker.set_paused(False)
 
         for p in self._angular_plots: p.set_paused(False)
-
-        self._on_mode_changed(self._widget.angular_radio.isChecked())
+        
+        # Usar el estado interno en lugar de consultar la UI
+        self._on_mode_changed(self._is_angular_mode)
 
     def pause(self):
         """

@@ -66,12 +66,6 @@ class KinematicsController(QObject):
     def __setup_connections(self):
         self.kinematics_widget.send_clicked.connect(
             self.execute_kinematics)
-        self.kinematics_widget.pause_clicked.connect(
-            self._on_pause)
-        self.kinematics_widget.resume_clicked.connect(
-            self._on_resume)
-        self.kinematics_widget.restart_clicked.connect(
-            self._on_restart)
 
         self.kinematics_worker.status_changed.connect(
             self._on_status_changed)
@@ -107,6 +101,7 @@ class KinematicsController(QObject):
             return
 
         self._mode_active = True
+        self.kinematics_worker.reset_state()
         KinematicsSignalManager.get_instance().change_mode_signal.emit(
             Modes.KINEMATIC)
 
@@ -190,6 +185,10 @@ class KinematicsController(QObject):
 
         self._set_inputs_enabled(False)
         self.kinematics_widget.set_control_state("running")
+        
+        # Asegurar que el worker no esté pausado antes de enviar la tarea
+        self.kinematics_worker.resume()
+        
         if self._graph_controller:
             self._graph_controller.reset_cartesian_plot()
         self.kinematics_worker.execute_target(tx, ty, tz)
@@ -219,16 +218,8 @@ class KinematicsController(QObject):
         if mode != Modes.KINEMATIC and self._mode_active:
             self.exit_kinematics_mode()
 
-    def _on_pause(self):
-        self.kinematics_worker.pause()
-        self.kinematics_widget.set_control_state("paused")
-
-    def _on_resume(self):
-        self.kinematics_worker.resume()
-        self.kinematics_widget.set_control_state("running")
-
     def _on_restart(self):
-        self.kinematics_worker.abort_pid()
+        self.kinematics_worker.reset_state()
         if self._graph_controller:
             self._graph_controller.reset_cartesian_plot()
         self.kinematics_worker.send_home()

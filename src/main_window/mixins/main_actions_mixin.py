@@ -47,8 +47,14 @@ class MainActionsMixin:
         self.camera_controller.show_controls()
         self.com_submenu.setEnabled(True)
 
+        if hasattr(self, 'kinematics_controller') and self.kinematics_controller and self.kinematics_controller._mode_active:
+            self.kinematics_controller.get_worker().resume()
+
         if self.connected_to_robot:
-            PhysicalSignalManager.get_instance().start_request.emit()
+            if self.stopped:
+                PhysicalSignalManager.get_instance().start_request.emit()
+            else:
+                PhysicalSignalManager.get_instance().resume_service.emit()
 
         self.graph_controller.start()
 
@@ -77,7 +83,10 @@ class MainActionsMixin:
 
         # El RobotController manejará la pausa si escucha el bus, o podemos enviar stop
         if self.connected_to_robot:
-            PhysicalSignalManager.get_instance().stop_request.emit()
+            PhysicalSignalManager.get_instance().pause_service.emit()
+
+        if hasattr(self, 'kinematics_controller') and self.kinematics_controller:
+            self.kinematics_controller.get_worker().pause()
 
         self.pause_action.setEnabled(False)
         self.pause_action.setChecked(True)
@@ -114,9 +123,12 @@ class MainActionsMixin:
 
     def reset(self):
         """
-        Reinicia los valores de los sliders a su posición central.
+        Reinicia los controles según el modo activo.
         """
-        self.sliders_controller.reset_controls()
+        if hasattr(self, 'kinematics_controller') and self.kinematics_controller and self.kinematics_controller._mode_active:
+            self.kinematics_controller._on_restart()
+        else:
+            self.sliders_controller.reset_controls()
 
     @pyqtSlot(bool)
     def toggle_visibility_camera_event(self, checked: bool):

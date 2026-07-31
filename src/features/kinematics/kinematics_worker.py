@@ -89,11 +89,14 @@ class KinematicsWorker(QThread):
         self._t_resume_pending = True
         self._pause_event.set()
 
+    def reset_state(self):
+        self._paused = False
+        self._pid_abort = False
+        self._pause_event.set()
+        self._t_resume_pending = False
+
     def abort_pid(self):
-        self._pid_abort = True
-        if self._paused:
-            self._paused = False
-            self._pause_event.set()
+        self.reset_state()
 
     # ------------------------------------------------------------------ #
     #                     CINEMATICA DIRECTA Y JACOBIANO                   #

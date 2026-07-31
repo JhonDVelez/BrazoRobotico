@@ -15,6 +15,7 @@ import re
 import time
 import queue
 import serial
+import threading
 from PyQt6.QtCore import QThread, pyqtSignal
 
 class RobotWorker(QThread):
@@ -47,6 +48,8 @@ class RobotWorker(QThread):
         self._send_queue = queue.Queue()
         self._running = True
         self._suspended = False
+        self._pause_event = threading.Event()
+        self._pause_event.set()
 
         # Intentar abrir el puerto serial
         try:
@@ -123,6 +126,7 @@ class RobotWorker(QThread):
         Extrae comandos de la cola y ejecuta la transaccion serial.
         """
         while self._running:
+            self._pause_event.wait()
             try:
                 valorm = self._send_queue.get(timeout=0.1)
             except queue.Empty:
@@ -327,3 +331,9 @@ class RobotWorker(QThread):
             print(f"Error reabriendo {self._com}: {e}")
             self._cm904 = None
             self.connection_status_changed.emit(False)
+
+    def pause_transmission(self):
+        self._pause_event.clear()
+
+    def resume_transmission(self):
+        self._pause_event.set()

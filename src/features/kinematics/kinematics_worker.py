@@ -72,8 +72,8 @@ class KinematicsWorker(QThread):
 
         self._com_port = None
         self._kp = np.array([1.5, 1.0, 1.38])
-        self._ki = np.array([0.9375, 0.0, 0.69])  
-        self._kd = np.array([0.06, 0.0, 0.069])   
+        self._ki = np.array([0.05, 0.05, 0.6])  
+        self._kd = np.array([0.01, 0.01, 0.04])   
 
     def set_pid_gains(self, kp, ki, kd):
         self._kp = np.array(kp, dtype=np.float64)
@@ -203,31 +203,27 @@ class KinematicsWorker(QThread):
                             temp_pos[idx] = float(pos_val)
 
                     with self._telemetry_lock:
+                        # Validacion de rango: filtrar valores fuera de rango fisico individualmente
                         for i in range(6):
                             if temp_pos[i] is not None and not (0 <= temp_pos[i] <= 300):
-                                temp_pos[i] = None
-                        if all(v is None for v in temp_pos):
+                                temp_pos[i] = self._last_valid[i]
+
+                        # Deteccion de tramas nulas / caidas de tension
+                        if all(v is not None and abs(v) < 0.001 for v in temp_pos[:4]):
                             continue
 
-                        if all(v is not None and abs(v) < 0.001
-                               for v in temp_pos[:4]):
-                            temp_pos = list(self._last_valid)
-                        else:
-                            trama_valida = True
-                            for i in range(6):
-                                if temp_pos[i] is not None:
-                                    diff = abs(
-                                        temp_pos[i] - self._last_valid[i])
-                                    if diff > 35.0:
-                                        congelado_count[i] += 1
-                                        if congelado_count[i] <= 4:
-                                            trama_valida = False
-                                    else:
-                                        congelado_count[i] = 0
+                        # Filtro anti-ruido electromagnetico con correccion individual
+                        for i in range(6):
+                            if temp_pos[i] is not None:
+                                diff = abs(temp_pos[i] - self._last_valid[i])
+                                if diff > 35.0:
+                                    congelado_count[i] += 1
+                                    if congelado_count[i] <= 4:
+                                        temp_pos[i] = self._last_valid[i]
+                                else:
+                                    congelado_count[i] = 0
 
-                            if not trama_valida:
-                                temp_pos = list(self._last_valid)
-
+                        # Actualizacion limpia de la telemetria
                         for i in range(6):
                             if temp_pos[i] is not None:
                                 self._current_pos[i] = temp_pos[i]

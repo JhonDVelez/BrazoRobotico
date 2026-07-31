@@ -261,6 +261,17 @@ class MainActionsMixin:
             self.sliders_controller.get_widget().show()
             self.kinematics_controller.get_widget().set_vertical_layout()
             self.graph_controller.set_graph_mode(True)
+
+            # Sincronización a HOME
+            home = [0, 0, 0, 0, 0, 0]
+            # 1. Sliders UI
+            self.sliders_controller.set_external_values(home)
+            # 2. 3D Model
+            SimulationSignalManager.get_instance().update_robot_signal.emit(home)
+            # 3. Physical Robot
+            if self.connected_to_robot:
+                robot_positions = list(angulos_robotang(*home))
+                PhysicalSignalManager.get_instance().send_to_robot.emit(robot_positions)
         else:
             self.sliders_controller.get_widget().hide()
             self.kinematics_controller.get_widget().set_horizontal_layout()

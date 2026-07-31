@@ -20,7 +20,7 @@ Flujo:
 """
 
 import numpy as np
-from PyQt6.QtCore import QObject, pyqtSlot
+from PyQt6.QtCore import QObject, pyqtSlot, QTimer
 from PyQt6.QtWidgets import QMessageBox
 from src.features.kinematics.kinematics_widget import KinematicsWidget
 from src.features.kinematics.kinematics_worker import KinematicsWorker
@@ -49,6 +49,8 @@ class KinematicsController(QObject):
         self._robot_service = None
         self._graph_controller = None
         self._mode_active = False
+        self.telemetry_timer = QTimer(self)
+        self.telemetry_timer.timeout.connect(self._sync_visualization)
 
         self.__setup_connections()
 
@@ -112,12 +114,14 @@ class KinematicsController(QObject):
 
         com = self._robot_service.get_com()
         self.kinematics_worker.send_home_direct(com)
+        self.telemetry_timer.start(30)
 
     def exit_kinematics_mode(self):
         if not self._mode_active:
             return
 
         self._mode_active = False
+        self.telemetry_timer.stop()
         self.kinematics_worker.stop()
 
         SimulationSignalManager.get_instance().resume_simulation.emit()
@@ -126,6 +130,21 @@ class KinematicsController(QObject):
             self._robot_service.resume_serial()
 
         self._set_inputs_enabled(False)
+
+    def _sync_visualization(self):
+        """Sincroniza el modelo 3D con la telemetría actual."""
+        raw_pos = self.kinematics_worker._read_positions()
+        
+        # Procesamiento: invertir motor 5 y 6 (índices 4 y 5), redondear a entero
+        processed_pos = []
+        for i, val in enumerate(raw_pos):
+            if i in [4, 5]: # Motores 5 y 6
+                processed_pos.append(int(round(-val)))
+            else:
+                processed_pos.append(int(round(val)))
+        
+        # Enviar procesado
+        SimulationSignalManager.get_instance().update_robot_signal.emit(processed_pos)
 
     def execute_kinematics(self):
         if not self._mode_active:

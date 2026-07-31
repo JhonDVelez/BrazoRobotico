@@ -34,8 +34,8 @@ class KinematicsWidget(QWidget):
 
     # Valores por defecto de las ganancias PID
     DEFAULT_KP = [1.5, 1.0, 1.38]
-    DEFAULT_KI = [0.9375, 0.0, 0.69]
-    DEFAULT_KD = [0.06, 0.0, 0.069]
+    DEFAULT_KI = [0.05, 0.05, 0.6]
+    DEFAULT_KD = [0.01, 0.01, 0.04]
 
     def __init__(self, parent=None):
         super().__init__(parent)

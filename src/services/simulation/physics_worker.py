@@ -41,7 +41,7 @@ class PhysicsWorker(QThread):
         self.timer = None
         self._running = False
         self._paused = False
-        self.max_velocity = 1.2
+        self.max_velocity = 1.5
 
         self.physic = RobotArmPhysics()
         self.physic.load_models(robot_id)
@@ -58,7 +58,7 @@ class PhysicsWorker(QThread):
         else:
             print("La velocidad máxima debe ser mayor a 0, "
                   "usando la velocidad máxima por defecto: 1 rad/s")
-            self.max_velocity = 1.2
+            self.max_velocity = 1.5
 
     def run(self):
         """Ciclo principal del subproceso.

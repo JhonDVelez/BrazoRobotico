@@ -253,10 +253,10 @@ class RobotWorker(QThread):
                 temp_pos[idx] = float(position_value)
                 temperatures[idx] = int(temperature_value)
 
-        # Validacion de rango: rechazar tramas con valores fuera de rango fisico
+        # Validacion de rango: filtrar valores fuera de rango fisico individualmente
         for i in range(6):
             if temp_pos[i] is not None and not (0 <= temp_pos[i] <= 300):
-                return None
+                temp_pos[i] = self._last_valid_positions[i]
             if temperatures[i] is not None and not (0 <= temperatures[i] <= 100):
                 temperatures[i] = None
 
@@ -264,20 +264,16 @@ class RobotWorker(QThread):
         if all(v is not None and abs(v) < 0.001 for v in temp_pos[:4]):
             return None
 
-        # Filtro anti-ruido electromagnetico con escape de seguridad
-        trama_valida = True
+        # Filtro anti-ruido electromagnetico con correccion individual
         for i in range(6):
             if temp_pos[i] is not None:
                 diff = abs(temp_pos[i] - self._last_valid_positions[i])
                 if diff > 35.0:
                     self._jump_freeze_count[i] += 1
                     if self._jump_freeze_count[i] <= 4:
-                        trama_valida = False
+                        temp_pos[i] = self._last_valid_positions[i]
                 else:
                     self._jump_freeze_count[i] = 0
-
-        if not trama_valida:
-            return None
 
         # Actualizacion limpia de la telemetria
         positions = list(self._last_valid_positions)

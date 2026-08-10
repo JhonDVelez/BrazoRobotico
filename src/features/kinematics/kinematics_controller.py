@@ -47,6 +47,7 @@ class KinematicsController(QObject):
         super().__init__()
         self.kinematics_widget = KinematicsWidget(parent)
         self.kinematics_worker = KinematicsWorker()
+        self._claw_mm = 30 # Valor inicial persistente
         self._robot_service = None
         self._graph_controller = None
         self._mode_active = False
@@ -66,6 +67,8 @@ class KinematicsController(QObject):
     def __setup_connections(self):
         self.kinematics_widget.send_clicked.connect(
             self.execute_kinematics)
+        self.kinematics_widget.claw_changed.connect(
+            self._on_claw_changed)
 
         self.kinematics_worker.status_changed.connect(
             self._on_status_changed)
@@ -102,6 +105,10 @@ class KinematicsController(QObject):
 
         self._mode_active = True
         self.kinematics_worker.reset_state()
+        
+        # Sincronizar valor persistente
+        self.kinematics_worker.set_claw_value(self._claw_mm)
+        
         KinematicsSignalManager.get_instance().change_mode_signal.emit(
             Modes.KINEMATIC)
 
@@ -193,6 +200,12 @@ class KinematicsController(QObject):
             self._graph_controller.reset_cartesian_plot()
         self.kinematics_worker.execute_target(tx, ty, tz)
 
+    @pyqtSlot(int)
+    def _on_claw_changed(self, value):
+        self._claw_mm = value
+        if self._mode_active:
+            self.kinematics_worker.set_claw_value(value)
+
     @pyqtSlot(str)
     def _on_status_changed(self, message):
         print(f"[Cinematica] {message}")
@@ -219,12 +232,24 @@ class KinematicsController(QObject):
             self.exit_kinematics_mode()
 
     def _on_restart(self):
+        # 1. Bloquear inputs inmediatamente
+        self._set_inputs_enabled(False)
+        self.kinematics_widget.set_control_state("homing")
+        
+        # Resetear valor de garra
+        self._claw_mm = 30
+        self.kinematics_widget.reset_claw_value()
+        
+        # 2. Resetear el worker (abortar PID y limpiar cola)
         self.kinematics_worker.reset_state()
+        self.kinematics_worker.resume()
+        
+        # 3. Resetear gráfica
         if self._graph_controller:
             self._graph_controller.reset_cartesian_plot()
+            
+        # 4. Enviar HOME (la señal input_enabled del worker re-habilitará la UI)
         self.kinematics_worker.send_home()
-        self.kinematics_widget.set_control_state("idle")
-        self._set_inputs_enabled(True)
 
     def _set_inputs_enabled(self, enabled):
         self.kinematics_widget.coordinates_button.setEnabled(enabled)

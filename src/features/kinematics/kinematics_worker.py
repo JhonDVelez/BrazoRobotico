@@ -72,8 +72,17 @@ class KinematicsWorker(QThread):
 
         self._com_port = None
         self._kp = np.array([1.5, 1.0, 1.38])
-        self._ki = np.array([0.05, 0.05, 0.6])  
-        self._kd = np.array([0.01, 0.01, 0.04])   
+        self._ki = np.array([0.25, 0.1, 0.6])  
+        self._kd = np.array([0.02, 0.01, 0.04])   
+
+        self._claw_mm = 30 # Valor por defecto
+        self._last_sent_claw_angle = -999 # Valor inicial para forzar envío
+        self._last_commanded_angles = None # Caché de posiciones enviadas
+        self._claw_lock = threading.Lock()
+
+    def set_claw_value(self, value):
+        with self._claw_lock:
+            self._claw_mm = value
 
     def set_pid_gains(self, kp, ki, kd):
         self._kp = np.array(kp, dtype=np.float64)
@@ -91,7 +100,10 @@ class KinematicsWorker(QThread):
 
     def reset_state(self):
         self._paused = False
-        self._pid_abort = False
+        self._pid_abort = True  # Asegura la salida del bucle PID
+        # Vaciar la cola de tareas para descartar objetivos previos
+        with self._work_queue.mutex:
+            self._work_queue.queue.clear()
         self._pause_event.set()
         self._t_resume_pending = False
 
@@ -250,6 +262,7 @@ class KinematicsWorker(QThread):
 
     def _pid_control_loop(self, target_xyz, limites_deg,
                           max_iter=3000, tolerancias=None, t_start=None):
+        from .coordinate_correction import apertura_de_garra
         TS = 0.08
 
         if tolerancias is None:
@@ -293,7 +306,9 @@ class KinematicsWorker(QThread):
 
             if i > 0 and np.allclose(p_actual, p_anterior, atol=0.1):
                 q_deg = np.degrees(q_actual_rad)
-                self.joint_update.emit([q_deg[0], q_deg[1], q_deg[2], 0, q_deg[3], -80])
+                with self._claw_lock:
+                    angulo_garra = apertura_de_garra(self._claw_mm)
+                self.joint_update.emit([q_deg[0], q_deg[1], q_deg[2], 0, q_deg[3], angulo_garra])
                 self.pid_iteration.emit(
                     round(time.time() - t_start, 4), p_actual.tolist(), target.tolist())
                 t_anterior = time.time()  # Sincroniza el tiempo antes de saltar la iteración
@@ -357,9 +372,14 @@ class KinematicsWorker(QThread):
                 q_actual_rad + dq, limites_deg)
             q_next_rad[0] = math.atan2(target[1], target[0])
             q_out_deg = np.degrees(q_next_rad)
+            
+            with self._claw_lock:
+                angulo_garra = apertura_de_garra(self._claw_mm)
+            
             q_final = [q_out_deg[0], q_out_deg[1], q_out_deg[2],
-                       0, q_out_deg[3], -80]
+                       0, q_out_deg[3], angulo_garra]
             self.joint_update.emit(q_final)
+            self._last_commanded_angles = q_final # Actualizar caché
             servo_positions = CartesianPidCompensator.angulos_robotang(
                 *q_final)
 
@@ -456,28 +476,64 @@ class KinematicsWorker(QThread):
         time.sleep(1)
 
         self.status_changed.emit("Moviendo a HOME...")
+        
+        from .coordinate_correction import apertura_de_garra
+        with self._claw_lock:
+            angulo_garra = apertura_de_garra(self._claw_mm)
+            
         home_servos = CartesianPidCompensator.angulos_robotang(
-            0, -45, 120, 0, 30, 0)
+            0, -45, 120, 0, 30, angulo_garra)
         self._enviar_robot(home_servos)
-        self.joint_update.emit([0, -45, 120, 0, 30, 0])
+        self.joint_update.emit([0, -45, 120, 0, 30, angulo_garra])
         time.sleep(2.5)
 
         self.input_enabled.emit()
 
+        # Bucle de espera / actualización manual fuera de PID
+        from .coordinate_correction import apertura_de_garra
+
         while self._running:
+            # Intentar obtener trabajo de la cola
             try:
-                work = self._work_queue.get(timeout=0.1)
+                work = self._work_queue.get(timeout=0.01)
             except queue.Empty:
+                # Actualización de garra fuera de PID
+                raw_pos = self._read_positions()
+                q_reales_deg = np.array(
+                    CartesianPidCompensator.robotang_angulos(
+                        *raw_pos))
+                
+                # Inicializar caché si es None (primera vez que entra al bucle)
+                if self._last_commanded_angles is None:
+                    self._last_commanded_angles = q_reales_deg.tolist()
+                
+                with self._claw_lock:
+                    angulo_garra = apertura_de_garra(self._claw_mm)
+                    
+                # Actualizar garra en el caché
+                self._last_commanded_angles[5] = angulo_garra
+                    
+                self.joint_update.emit(self._last_commanded_angles)
+
+                # Enviar físicamente al robot si cambió significativamente
+                if abs(angulo_garra - self._last_sent_claw_angle) > 1.0:
+                    servo_positions = CartesianPidCompensator.angulos_robotang(*self._last_commanded_angles)
+                    self._enviar_robot(servo_positions)
+                    self._last_sent_claw_angle = angulo_garra
                 continue
 
+            # Procesar el trabajo
             if work[0] == 'execute_target':
                 _, tx, ty, tz = work
                 self._run_pid_sequence(tx, ty, tz)
             elif work[0] == 'send_home':
-                home_servos = CartesianPidCompensator.angulos_robotang(
-                    0, -45, 120, 0, 30, 0)
+                home_pos = [0, -45, 120, 0, 30, 0]
+                home_servos = CartesianPidCompensator.angulos_robotang(*home_pos)
                 self._enviar_robot(home_servos)
-                self.joint_update.emit([0, -45, 120, 0, 30, 0])
+                self.joint_update.emit(home_pos)
+                self._last_commanded_angles = home_pos
+                # Emitir señal para re-habilitar inputs tras el reinicio
+                self.input_enabled.emit()
             elif work[0] == 'stop':
                 break
 

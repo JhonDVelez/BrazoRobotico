@@ -46,15 +46,18 @@ class CartesianPIDPlot(QWidget):
             plot.setBackground(None)
             plot.showGrid(x=True, y=True, alpha=0.3)
             plot.setLabel('left', ETIQUETAS[i], units='mm')
+
+            # Asignar un margen inferior mayor al gráfico Z (i == 2) para que quepa la etiqueta
+            bottom_margin = 10 if i == 2 else 5
+            plot.getPlotItem().layout.setContentsMargins(10, 5, 10, bottom_margin)
+
             if i == 2:
                 plot.setLabel('bottom', 'Tiempo', units='s')
-            
+
             # Crear las curvas
-            # Real: línea sólida con marcadores
             pen_real = pg.mkPen(color=COLORES_REALES[i], width=2)
             line_real = plot.plot(pen=pen_real, symbol='o', symbolSize=4, symbolBrush=COLORES_REALES[i])
             
-            # Target: línea discontinua
             line_target = plot.plot(pen=pg.mkPen(color=COLORES_TARGET[i], width=1.5, style=Qt.PenStyle.DashLine))
             
             layout.addWidget(plot)
@@ -73,23 +76,20 @@ class CartesianPIDPlot(QWidget):
         for i in range(3):
             self.plots[i].setBackground(bg_color)
             
-            # Actualizar ejes
+            # Actualizar eje izquierdo (Y)
             styles = {'color': text_color, 'font-size': '8pt'}
             self.plots[i].getAxis('left').setLabel(ETIQUETAS[i], units='mm', **styles)
             self.plots[i].getAxis('left').setPen(color=text_color)
             self.plots[i].getAxis('left').setTextPen(color=text_color)
             
+            # Actualizar eje inferior (X)
+            self.plots[i].getAxis('bottom').setPen(color=text_color)
+            self.plots[i].getAxis('bottom').setTextPen(color=text_color)
+
             if i == 2:
                 self.plots[i].getAxis('bottom').setLabel('Tiempo', units='s', **styles)
-                self.plots[i].getAxis('bottom').setPen(color=text_color)
-                self.plots[i].getAxis('bottom').setTextPen(color=text_color)
-                self.plots[i].getAxis('bottom').setHeight(60) # Aumentar altura reservada
-                self.plots[i].getAxis('bottom').setStyle(tickTextOffset=10) # Ajustar margen del texto
-            else:
-                self.plots[i].getAxis('bottom').setPen(color=text_color)
-                self.plots[i].getAxis('bottom').setTextPen(color=text_color)
 
-            # Actualizar linea target
+            # Actualizar línea target
             self.target_lines[i].setPen(color=target_color, width=1.5, style=Qt.PenStyle.DashLine)
 
     def reset_plot(self, target_xyz):

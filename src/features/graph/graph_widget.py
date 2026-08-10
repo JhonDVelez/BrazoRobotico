@@ -90,7 +90,7 @@ class GraphWidget(QWidget):
         self.cartesian_container = QWidget()
         self.cartesian_container.setObjectName("cartesian_container")
         self.cartesian_layout = QGridLayout(self.cartesian_container)
-        self.cartesian_layout.setContentsMargins(0, 0, 0, 0)
+        self.cartesian_layout.setContentsMargins(0, 0, 0, 10)
         self.cartesian_layout.setSpacing(0)
 
         self.stacked_widget.addWidget(self.angular_container)

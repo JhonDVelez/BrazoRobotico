@@ -12,10 +12,9 @@ Conexiones:
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
-    QLabel, QSpinBox, QDoubleSpinBox, QPushButton, QSizePolicy
+    QLabel, QSpinBox, QDoubleSpinBox, QPushButton, QSizePolicy, QSlider
 )
 from PyQt6.QtCore import QSize, pyqtSignal, Qt
-
 
 class KinematicsWidget(QWidget):
     """
@@ -23,17 +22,20 @@ class KinematicsWidget(QWidget):
 
     Organiza campos de entrada numérica (QSpinBox / QDoubleSpinBox) y permite
     la alternancia entre disposiciones verticales y horizontales.
+    Añade slider para control de apertura de garra.
 
     Attributes:
         send_clicked (pyqtSignal): Emite al presionar el boton 'Enviar'.
+        claw_changed (pyqtSignal(int)): Emite al mover el slider de la garra.
     """
     send_clicked = pyqtSignal()
+    claw_changed = pyqtSignal(int)
 
 
     # Valores por defecto de las ganancias PID
     DEFAULT_KP = [1.5, 1.0, 1.38]
-    DEFAULT_KI = [0.05, 0.05, 0.6]
-    DEFAULT_KD = [0.01, 0.01, 0.04]
+    DEFAULT_KI = [0.25, 0.1, 0.6]
+    DEFAULT_KD = [0.02, 0.01, 0.04]
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -45,6 +47,32 @@ class KinematicsWidget(QWidget):
         self.main_layout.setObjectName("verticalLayout")
         self.main_layout.setContentsMargins(0, 0, 0, 0)
 
+        # --- Slider Garra ---
+        self.claw_slider = QSlider(Qt.Orientation.Horizontal)
+        self.claw_slider.setRange(10, 110)
+        self.claw_slider.setValue(30) # Valor inicial
+        self.claw_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.claw_slider.setTickInterval(10)
+        self.claw_slider.setSizePolicy(QSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed))
+        self.claw_slider.setFixedHeight(30)
+        self.claw_slider.setMinimumWidth(150)
+        
+        self.claw_spinbox = QSpinBox()
+        self.claw_spinbox.setRange(10, 110)
+        self.claw_spinbox.setValue(30) # Valor inicial
+        self.claw_spinbox.setFixedWidth(60)
+        self.claw_spinbox.setFixedHeight(30)
+        
+        self.claw_slider.valueChanged.connect(self._on_slider_changed)
+        self.claw_spinbox.valueChanged.connect(self._on_spinbox_changed)
+        
+        claw_layout = QHBoxLayout()
+        claw_layout.addWidget(QLabel("Apertura Garra (mm):"))
+        claw_layout.addWidget(self.claw_slider)
+        claw_layout.addWidget(self.claw_spinbox)
+        self.main_layout.addLayout(claw_layout)
+
         self.holder_widget = QWidget(self)
         self.container = QGridLayout(self.holder_widget)
         self.container.setObjectName("gridLayout")
@@ -52,7 +80,7 @@ class KinematicsWidget(QWidget):
         self._labels = {}
         self._spins = {}
 
-        axes_config = [("X", 0, 150), ("Y", -180, 180), ("Z", 0, 250)]
+        axes_config = [("X", 0, 150), ("Y", -180, 180), ("Z", 15, 200)]
         self._keys = ["x", "y", "z"]
 
         for i, (text, s_min, s_max) in enumerate(axes_config):
@@ -165,7 +193,7 @@ class KinematicsWidget(QWidget):
         }
 
     def set_inputs_enabled(self, enabled):
-        """Habilita o deshabilita todos los campos de entrada.
+        """Habilita o deshabilita todos los campos de entrada y el slider.
 
         Util para bloquear la UI durante movimientos del robot.
 
@@ -177,6 +205,28 @@ class KinematicsWidget(QWidget):
         for gain_spins in self._pid_spins.values():
             for spin in gain_spins.values():
                 spin.setEnabled(enabled)
+        self.claw_slider.setEnabled(enabled)
+        self.claw_spinbox.setEnabled(enabled)
+    
+    def _on_slider_changed(self, value):
+        self.claw_spinbox.blockSignals(True)
+        self.claw_spinbox.setValue(value)
+        self.claw_spinbox.blockSignals(False)
+        self.claw_changed.emit(value)
+
+    def _on_spinbox_changed(self, value):
+        self.claw_slider.blockSignals(True)
+        self.claw_slider.setValue(value)
+        self.claw_slider.blockSignals(False)
+        self.claw_changed.emit(value)
+
+    def get_claw_value(self):
+        """Obtiene el valor actual de la apertura de la garra."""
+        return self.claw_spinbox.value()
+
+    def reset_claw_value(self):
+        """Restablece el slider y spinbox al valor inicial de 30mm."""
+        self.claw_slider.setValue(30)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

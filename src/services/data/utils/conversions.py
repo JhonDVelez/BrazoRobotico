@@ -64,3 +64,18 @@ def robotang_angulos(q1, q2, q3, q4, q5, q6):
         list: Ángulos articulares en el espacio del usuario.
     """
     return [q1 - 150, 150 - q2, 150 - q3, q4 - 150, q5 - 150, q6 - 150]
+
+
+def process_robot_positions_for_viz(raw_pos):
+    """Procesa posiciones crudas del robot para la visualización 3D."""
+    # 1. Convertir de unidades de servo (0-300) a ángulos (°)
+    angulos = robotang_angulos(*raw_pos)
+    
+    # 2. Procesamiento: invertir motores 5 y 6 (índices 4 y 5) y redondear a entero
+    processed_pos = []
+    for i, val in enumerate(angulos):
+        if i in [4, 5]: # Motores 5 y 6
+            processed_pos.append(float(-val))
+        else:
+            processed_pos.append(float(val))
+    return processed_pos

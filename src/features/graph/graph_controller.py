@@ -126,7 +126,8 @@ class GraphController(QObject):
         phy_mgr.data_received.connect(self._on_phy_data_received)
 
         # Kinematics Worker -> Cartesian PID Plot
-        self._kinematics_service.pid_iteration.connect(self._on_pid_iteration)
+        if self._kinematics_service:
+            self._kinematics_service.pid_iteration.connect(self._on_pid_iteration)
 
         # Workers -> Plot Controllers (Angular)
         self._angular_worker.channel_updated.connect(self._update_angular_plot)
@@ -178,11 +179,27 @@ class GraphController(QObject):
             self._angular_plots[idx].update_buffers(
                 y_sim, y_phy, temp, w_idx, full, x)
 
+    def set_kinematics_worker(self, kinematics_worker):
+        if self._kinematics_service:
+            try:
+                self._kinematics_service.pid_iteration.disconnect(self._on_pid_iteration)
+            except Exception:
+                pass
+        self._kinematics_service = kinematics_worker
+        if self._kinematics_service:
+            self._kinematics_service.pid_iteration.connect(self._on_pid_iteration)
+
     @pyqtSlot(float, list, list)
     def _on_pid_iteration(self, time_s, actual_xyz, target_xyz):
         actual_adj = [actual_xyz[0] - 110, actual_xyz[1], actual_xyz[2]]
         target_adj = [target_xyz[0] - 110, target_xyz[1], target_xyz[2]]
         self._cartesian_pid_plot.append_data(time_s, actual_adj, target_adj)
+
+    def plot_data(self, target, actual):
+        """Método wrapper para compatibilidad."""
+        # Asumiendo un timestamp arbitrario si no se recibe
+        import time
+        self._on_pid_iteration(time.time(), actual, target)
 
     def _on_mode_changed(self, is_angular):
         """

@@ -7,13 +7,16 @@ y la inicialización de ventanas de calibración.
 """
 
 from PyQt6.QtCore import pyqtSlot
+from src.services.robot.serial_manager import SerialPortManager
 from src.services.data.enums.types import Modes
 from src.services.data.signals import (
     SearchSignalManager, ConfigSignalManager,
     SimulationSignalManager, PhysicalSignalManager,
     SlidersSignalManager, KinematicsSignalManager
 )
-from src.services.data.utils import angulos_robotang
+# from src.services.data.utils import angulos_robotang
+from src.services.data.enums.types import NotificationType
+from src.services.ui.notification_manager import NotificationManager
 
 
 class MainActionsMixin:
@@ -50,6 +53,9 @@ class MainActionsMixin:
         if hasattr(self, 'kinematics_controller') and self.kinematics_controller and self.kinematics_controller._mode_active:
             self.kinematics_controller.get_worker().resume()
 
+        if hasattr(self, 'pick_and_place_controller') and self.pick_and_place_controller:
+            self.pick_and_place_controller.resume()
+
         if self.connected_to_robot:
             if self.stopped:
                 PhysicalSignalManager.get_instance().start_request.emit()
@@ -69,15 +75,12 @@ class MainActionsMixin:
 
     def pause(self):
         """
-        Pausa la simulación, cámara y gráficos.
+        Pausa la simulación y gráficos (la cámara sigue activa).
 
         Detiene el servicio del robot si está conectado.
         Habilita el botón de inicio y deshabilita pausa.
         """
         SimulationSignalManager.get_instance().pause_request.emit(True)
-
-        self.camera_controller.pause_video()
-        self.camera_paused = True
 
         self.graph_controller.pause()
 
@@ -87,6 +90,9 @@ class MainActionsMixin:
 
         if hasattr(self, 'kinematics_controller') and self.kinematics_controller:
             self.kinematics_controller.get_worker().pause()
+
+        if hasattr(self, 'pick_and_place_controller') and self.pick_and_place_controller:
+            self.pick_and_place_controller.pause()
 
         self.pause_action.setEnabled(False)
         self.pause_action.setChecked(True)
@@ -121,14 +127,38 @@ class MainActionsMixin:
 
         self.stopped = True
 
+    def _perform_system_reset(self):
+        """
+        Metodo auxiliar para resetear componentes de forma unificada.
+        """
+        if hasattr(self, 'kinematics_controller') and self.kinematics_controller:
+             self.kinematics_controller.kinematics_worker.reset_state()
+        if hasattr(self, 'pick_and_place_controller') and self.pick_and_place_controller:
+            self.pick_and_place_controller.stop_and_reset()
+            
+        if hasattr(self, 'graph_controller') and self.graph_controller:
+            self.graph_controller.reset_cartesian_plot()
+
     def reset(self):
         """
         Reinicia los controles según el modo activo.
         """
+        # 1. Reset Cinemática
         if hasattr(self, 'kinematics_controller') and self.kinematics_controller and self.kinematics_controller._mode_active:
             self.kinematics_controller._on_restart()
+            
+        # 2. Reset Pick and Place
+        elif hasattr(self, 'pick_and_place_controller') and self.pick_and_place_controller and self.pick_and_place_controller.signal_manager.get_state():
+            self.pick_and_place_controller.stop_and_reset()
+            if hasattr(self, 'graph_controller') and self.graph_controller:
+                self.graph_controller.reset_cartesian_plot()
+            
+        # 3. Reset Sliders (modo por defecto)
         else:
             self.sliders_controller.reset_controls()
+            if hasattr(self, 'graph_controller') and self.graph_controller:
+                self.graph_controller.reset_cartesian_plot()
+
 
     @pyqtSlot(bool)
     def toggle_visibility_camera_event(self, checked: bool):
@@ -271,6 +301,18 @@ class MainActionsMixin:
             checked (bool): True para mostrar sliders.
         """
         if checked:
+            # Reseteamos otros modos antes de activar sliders
+            if hasattr(self, 'kinematics_controller') and self.kinematics_controller:
+                self.kinematics_controller.exit_kinematics_mode()
+                SerialPortManager.get_instance().release_access("KinematicsWorker")
+            if hasattr(self, 'pick_and_place_controller') and self.pick_and_place_controller:
+                self.pick_and_place_controller.stop_and_reset()
+                SerialPortManager.get_instance().release_access("PickAndPlaceWorker")
+            
+            # Reanudar RobotWorker si está conectado
+            if self.connected_to_robot and hasattr(self, 'robot_service'):
+                self.robot_service.resume_serial()
+
             self.sliders_controller.get_widget().show()
             self.kinematics_controller.get_widget().set_vertical_layout()
             self.graph_controller.set_graph_mode(True)
@@ -284,11 +326,11 @@ class MainActionsMixin:
             SimulationSignalManager.get_instance().update_robot_from_sliders.emit(home)
             # 3. Physical Robot
             if self.connected_to_robot:
-                robot_positions = list(angulos_robotang(*home))
-                PhysicalSignalManager.get_instance().send_to_robot.emit(robot_positions)
+                PhysicalSignalManager.get_instance().update_target_signal.emit(home)
         else:
             self.sliders_controller.get_widget().hide()
             self.kinematics_controller.get_widget().set_horizontal_layout()
+            # No liberamos RobotWorker aquí, ya que los sliders podrían seguir necesitándolo
         ConfigSignalManager.get_instance().request_change(
             'settings.json', ["mode", 'sliders'], checked)
 
@@ -305,6 +347,11 @@ class MainActionsMixin:
             checked (bool): True para mostrar cinematica.
         """
         if checked:
+            # Reseteamos otros modos antes de activar cinemática
+            self._perform_system_reset()
+            SerialPortManager.get_instance().release_access("RobotWorker")
+            SerialPortManager.get_instance().release_access("PickAndPlaceWorker")
+            
             self.kinematics_controller.get_widget().show()
             self.kinematics_controller.enter_kinematics_mode()
             self.graph_controller.set_graph_mode(False)
@@ -312,6 +359,7 @@ class MainActionsMixin:
         else:
             self.kinematics_controller.get_widget().hide()
             self.kinematics_controller.exit_kinematics_mode()
+            SerialPortManager.get_instance().release_access("KinematicsWorker")
         ConfigSignalManager.get_instance().request_change(
             'settings.json', ["mode", 'kinematics'], checked)
 
@@ -322,14 +370,30 @@ class MainActionsMixin:
         Args:
             checked (bool): True para mostrar el panel de controles
         """
+        if checked and not self.connected_to_robot:
+            NotificationManager.get_instance().notify(
+                "Para usar el modo Pick and Place debe conectar el robot previamente desde el menú Robot > Puerto.",
+                NotificationType.DIALOG_WARNING
+            )
+            return
+
+        if checked:
+            # Reseteamos otros modos antes de activar pick and place
+            self._perform_system_reset()
+            SerialPortManager.get_instance().release_access("RobotWorker")
+            SerialPortManager.get_instance().release_access("KinematicsWorker")
+            
         from src.services.data.signals import PickPlaceSignalManager
         PickPlaceSignalManager.get_instance().set_state(checked)
 
-        self.toggle_visibility_controls_event(not checked)
-        self.controls_action.setChecked(not checked)
-        self.controls_action.setEnabled(not checked)
+        if not checked:
+            SerialPortManager.get_instance().release_access("PickAndPlaceWorker")
+
+        # Ya no forzamos la ocultación del panel de controles aquí.
+        # El controlador P&P se encarga de ajustar el contenido (PID only).
         ConfigSignalManager.get_instance().request_change(
             'settings.json', ["mode", 'pick_place'], checked)
+
 
     def connect_robot(self):
         """
@@ -345,5 +409,4 @@ class MainActionsMixin:
 
         home = [0, 0, 0, 0, 0, 0]
         self.sliders_controller.set_external_values(home)
-        robot_positions = list(angulos_robotang(*home))
-        PhysicalSignalManager.get_instance().send_to_robot.emit(robot_positions)
+        PhysicalSignalManager.get_instance().update_target_signal.emit(home)

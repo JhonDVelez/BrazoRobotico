@@ -96,9 +96,14 @@ class MainWindow(FramelessMainWindow, MainInitMixin, MainActionsMixin, MainMenuM
         self.create_status_bar()
         self.init_camera()
         self.init_controls()
+        
         self.init_tool_bar()
         self.init_simulation()
         self.init_graphics()
+        
+        # Link kinematics to P&P
+        self.pick_and_place_controller.set_kinematics_controller(self.kinematics_controller, self.graph_controller)
+        
         self.setup_connections()
 
         # Añadir toolbar de acciones

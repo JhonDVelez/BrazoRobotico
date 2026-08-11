@@ -20,7 +20,7 @@ Flujo:
 """
 
 import numpy as np
-from PyQt6.QtCore import QObject, pyqtSlot, QTimer
+from PyQt6.QtCore import QObject, pyqtSlot, QTimer, QThread
 from PyQt6.QtWidgets import QMessageBox
 from src.features.kinematics.kinematics_widget import KinematicsWidget
 from src.features.kinematics.kinematics_worker import KinematicsWorker
@@ -46,30 +46,30 @@ class KinematicsController(QObject):
     def __init__(self, parent=None):
         super().__init__()
         self.kinematics_widget = KinematicsWidget(parent)
-        self.kinematics_worker = KinematicsWorker()
+        self.kinematics_worker = None
         self._claw_mm = 30 # Valor inicial persistente
         self._robot_service = None
         self._graph_controller = None
         self._mode_active = False
         self._last_emitted_angulos = None
         self._last_processed_pos = None
-        self.telemetry_timer = QTimer(self)
-        self.telemetry_timer.timeout.connect(self._sync_visualization)
+        self._smoothed_pos = None
 
+        self._create_worker()
         self.__setup_connections()
 
-    def set_robot_service(self, robot_service):
-        self._robot_service = robot_service
+    def _create_worker(self):
+        if hasattr(self, 'kinematics_worker') and self.kinematics_worker:
+            try:
+                self.kinematics_worker.status_changed.disconnect(self._on_status_changed)
+                self.kinematics_worker.movement_finished.disconnect(self._on_movement_finished)
+                self.kinematics_worker.input_enabled.disconnect(self._on_input_enabled)
+                self.kinematics_worker.joint_update.disconnect(self._on_joint_update)
+            except Exception:
+                pass
+            self.kinematics_worker.force_abort()
 
-    def set_graph_controller(self, graph_controller):
-        self._graph_controller = graph_controller
-
-    def __setup_connections(self):
-        self.kinematics_widget.send_clicked.connect(
-            self.execute_kinematics)
-        self.kinematics_widget.claw_changed.connect(
-            self._on_claw_changed)
-
+        self.kinematics_worker = KinematicsWorker()
         self.kinematics_worker.status_changed.connect(
             self._on_status_changed)
         self.kinematics_worker.movement_finished.connect(
@@ -78,6 +78,23 @@ class KinematicsController(QObject):
             self._on_input_enabled)
         self.kinematics_worker.joint_update.connect(
             self._on_joint_update)
+
+        if self._graph_controller:
+            self._graph_controller.set_kinematics_worker(self.kinematics_worker)
+
+    def set_robot_service(self, robot_service):
+        self._robot_service = robot_service
+
+    def set_graph_controller(self, graph_controller):
+        self._graph_controller = graph_controller
+        if self._graph_controller and self.kinematics_worker:
+            self._graph_controller.set_kinematics_worker(self.kinematics_worker)
+
+    def __setup_connections(self):
+        self.kinematics_widget.send_clicked.connect(
+            self.execute_kinematics)
+        self.kinematics_widget.claw_changed.connect(
+            self._on_claw_changed)
 
         SlidersSignalManager.get_instance().change_mode_signal.connect(
             self._on_global_mode_changed)
@@ -104,7 +121,7 @@ class KinematicsController(QObject):
             return
 
         self._mode_active = True
-        self.kinematics_worker.reset_state()
+        self._create_worker() # Instanciar worker fresco cada vez que se entra al modo
         
         # Sincronizar valor persistente
         self.kinematics_worker.set_claw_value(self._claw_mm)
@@ -119,56 +136,54 @@ class KinematicsController(QObject):
 
         com = self._robot_service.get_com()
         self.kinematics_worker.send_home_direct(com)
-        self.telemetry_timer.start(10)
 
     def exit_kinematics_mode(self):
+
         if not self._mode_active:
             return
 
         self._mode_active = False
-        self.telemetry_timer.stop()
-        self.kinematics_worker.stop()
+        # Usar release_and_cleanup para cerrar y notificar
+        if hasattr(self, 'kinematics_worker') and self.kinematics_worker:
+            self.kinematics_worker.port_released.connect(self._on_kinematics_port_released)
+            self.kinematics_worker.force_abort()
+            self.kinematics_worker.release_and_cleanup()
+
+    @pyqtSlot()
+    def _on_kinematics_port_released(self):
+        try:
+            self.kinematics_worker.port_released.disconnect(self._on_kinematics_port_released)
+        except:
+            pass
 
         SimulationSignalManager.get_instance().resume_simulation.emit()
 
         if self._robot_service is not None:
+            # Espera breve de seguridad
+            QThread.msleep(200)
             self._robot_service.resume_serial()
 
         self._set_inputs_enabled(False)
+    def _update_simulation_with_positions(self, positions):
+        """Procesa y emite posiciones suavizadas a la simulación."""
+        positions[4]= positions[4]*-1
+        positions[5]= positions[5]*-1 
+        #1. Aplicar filtro EMA
+        alpha = 0.1
+        if self._smoothed_pos is None:
+            self._smoothed_pos = positions
+        else:
+            self._smoothed_pos = [
+                (alpha * new) + ((1 - alpha) * old)
+                for new, old in zip(positions, self._smoothed_pos)
+            ]
+        
+        # 2. Enviar a la simulación
+        SimulationSignalManager.get_instance().update_robot_from_kinematics.emit(self._smoothed_pos)
 
-    def _sync_visualization(self):
-        """Sincroniza el modelo 3D con la telemetría actual (con conversión y filtrado de umbral)."""
-        raw_pos = self.kinematics_worker._read_positions()
-        
-        # 1. Convertir de unidades de servo (0-300) a ángulos (°)
-        angulos = robotang_angulos(*raw_pos)
-        
-        # 2. Filtro: verificar si hubo cambios significativos (>= 1 grado)
-        if self._last_emitted_angulos is not None:
-            cambio_significativo = any(abs(new - old) >= 1.0 for new, old in zip(angulos, self._last_emitted_angulos))
-            
-            # Si no hubo cambios, re-emitir el último valor procesado para mantener la estabilidad
-            if not cambio_significativo:
-                if self._last_processed_pos is not None:
-                    SimulationSignalManager.get_instance().update_robot_from_kinematics.emit(self._last_processed_pos)
-                return
-
-        self._last_emitted_angulos = angulos
-        
-        # 3. Procesamiento: invertir motores 5 y 6 (índices 4 y 5) y redondear a entero
-        processed_pos = []
-        for i, val in enumerate(angulos):
-            if i in [4, 5]: # Motores 5 y 6
-                processed_pos.append(int(round(-val)))
-            else:
-                processed_pos.append(int(round(val)))
-        
-        self._last_processed_pos = processed_pos
-        
-        # 4. Enviar procesado a la simulación
-        SimulationSignalManager.get_instance().update_robot_from_kinematics.emit(processed_pos)
 
     def execute_kinematics(self):
+
         if not self._mode_active:
             return
 
@@ -196,8 +211,6 @@ class KinematicsController(QObject):
         # Asegurar que el worker no esté pausado antes de enviar la tarea
         self.kinematics_worker.resume()
         
-        if self._graph_controller:
-            self._graph_controller.reset_cartesian_plot()
         self.kinematics_worker.execute_target(tx, ty, tz)
 
     @pyqtSlot(int)
@@ -224,7 +237,8 @@ class KinematicsController(QObject):
 
     @pyqtSlot(list)
     def _on_joint_update(self, joints):
-        SimulationSignalManager.get_instance().update_robot_signal.emit(joints)
+        # Usar la lógica centralizada para procesar y enviar las posiciones del worker
+        self._update_simulation_with_positions(joints)
 
     @pyqtSlot(object)
     def _on_global_mode_changed(self, mode):
@@ -263,4 +277,5 @@ class KinematicsController(QObject):
 
     def cleanup(self):
         self.exit_kinematics_mode()
-        self.kinematics_worker.wait(3000)
+        if hasattr(self, 'kinematics_worker') and self.kinematics_worker:
+            self.kinematics_worker.wait(3000)

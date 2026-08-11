@@ -1,6 +1,7 @@
 from PyQt6.QtCore import pyqtSignal, QObject
 import threading
 from .config import ConfigSignalManager
+from src.services.data.enums import Modes
 
 
 class PickPlaceSignalManager(QObject):
@@ -17,6 +18,7 @@ class PickPlaceSignalManager(QObject):
     inverse_kinematics_ready = pyqtSignal(dict)
     target_reached = pyqtSignal(list)
     state_changed = pyqtSignal(bool)
+    change_mode_signal = pyqtSignal(object)
     pick_place_running_changed = pyqtSignal(bool)
     release_sphere_request = pyqtSignal(str)
     reattach_sphere_request = pyqtSignal(str)
@@ -57,6 +59,10 @@ class PickPlaceSignalManager(QObject):
         """
         self._pk_active = state
         self.state_changed.emit(state)
+        if state:
+            self.change_mode_signal.emit(Modes.PICK_PLACE)
+        else:
+            self.change_mode_signal.emit(Modes.SLIDERS)
 
     def is_pick_place_running(self):
         """Retorna True si una secuencia de pick and place está en ejecución."""

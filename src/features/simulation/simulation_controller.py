@@ -93,6 +93,8 @@ class SimulationController(QObject):
             lambda mode: self._set_active_source(Modes.SLIDERS))
         KinematicsSignalManager.get_instance().change_mode_signal.connect(
             lambda mode: self._set_active_source(Modes.KINEMATIC))
+        PickPlaceSignalManager.get_instance().change_mode_signal.connect(
+            lambda mode: self._set_active_source(Modes.PICK_PLACE))
 
         # Escuchar señales especificas
         self.simulation_signal_manager.update_robot_from_kinematics.connect(
@@ -230,20 +232,37 @@ class SimulationController(QObject):
                         self._root_object.setProperty(qml_prop, value)
 
     def _set_active_source(self, mode):
+        #rint(f"[DEBUG SimulationController] _set_active_source called with mode: {mode}")
         self._active_source = mode
+        if self.simulation_worker:
+            self.simulation_worker._pending_positions = None
 
     @pyqtSlot(list)
     def _update_from_kinematics(self, joint_positions: list):
-        if self._active_source == Modes.KINEMATIC:
+       #print(f"[DEBUG SimulationController] _update_from_kinematics: active_source={self._active_source}, pp_running={self.pick_place_signal_manager.is_pick_place_running()}, positions={joint_positions}")
+        if self._active_source == Modes.SLIDERS:
+            print("[DEBUG SimulationController] BLOCKED kinematics update because active_source is SLIDERS")
+            return
+        # Actualizar si el modo activo es cinemática o pick & place, o si la secuencia P&P está corriendo
+        if self._active_source in (Modes.KINEMATIC, Modes.PICK_PLACE) or self.pick_place_signal_manager.is_pick_place_running():
             self.update_simulation(joint_positions)
+        else:
+            print("[DEBUG SimulationController] DISCARDED kinematics update: conditions not met")
 
     @pyqtSlot(list)
     def _update_from_sliders(self, joint_positions: list):
-        if self._active_source == Modes.SLIDERS:
-            self.update_simulation(joint_positions)
+        #print(f"[DEBUG SimulationController] _update_from_sliders: active_source={self._active_source}, positions={joint_positions}")
+        if self._active_source != Modes.SLIDERS:
+            print(f"[DEBUG SimulationController] BLOCKED sliders update because active_source is {self._active_source}")
+            return
+        self.update_simulation(joint_positions)
 
     @pyqtSlot(list)
     def _update_from_simulation(self, joint_positions: list):
+        #print(f"[DEBUG SimulationController] _update_from_simulation: active_source={self._active_source}, positions={joint_positions}")
+        if self._active_source in (Modes.KINEMATIC, Modes.PICK_PLACE):
+            print(f"[DEBUG SimulationController] BLOCKED simulation feedback update because active_source is {self._active_source}")
+            return
         self.update_simulation(joint_positions)
 
     @pyqtSlot(list)

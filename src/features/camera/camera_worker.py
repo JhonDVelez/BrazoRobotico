@@ -15,6 +15,7 @@ Conexiones:
 """
 
 from threading import Lock
+import time
 import numpy as np
 import cv2
 from PyQt6.QtCore import QThread, pyqtSignal, QThreadPool, pyqtSlot
@@ -63,6 +64,10 @@ class CameraWorker(QThread):
         self.last_roi = None
         self.sphere_radius = camera_config.get("sphere_radius", 30.0)
         self.custom_origin = (180.0, 0.0, 0.0)
+        
+        # Throttling de frames (limitar a 15 FPS)
+        self.last_frame_time = 0
+        self.fps_limit = 15
 
         # Inyección de configuración
         self.camera_config = camera_config or {}
@@ -104,34 +109,36 @@ class CameraWorker(QThread):
                     raise IOError(
                         "No fue posible obtener el frame de video, verifique la conexión de la cámara.")
 
-                frame_umat = cv2.UMat(frame.copy())
-
-                if self.thread_pool.activeThreadCount() >= self.thread_pool.maxThreadCount():
-                    continue
-
                 if self.is_calibration:
                     self._emit_frame_ready(frame)
                     continue
-                elif self._process_frame:
-                    with self.lock:
-                        charuco_state, circle_state = self._search_state
-                    self.frame_id += 1
-                    if charuco_state:
-                        self.thread_pool.start(ChArUcoDetection(
-                            frame_umat, self.frame_id, self.camera_matrix, self.dist_coeff,
-                            self.on_charuco_done, self._emit_error))
-                    if circle_state:
-                        self.thread_pool.start(CircleDetection(
-                            frame_umat, self.frame_id, self.last_roi, self.hsv_colors,
-                            self.on_circles_done, self._emit_error))
 
+                frame_umat = cv2.UMat(frame.copy())
+
+                if self._process_frame:
+                    if self.thread_pool.activeThreadCount() < self.thread_pool.maxThreadCount():
+                        with self.lock:
+                            charuco_state, circle_state = self._search_state
+                        self.frame_id += 1
+                        if charuco_state:
+                            self.thread_pool.start(ChArUcoDetection(
+                                frame_umat, self.frame_id, self.camera_matrix, self.dist_coeff,
+                                self.on_charuco_done, self._emit_error))
+                        if circle_state:
+                            self.thread_pool.start(CircleDetection(
+                                frame_umat, self.frame_id, self.last_roi, self.hsv_colors,
+                                self.on_circles_done, self._emit_error))
                     self._process_frame = False
 
                 view = self.draw_view_state()
-                self.thread_pool.start(DetectionDrawer(
-                    frame, self.results.get(
-                        self.frame_id-1, {}), view, self.custom_origin,
-                    self.frame_size[0], self._emit_frame_ready, self._emit_error))
+                if self.thread_pool.activeThreadCount() < self.thread_pool.maxThreadCount() - 1:
+                    self.thread_pool.start(DetectionDrawer(
+                        frame, self.results.get(
+                            self.frame_id-1, {}), view, self.custom_origin,
+                        self.frame_size[0], self._emit_frame_ready, self._emit_error))
+                else:
+                    self._emit_frame_ready(frame)
+
                 self.frame_counter.tick()
 
         except (OSError, RuntimeError) as e:
@@ -141,13 +148,12 @@ class CameraWorker(QThread):
 
     def _emit_frame_ready(self, frame: np.ndarray):
         """
-        Emite la señal de frame listo para la UI de forma segura.
-
-        Args:
-            frame (np.ndarray): Imagen en formato BGR.
+        Emite la señal de frame listo para la UI de forma segura con throttling.
         """
-        if frame is not None:
+        now = time.time()
+        if frame is not None and (now - self.last_frame_time) > (1.0 / self.fps_limit):
             self.frame_ready.emit(frame)
+            self.last_frame_time = now
 
     def _emit_error(self, msg: str):
         """

@@ -6,7 +6,7 @@ que se superpone a la cámara para gestionar la selección de objetos.
 """
 
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import QWidget, QPushButton
+from PyQt6.QtWidgets import QWidget, QPushButton, QLabel
 from PyQt6.QtGui import QPainter, QPen, QColor, QIcon
 import numpy as np
 import cv2
@@ -31,8 +31,7 @@ class PickAndPlaceWidget(QWidget):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setMouseTracking(True)
-
-        # Referencia a la geometría original de la cámara para mapeo
+        # ... rest of __init__
         self.orig_w = 1280
         self.orig_h = 720
         self.detected_circles_2d = {}
@@ -68,7 +67,7 @@ class PickAndPlaceWidget(QWidget):
 
         # Boton de reset (regresar a modo pick)
         self.reset_button = QPushButton(self)
-        self.reset_button.setFixedSize(30, 30)
+        self.reset_button.setFixedSize(10, 10)
         self.reset_button.setStyleSheet("""
             QPushButton {
                 background-color: white;
@@ -82,6 +81,24 @@ class PickAndPlaceWidget(QWidget):
         self.reset_button.setIcon(QIcon('icons:refresh_l.png'))
         self.reset_button.hide()
         self.reset_button.clicked.connect(self._on_reset_clicked)
+
+        self.status_label = QLabel("", self)
+        self.status_label.setStyleSheet("""
+            QLabel {
+                background-color: rgba(0, 0, 0, 150);
+                color: red;
+                font-size: 16px;
+                padding: 5px;
+                border-radius: 5px;
+            }
+        """)
+        self.status_label.move(10, 50)
+        self.status_label.hide()
+
+    def update_status_message(self, message):
+        self.status_label.setText(message)
+        self.status_label.show()
+        self.status_label.raise_()
 
     def set_mode(self, mode):
         """Cambia el modo de interaccion y limpia la seleccion actual."""
@@ -183,10 +200,8 @@ class PickAndPlaceWidget(QWidget):
     def mousePressEvent(self, event):
         """
         Detecta clics sobre la imagen de cámara cuando Pick and Place está activo.
-
-        El overlay consulta al `CameraWidget` padre para mapear coordenadas de UI
-        a coordenadas originales de imagen, sin acoplar la cámara a este feature.
         """
+        print(f"[DEBUG] [PickAndPlaceWidget] mousePressEvent. Mode: {self._mode}")
         if event.button() != Qt.MouseButton.LeftButton:
             super().mousePressEvent(event)
             return
@@ -236,6 +251,7 @@ class PickAndPlaceWidget(QWidget):
     def _handle_place_click(self, x, y):
         """Calcula la posicion 3D en el tablero y aplica snapping."""
         if not self._charuco_pose:
+            self.update_status_message("Tablero ChArUco no detectado. Espere o reubique la cámara.")
             return
 
         #         Verificar datos de calibración y pose
@@ -243,6 +259,7 @@ class PickAndPlaceWidget(QWidget):
         if not all(k in self._charuco_pose and self._charuco_pose[k] is not None for k in required):
             print(
                 "[PickPlace] Error: Faltan datos de pose o camara para calcular coordenadas")
+            self.update_status_message("Tablero ChArUco no detectado. Espere o reubique la cámara.")
             return
 
         # 1. Proyectar pixel a coordenadas del tablero (z=0)
@@ -306,9 +323,11 @@ class PickAndPlaceWidget(QWidget):
         if self._mode == 'pick' and self._selected_color:
             self.sphere_selected.emit(self._selected_color)
             self._hide_confirm_button()
+            self.status_label.hide()
         elif self._mode == 'place' and self._selected_place:
             self.place_requested.emit(self._selected_place)
             self._hide_confirm_button()
+            self.status_label.hide()
             self.reset_button.hide()  # Ocultar durante el proceso de place
 
     def hideEvent(self, event):

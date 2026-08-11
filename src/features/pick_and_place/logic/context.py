@@ -11,6 +11,7 @@ class PickPlaceContext:
     def __init__(self):
         # Estado de la operación
         self.selected_color = None
+        self.tamano_seleccionado = 30
         self.sphere_poses = {}
         self.place_target_coords = None
         self.ik_target = None
@@ -23,9 +24,6 @@ class PickPlaceContext:
         # Control de movimiento y feedback
         self.last_positions = None
         self.current_feedback = None
-        self.current_target = None
-        
-        # Constantes de control
         self.STALL_TIMEOUT_MS = 1500
         self.MOVEMENT_TOLERANCE = 0.5
         self.SUCCESS_THRESHOLD = 2.0
@@ -34,7 +32,10 @@ class PickPlaceContext:
     def reset(self):
         """        Limpia el estado interno para una nueva operación."""
         self.selected_color = None
+        self.tamano_seleccionado = 30
         self.place_target_coords = None
         self.ik_target = None
         self.current_target = None
+        self.last_positions = None
+        self.current_feedback = None
         # Mantenemos sphere_poses y configuración de pinza

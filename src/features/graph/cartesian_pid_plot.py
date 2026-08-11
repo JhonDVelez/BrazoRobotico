@@ -8,8 +8,11 @@ PID cartesiano en tiempo real, mostrando el valor real vs el objetivo
 """
 
 import pyqtgraph as pg
-from PyQt6.QtWidgets import QWidget, QVBoxLayout
-from PyQt6.QtCore import Qt
+import numpy as np
+import csv
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QLabel
+from PyQt6.QtCore import Qt, QTimer
+
 
 # ==========================================================================
 # CONFIGURACION ESTETICA Y FORMATO (MODIFICABLE)
@@ -23,14 +26,23 @@ class CartesianPIDPlot(QWidget):
     Widget que grafica la convergencia del PID cartesiano en tiempo real
     utilizando PyQtGraph para alto rendimiento.
     """
+    MAX_POINTS = 1000
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._real_data = [[] for _ in range(3)]
         self._target_data = [[] for _ in range(3)]
         self._time_data = []
+        self.proxies = []
+        self._last_time_in_plot = 0.0
+        self._session_offset = 0.0
 
         self._setup_ui()
+
+        # Timer para redibujado a 30 FPS
+        self.timer = QTimer()
+        self.timer.timeout.connect(self._redraw)
+        self.timer.start(33)
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -40,30 +52,105 @@ class CartesianPIDPlot(QWidget):
         self.plots = []
         self.real_lines = []
         self.target_lines = []
+        self.info_labels = []
 
         for i in range(3):
+            # Contenedor para el gráfico y su label informativo
+            graph_container = QWidget()
+            graph_layout = QVBoxLayout(graph_container)
+            graph_layout.setContentsMargins(0, 0, 0, 0)
+            graph_layout.setSpacing(2)
+            
+            # Header para la información
+            header_layout = QHBoxLayout()
+            info_label = QLabel("T: -- | R: -- | E: --")
+            info_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+            header_layout.addStretch()
+            header_layout.addWidget(info_label)
+            graph_layout.addLayout(header_layout)
+            self.info_labels.append(info_label)
+
             plot = pg.PlotWidget()
             plot.setBackground(None)
             plot.showGrid(x=True, y=True, alpha=0.3)
             plot.setLabel('left', ETIQUETAS[i], units='mm')
-
+            
             # Asignar un margen inferior mayor al gráfico Z (i == 2) para que quepa la etiqueta
             bottom_margin = 10 if i == 2 else 5
             plot.getPlotItem().layout.setContentsMargins(10, 5, 10, bottom_margin)
-
+            
             if i == 2:
                 plot.setLabel('bottom', 'Tiempo', units='s')
-
+            
             # Crear las curvas
             pen_real = pg.mkPen(color=COLORES_REALES[i], width=2)
             line_real = plot.plot(pen=pen_real, symbol='o', symbolSize=4, symbolBrush=COLORES_REALES[i])
             
             line_target = plot.plot(pen=pg.mkPen(color=COLORES_TARGET[i], width=1.5, style=Qt.PenStyle.DashLine))
             
-            layout.addWidget(plot)
+            graph_layout.addWidget(plot)
+            layout.addWidget(graph_container)
+            
             self.plots.append(plot)
             self.real_lines.append(line_real)
             self.target_lines.append(line_target)
+
+            # Proxy para detectar mouseMove
+            proxy = pg.SignalProxy(plot.scene().sigMouseMoved, rateLimit=60, slot=lambda ev, idx=i: self.on_mouse_moved(ev, idx))
+            self.proxies.append(proxy)
+
+        # Label para mostrar información de hover
+        self.info_label = QLabel("t: --s  Val: --mm")
+        layout.addWidget(self.info_label, alignment=Qt.AlignmentFlag.AlignLeft)
+
+        # Botón de Guardar
+        self.save_button = QPushButton("GUARDAR")
+        self.save_button.clicked.connect(self.save_to_csv)
+        layout.addWidget(self.save_button)
+
+    def on_mouse_moved(self, event, idx):
+        """Maneja el evento de movimiento del mouse sobre el gráfico idx."""
+        if not self._time_data:
+            return
+
+        pos = event[0]
+        plot = self.plots[idx]
+        if plot.sceneBoundingRect().contains(pos):
+            mouse_point = plot.getViewBox().mapSceneToView(pos)
+            t_val = mouse_point.x()
+            
+            # Buscar el índice más cercano al tiempo del mouse
+            idx_closest = np.argmin(np.abs(np.array(self._time_data) - t_val))
+            
+            # Actualizar texto
+            time_val = self._time_data[idx_closest]
+            real_val = self._real_data[idx][idx_closest]
+            
+            self.info_label.setText(f"t: {time_val:.2f}s  Val: {real_val:.2f}mm")
+        else:
+            # Opcionalmente puedes decidir si limpiar o no cuando sale
+            pass
+
+    def save_to_csv(self):
+        """Guarda los datos del gráfico a un archivo CSV."""
+        if not self._time_data:
+            return
+
+        file_path, _ = QFileDialog.getSaveFileName(self, "Guardar datos", "", "CSV Files (*.csv)")
+        if not file_path:
+            return
+            
+        with open(file_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(["Tiempo(s)", "X_real", "Y_real", "Z_real", "X_target", "Y_target", "Z_target"])
+            
+            # Iterar sobre la longitud de los datos y guardar fila a fila
+            for i in range(len(self._time_data)):
+                writer.writerow([
+                    self._time_data[i],
+                    self._real_data[0][i], self._real_data[1][i], self._real_data[2][i],
+                    self._target_data[0][i], self._target_data[1][i], self._target_data[2][i]
+                ])
 
     def update_theme(self, is_dark: bool):
         """
@@ -91,29 +178,45 @@ class CartesianPIDPlot(QWidget):
 
             # Actualizar línea target
             self.target_lines[i].setPen(color=target_color, width=1.5, style=Qt.PenStyle.DashLine)
+            
+            # Actualizar color del texto
+            self.info_label.setStyleSheet(f"color: {text_color};")
+            self.info_labels[i].setStyleSheet(f"color: {text_color}; font-size: 8pt;")
 
     def reset_plot(self, target_xyz):
         """
-        Limpia los datos acumulados y prepara el grafico para un nuevo movimiento.
+        Limpia los datos del grafico y lo reinicia.
         """
-        for i in range(3):
-            self._real_data[i].clear()
-            self._target_data[i].clear()
-            self.real_lines[i].setData([], [])
-            self.target_lines[i].setData([], [])
-            
-        self._time_data.clear()
+        self._real_data = [[] for _ in range(3)]
+        self._target_data = [[] for _ in range(3)]
+        self._time_data = []
+        self._session_offset = 0.0
+        self._last_time_in_plot = 0.0
+        self._redraw()
 
     def append_data(self, time_s, actual_xyz, target_xyz):
         """
         Agrega un punto de datos y actualiza el grafico.
         """
+        # Si es el primer punto o el tiempo recibido es menor al último registrado (nueva sesión)
+        if not self._time_data or time_s < (self._last_time_in_plot - self._session_offset):
+            # Calcular nuevo offset para la nueva sesión
+            self._session_offset = self._last_time_in_plot + 0.1 if self._time_data else 0.0
+        
+        plot_time = time_s + self._session_offset
+        self._last_time_in_plot = plot_time
+        
         for i in range(3):
             self._real_data[i].append(actual_xyz[i])
             self._target_data[i].append(target_xyz[i])
-        self._time_data.append(time_s)
+        self._time_data.append(plot_time)
 
-        self._redraw()
+        # Truncar si excede el límite
+        if len(self._time_data) > self.MAX_POINTS:
+            self._time_data.pop(0)
+            for i in range(3):
+                self._real_data[i].pop(0)
+                self._target_data[i].pop(0)
 
     def _redraw(self):
         if not self._time_data:
@@ -124,6 +227,12 @@ class CartesianPIDPlot(QWidget):
         for i in range(3):
             self.real_lines[i].setData(x_vals, self._real_data[i])
             self.target_lines[i].setData(x_vals, self._target_data[i])
+            
+            # Actualizar label informativo
+            real = self._real_data[i][-1]
+            target = self._target_data[i][-1]
+            error = target - real
+            self.info_labels[i].setText(f"T: {target:.2f} | R: {real:.2f} | E: {error:.2f}")
             
             # Auto-ajuste simple
             self.plots[i].enableAutoRange(axis='y')

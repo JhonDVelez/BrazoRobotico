@@ -104,6 +104,7 @@ class DataController(QObject):
         self.phys_signals.change_mode_signal.connect(self.set_mode)
         self.sliders_signals.change_mode_signal.connect(self.set_mode)
         self.kin_signals.change_mode_signal.connect(self.set_mode)
+        self.pick_signals.change_mode_signal.connect(self.set_mode)
 
         # --- Feedback desde Servicios (Ejecucion) ---
         # Feedback de Simulación -> Actualización de UI
@@ -161,10 +162,17 @@ class DataController(QObject):
         if self._target_data is None:
             return
 
-        if self._mode == Modes.KINEMATIC:
+        # Si estamos en modo KINEMATIC, solo permitimos enviar al robot si es parte de una operacion P&P
+        # (ej. el Worker emite comandos directos via action_request)
+        if self._mode == Modes.KINEMATIC and not self.pick_signals.is_pick_place_running():
+            return
+        
+        if self._mode == Modes.PICK_PLACE and not self.pick_signals.is_pick_place_running():
+            # Si estamos en Pick & Place pero la secuencia no está corriendo, no enviar sync tick de sliders
             return
 
         data_rad = deg_to_rad(self._target_data)
+        # print(f"[DEBUG DataController] _handle_sync_tick emitting update_pybullet_signal with target_data: {self._target_data}, mode: {self._mode}")
         self.sim_signals.update_pybullet_signal.emit(data_rad.tolist())
 
         if self.phys_signals.is_connected:
@@ -187,11 +195,13 @@ class DataController(QObject):
     @pyqtSlot(list)
     def update_target_positions(self, data: list):
         """Actualiza el buffer de estado central."""
+        print(f"[DEBUG DataController] update_target_positions called with data: {data}, mode: {self._mode}")
         self._target_data = data
 
     @pyqtSlot(object)
     def set_mode(self, mode: Modes):
         """Cambia el modo de operación global."""
+        print(f"[DEBUG DataController] set_mode called: switching from {self._mode} to {mode}")
         self._mode = mode
 
     @pyqtSlot(list)
@@ -205,8 +215,9 @@ class DataController(QObject):
     @pyqtSlot(list, dict)
     def _on_model_feedback(self, motor_positions, sphere_positions):
         """Procesa feedback de la simulación para el modelo 3D."""
-        if self._mode != Modes.KINEMATIC:
+        if self._mode not in (Modes.KINEMATIC, Modes.PICK_PLACE):
             pos_deg = rad_to_deg(motor_positions)
+            # print(f"[DEBUG DataController] _on_model_feedback emitting update_robot_from_simulation with pos_deg: {pos_deg}")
             self.sim_signals.update_robot_from_simulation.emit(pos_deg)
         self.sim_signals.sphere_pos_from_pybullet.emit(sphere_positions)
 

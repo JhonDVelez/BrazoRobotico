@@ -136,12 +136,12 @@ class PidService:
             q_final = [q_out_deg[0], q_out_deg[1], q_out_deg[2],
                        0, q_out_deg[3], angulo_garra]
             
-            self.joint_update.emit(q_final)
+            self.joint_update.emit({'type': 'joint_update', 'target': q_final})
             self.pid_iteration.emit(round(t_actual - t_start, 4), p_actual.tolist(), target.tolist())
             
-            servo_positions = CartesianPidCompensator.angulos_robotang(
-                *q_final)
-            self._enviar_robot(servo_positions)
+            # Enviar directamente los angulos en espacio usuario. 
+            # La conversion final a espacio robot (0-300) y PWM se realiza centralizadamente.
+            self._enviar_robot(q_final)
             
             t_anterior = t_actual
             time.sleep(max(0, TS - (time.time() - t_actual)))

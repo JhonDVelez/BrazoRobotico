@@ -161,7 +161,9 @@ class DataController(QObject):
         if self._target_data is None:
             return
 
-        if self._mode == Modes.KINEMATIC:
+        # Si estamos en modo KINEMATIC, solo permitimos enviar al robot si es parte de una operacion P&P
+        # (ej. el Worker emite comandos directos via action_request)
+        if self._mode == Modes.KINEMATIC and not self.pick_signals.is_pick_place_running():
             return
 
         data_rad = deg_to_rad(self._target_data)

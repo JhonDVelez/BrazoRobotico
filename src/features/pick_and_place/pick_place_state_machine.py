@@ -86,7 +86,9 @@ class PickPlaceStateMachine(StateMachine):
             self._on_state_change(state.value)
 
     def on_enter_home1_move(self): self._notify(PickPlaceState.HOME1_MOVE)
-    def on_enter_home1_validate(self): self._notify(PickPlaceState.HOME1_VALIDATE)
+    def on_enter_home1_validate(self): 
+        self._notify(PickPlaceState.HOME1_VALIDATE)
+        # Check if already validated? No, let worker handle it.
     def on_enter_waiting_for_input(self): self._notify(PickPlaceState.WAITING_FOR_INPUT)
     def on_enter_home2_move(self): self._notify(PickPlaceState.HOME2_MOVE)
     def on_enter_home2_validate(self): self._notify(PickPlaceState.HOME2_VALIDATE)

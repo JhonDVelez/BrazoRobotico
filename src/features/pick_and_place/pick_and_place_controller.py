@@ -143,10 +143,14 @@ class PickAndPlaceController(QObject):
                 widget = self.kinematics_controller.get_widget()
                 widget.show()
                 widget.set_pid_only_mode(True)
-                widget.set_inputs_enabled(True) # Ensure PID spinboxes enabled
+                widget.set_inputs_enabled(True)
             
             if self.graph_controller:
                 self.graph_controller.set_graph_mode(False) # Cartesian
+
+            # Only start sequence if currently in IDLE
+            if self.worker and self.worker.current_state_value == 'idle':
+                self.worker.start_sequence()
         else:
             self.overlay.hide()
             self.worker.abort()

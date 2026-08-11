@@ -6,7 +6,7 @@ from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, QTimer
 from src.features.pick_and_place.pick_place_states import PickPlaceState
 from src.features.pick_and_place.pick_place_state_machine import PickPlaceStateMachine
 from src.features.pick_and_place.logic.context import PickPlaceContext
-from src.services.data.utils.conversions import angulos_robotang, robotang_angulos
+from src.services.data.utils.conversions import robotang_angulos
 from src.services.robot.pid_service import PidService
 import numpy as np
 
@@ -14,20 +14,19 @@ class PickAndPlaceWorker(QObject):
     action_request = pyqtSignal(dict)
     sequence_completed = pyqtSignal()
     sequence_failed = pyqtSignal(str)
+    pid_iteration = pyqtSignal(float, list, list)
 
     def __init__(self, kinematics_controller=None):
         super().__init__()
         self.context = PickPlaceContext()
         self.kinematics_controller = kinematics_controller
         self._sm = PickPlaceStateMachine(on_state_change=self._on_state_change)
-        self.pid_service = PidService(self._read_positions, self._enviar_robot, self.action_request, self._dummy_signal)
+        self.pid_service = PidService(self._read_positions, self._enviar_robot, self.action_request, self.pid_iteration)
         self._check_timer = QTimer()
         self._check_timer.setSingleShot(False)
 
-    def update_gains_from_panel(self):
-        if self.kinematics_controller:
-            gains = self.kinematics_controller.get_widget().get_pid_gains()
-            self.update_pid_gains(gains)
+    def start_sequence(self):
+        self._sm.start_op()
 
     def _dummy_signal(self, *args): pass # Placeholder
 
@@ -64,25 +63,37 @@ class PickAndPlaceWorker(QObject):
         handler = handlers.get(state_name)
         if handler: handler()
 
+    def calcular_angulo_garra(self, tam):
+        from src.features.kinematics.coordinate_correction import apertura_de_garra
+        return apertura_de_garra(tam)
+
     def _enter_home1_move(self):
-        servos = angulos_robotang(0,0,0,0,0,0)
+        servos = [0,0,0,0,0,0]
         self._enviar_robot(servos)
         self._sm.home1_done()
 
     def _enter_home1_validate(self):
+        # Asegurarse de que no esté ya validando
+        if self._check_timer.isActive():
+            return
         self._check_timer.timeout.connect(self._check_home1)
         self._check_timer.start(500)
     
     def _check_home1(self):
         if self.validar_angulos([0,0,0,0,0,0]):
             self._check_timer.stop()
-            self._check_timer.timeout.disconnect(self._check_home1)
-            self._sm.home1_validated()
+            # Desconectar solo si está conectado para evitar errores
+            try:
+                self._check_timer.timeout.disconnect(self._check_home1)
+            except TypeError:
+                pass
+            if self.current_state_value == PickPlaceState.HOME1_VALIDATE.value:
+                self._sm.home1_validated()
             
     def _enter_home2_move(self):
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
         angulo_garra = self.calcular_angulo_garra(tam)
-        servos = angulos_robotang(0, -45, 120, 0, 30, angulo_garra)
+        servos = [0, -45, 120, 0, 30, angulo_garra]
         self._enviar_robot(servos)
         self._sm.home2_done()
 
@@ -180,13 +191,29 @@ class PickAndPlaceWorker(QObject):
     def pick(self, color):
         self.update_gains_from_panel()
         self.context.selected_color = color
-        self._sm.start_op()
+        
+        # Solo avanzar si la maquina de estados esta en espera de entrada o en reposo.
+        if self._sm.current_state_value == PickPlaceState.WAITING_FOR_INPUT.value:
+            self._sm.ready_to_home2()
+        elif self._sm.current_state_value == PickPlaceState.IDLE.value:
+            self._sm.start_op()
+        else:
+            # Si esta en otro estado (ej. HOME2_VALIDATE), ignoramos la solicitud
+            # ya que la maquina de estados continuara automaticamente.
+            pass
 
     @pyqtSlot(dict)
     def place(self, coords):
         self.update_gains_from_panel()
         self.context.place_target_coords = coords
-        self._sm.start_op()
+        
+        # Solo avanzar si la maquina de estados esta en espera de entrada o en reposo.
+        if self._sm.current_state_value == PickPlaceState.WAITING_FOR_INPUT.value:
+            self._sm.ready_to_home2()
+        elif self._sm.current_state_value == PickPlaceState.IDLE.value:
+            self._sm.start_op()
+        else:
+            pass
 
     @pyqtSlot(list)
     def on_target_reached(self, _positions): pass
@@ -199,6 +226,10 @@ class PickAndPlaceWorker(QObject):
     def update_pid_gains(self, gains):
         # gains: {"kp": [x,y,z], "ki": [x,y,z], "kd": [x,y,z]}
         self.pid_service.set_pid_gains(gains['kp'], gains['ki'], gains['kd'])
+
+    def update_gains_from_panel(self):
+        # Placeholder para actualizar ganancias desde la UI si fuera necesario
+        pass
 
     @pyqtSlot(list)
     def on_feedback_update(self, positions):

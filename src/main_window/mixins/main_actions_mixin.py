@@ -13,7 +13,9 @@ from src.services.data.signals import (
     SimulationSignalManager, PhysicalSignalManager,
     SlidersSignalManager, KinematicsSignalManager
 )
-from src.services.data.utils import angulos_robotang
+# from src.services.data.utils import angulos_robotang
+from src.services.data.enums.types import NotificationType
+from src.services.ui.notification_manager import NotificationManager
 
 
 class MainActionsMixin:
@@ -284,8 +286,7 @@ class MainActionsMixin:
             SimulationSignalManager.get_instance().update_robot_from_sliders.emit(home)
             # 3. Physical Robot
             if self.connected_to_robot:
-                robot_positions = list(angulos_robotang(*home))
-                PhysicalSignalManager.get_instance().send_to_robot.emit(robot_positions)
+                PhysicalSignalManager.get_instance().update_target_signal.emit(home)
         else:
             self.sliders_controller.get_widget().hide()
             self.kinematics_controller.get_widget().set_horizontal_layout()
@@ -322,6 +323,13 @@ class MainActionsMixin:
         Args:
             checked (bool): True para mostrar el panel de controles
         """
+        if checked and not self.connected_to_robot:
+            NotificationManager.get_instance().notify(
+                "Para usar el modo Pick and Place debe conectar el robot previamente desde el menú Robot > Puerto.",
+                NotificationType.DIALOG_WARNING
+            )
+            return
+
         from src.services.data.signals import PickPlaceSignalManager
         PickPlaceSignalManager.get_instance().set_state(checked)
 
@@ -344,5 +352,4 @@ class MainActionsMixin:
 
         home = [0, 0, 0, 0, 0, 0]
         self.sliders_controller.set_external_values(home)
-        robot_positions = list(angulos_robotang(*home))
-        PhysicalSignalManager.get_instance().send_to_robot.emit(robot_positions)
+        PhysicalSignalManager.get_instance().update_target_signal.emit(home)

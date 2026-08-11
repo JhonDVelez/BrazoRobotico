@@ -325,9 +325,8 @@ class MainActionsMixin:
         from src.services.data.signals import PickPlaceSignalManager
         PickPlaceSignalManager.get_instance().set_state(checked)
 
-        self.toggle_visibility_controls_event(not checked)
-        self.controls_action.setChecked(not checked)
-        self.controls_action.setEnabled(not checked)
+        # Ya no forzamos la ocultación del panel de controles aquí.
+        # El controlador P&P se encarga de ajustar el contenido (PID only).
         ConfigSignalManager.get_instance().request_change(
             'settings.json', ["mode", 'pick_place'], checked)
 

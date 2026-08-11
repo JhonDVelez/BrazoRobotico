@@ -27,6 +27,27 @@ class PickPlaceState(Enum):
     """
 
     IDLE = "idle"
+    HOME1_MOVE = "home1_move"
+    HOME1_VALIDATE = "home1_validate"
+    WAITING_FOR_INPUT = "waiting_for_input"
+    HOME2_MOVE = "home2_move"
+    HOME2_VALIDATE = "home2_validate"
+    PID_HOME = "pid_home"
+    PICK_APPROACH = "pick_approach"
+    PICK_DOWN = "pick_down"
+    PICK_GRASP = "pick_grasp"
+    RETRACT_TO_PID_HOME = "retract_to_pid_home"
+    PLACE_APPROACH = "place_approach"
+    PLACE_DOWN = "place_down"
+    PLACE_RELEASE = "place_release"
+    RETRACT_TO_PLACE_ABOVE = "retract_to_place_above"
+    RETRACT_FROM_PLACE = "retract_from_place"
+    FINAL_SEQ_HOME = "final_seq_home"
+    FINAL_SEQ_HOME2 = "final_seq_home2"
+    FINAL_SEQ_HOME1 = "final_seq_home1"
+    
+    # Keeping old states for compatibility if needed, but the new sequence is mostly different
+    # If the user wants to completely replace it, I will, but let's keep it safe.
     HOMING = "homing"
     OPENING_GRIPPER = "opening_gripper"
     COMPUTING_IK = "computing_ik"

@@ -172,6 +172,7 @@ class MainInitMixin:
             self.camera_controller.get_widget()
         )
 
+
         self.camera_controller.status_changed.connect(
             self.camera_connected_label.setText)
         self.camera_controller.active_state_changed.connect(

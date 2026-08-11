@@ -6,7 +6,7 @@ que se superpone a la cámara para gestionar la selección de objetos.
 """
 
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import QWidget, QPushButton
+from PyQt6.QtWidgets import QWidget, QPushButton, QLabel
 from PyQt6.QtGui import QPainter, QPen, QColor, QIcon
 import numpy as np
 import cv2
@@ -31,8 +31,7 @@ class PickAndPlaceWidget(QWidget):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setMouseTracking(True)
-
-        # Referencia a la geometría original de la cámara para mapeo
+        # ... rest of __init__
         self.orig_w = 1280
         self.orig_h = 720
         self.detected_circles_2d = {}

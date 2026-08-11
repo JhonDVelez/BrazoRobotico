@@ -37,27 +37,32 @@ class PickAndPlaceController(QObject):
     """
 
     def __init__(self, camera_widget=None):
-        """Inicializa el controlador, worker y overlay.
-
-        Args:
-            camera_widget: Widget de camara donde se superpone el overlay.
-        """
+        """Inicializa el controlador, worker y overlay."""
         super().__init__()
         self.signal_manager = PickPlaceSignalManager.get_instance()
         self.sim_signals = SimulationSignalManager.get_instance()
-        self.camera_widget = None
+        self.kinematics_controller = None
+        self.camera_widget = camera_widget
         self._filter_installed = False
 
         self.overlay = PickAndPlaceWidget()
-        self.worker = PickAndPlaceWorker()
+        # Initialize worker later when kinematics_controller is available?
+        # Or just pass it when ready. For now, let's initialize worker in set_kinematics_controller
+        self.worker = None 
         self._current_color = None
 
         if camera_widget:
             self.set_camera_widget(camera_widget)
-
+    
+    def set_kinematics_controller(self, kinematics_controller, graph_controller=None):
+        self.kinematics_controller = kinematics_controller
+        self.graph_controller = graph_controller
+        self.worker = PickAndPlaceWorker(kinematics_controller=kinematics_controller)
         self._setup_connections()
         self._on_state_changed(self.signal_manager.get_state())
-
+        self.noti_manager = NotificationManager.get_instance()
+        self._setup_connections()
+        self._on_state_changed(self.signal_manager.get_state())
         self.noti_manager = NotificationManager.get_instance()
 
     def _setup_connections(self):
@@ -132,12 +137,30 @@ class PickAndPlaceController(QObject):
             self.overlay.show()
             self._sync_overlay_stack()
             self._install_filter()
+            
+            # Show PID panel & restrict UI
+            if self.kinematics_controller:
+                widget = self.kinematics_controller.get_widget()
+                widget.show()
+                widget.set_pid_only_mode(True)
+                widget.set_inputs_enabled(True) # Ensure PID spinboxes enabled
+            
+            if self.graph_controller:
+                self.graph_controller.set_graph_mode(False) # Cartesian
         else:
             self.overlay.hide()
             self.worker.abort()
             if self.camera_widget and self._filter_installed:
                 self.camera_widget.removeEventFilter(self)
                 self._filter_installed = False
+            # Hide PID panel & restore UI
+            if self.kinematics_controller:
+                widget = self.kinematics_controller.get_widget()
+                widget.hide()
+                widget.set_pid_only_mode(False)
+            
+            if self.graph_controller:
+                self.graph_controller.set_graph_mode(True) # Back to default
 
     def _install_filter(self):
         """Instala el filtro para sincronizar el redimensionamiento."""

@@ -68,7 +68,8 @@ class KinematicsWidget(QWidget):
         self.claw_spinbox.valueChanged.connect(self._on_spinbox_changed)
         
         claw_layout = QHBoxLayout()
-        claw_layout.addWidget(QLabel("Apertura Garra (mm):"))
+        self.claw_label = QLabel("Apertura Garra (mm):")
+        claw_layout.addWidget(self.claw_label)
         claw_layout.addWidget(self.claw_slider)
         claw_layout.addWidget(self.claw_spinbox)
         self.main_layout.addLayout(claw_layout)
@@ -192,14 +193,19 @@ class KinematicsWidget(QWidget):
             for gain in self._pid_spins
         }
 
+    def set_pid_only_mode(self, enabled: bool):
+        """Oculta todo excepto las ganancias PID."""
+        self.claw_label.setVisible(not enabled)
+        self.claw_slider.setVisible(not enabled)
+        self.claw_spinbox.setVisible(not enabled)
+        self.holder_widget.setVisible(not enabled)
+        self.coordinates_button.setVisible(not enabled)
+        self._pid_container.setVisible(True)
+        # Asegurar que el layout principal se reajuste
+        self.main_layout.activate()
+
     def set_inputs_enabled(self, enabled):
-        """Habilita o deshabilita todos los campos de entrada y el slider.
-
-        Util para bloquear la UI durante movimientos del robot.
-
-        Args:
-            enabled (bool): True para habilitar, False para deshabilitar.
-        """
+        """Habilita o deshabilita todos los campos de entrada y el slider."""
         for spin in self._spins.values():
             spin.setEnabled(enabled)
         for gain_spins in self._pid_spins.values():

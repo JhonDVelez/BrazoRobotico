@@ -38,6 +38,7 @@ def corregir_z(x_objetivo, y_objetivo, z_objetivo):
     return round(z_objetivo + errorz)
 
 def apertura_de_garra(xmm):
+    print(f"[DEBUG] Apertura de garra recibiendo xmm: {xmm}")
     if xmm > 110:
         xmm = 110
     if xmm < 10:

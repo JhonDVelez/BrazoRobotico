@@ -24,9 +24,6 @@ class PickPlaceContext:
         # Control de movimiento y feedback
         self.last_positions = None
         self.current_feedback = None
-        self.current_target = None
-        
-        # Constantes de control
         self.STALL_TIMEOUT_MS = 1500
         self.MOVEMENT_TOLERANCE = 0.5
         self.SUCCESS_THRESHOLD = 2.0
@@ -39,4 +36,6 @@ class PickPlaceContext:
         self.place_target_coords = None
         self.ik_target = None
         self.current_target = None
+        self.last_positions = None
+        self.current_feedback = None
         # Mantenemos sphere_poses y configuración de pinza

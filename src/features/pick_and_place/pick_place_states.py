@@ -37,6 +37,7 @@ class PickPlaceState(Enum):
     PICK_DOWN = "pick_down"
     PICK_GRASP = "pick_grasp"
     RETRACT_TO_PID_HOME = "retract_to_pid_home"
+    RETRACT_LIFT = "retract_lift"
     PLACE_APPROACH = "place_approach"
     PLACE_DOWN = "place_down"
     PLACE_RELEASE = "place_release"

@@ -273,6 +273,12 @@ class MainActionsMixin:
             checked (bool): True para mostrar sliders.
         """
         if checked:
+            # Reseteamos otros modos antes de activar sliders
+            if hasattr(self, 'kinematics_controller') and self.kinematics_controller:
+                self.kinematics_controller.get_worker().stop_and_reset()
+            if hasattr(self, 'pick_and_place_controller') and self.pick_and_place_controller:
+                self.pick_and_place_controller.stop_and_reset()
+
             self.sliders_controller.get_widget().show()
             self.kinematics_controller.get_widget().set_vertical_layout()
             self.graph_controller.set_graph_mode(True)
@@ -306,6 +312,11 @@ class MainActionsMixin:
             checked (bool): True para mostrar cinematica.
         """
         if checked:
+            # Reseteamos otros modos antes de activar cinemática
+            if hasattr(self, 'pick_and_place_controller') and self.pick_and_place_controller:
+                self.pick_and_place_controller.stop_and_reset()
+            # sliders no tienen worker, solo estado en UI, su reseteo es manual al ocultar sliders o via reset_controls()
+            
             self.kinematics_controller.get_widget().show()
             self.kinematics_controller.enter_kinematics_mode()
             self.graph_controller.set_graph_mode(False)
@@ -329,6 +340,11 @@ class MainActionsMixin:
                 NotificationType.DIALOG_WARNING
             )
             return
+
+        if checked:
+            # Reseteamos otros modos antes de activar pick and place
+            if hasattr(self, 'kinematics_controller') and self.kinematics_controller:
+                self.kinematics_controller.get_worker().stop_and_reset()
 
         from src.services.data.signals import PickPlaceSignalManager
         PickPlaceSignalManager.get_instance().set_state(checked)

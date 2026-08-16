@@ -11,7 +11,8 @@ Conexiones:
     - Worker -> Bus Global: action_request(dict) ruteado a Simulation/Physical/Kinematics.
 """
 
-from PyQt6.QtCore import QObject, pyqtSlot, QEvent
+from PyQt6.QtCore import QObject, pyqtSlot, QEvent, QTimer
+from src.services.data.utils import robotang_angulos
 import numpy as np
 from src.services.data.signals import (
     PickPlaceSignalManager, SimulationSignalManager,
@@ -50,6 +51,10 @@ class PickAndPlaceController(QObject):
         # Or just pass it when ready. For now, let's initialize worker in set_kinematics_controller
         self.worker = None 
         self._current_color = None
+        
+        self._last_emitted_angulos = None
+        self._last_processed_pos = None
+        self._smoothed_pos = None
 
         if camera_widget:
             self.set_camera_widget(camera_widget)
@@ -59,10 +64,6 @@ class PickAndPlaceController(QObject):
         self.graph_controller = graph_controller
         self.worker = PickAndPlaceWorker(kinematics_controller=kinematics_controller)
         self._setup_connections()
-        self._on_state_changed(self.signal_manager.get_state())
-        self.noti_manager = NotificationManager.get_instance()
-        self._setup_connections()
-        self._on_state_changed(self.signal_manager.get_state())
         self.noti_manager = NotificationManager.get_instance()
 
     def _setup_connections(self):
@@ -87,13 +88,16 @@ class PickAndPlaceController(QObject):
         self.worker.action_request.connect(self._route_action)
         self.worker.sequence_completed.connect(self._on_sequence_completed)
         self.worker.sequence_failed.connect(self._on_sequence_failed)
+        
+        if self.graph_controller:
+            self.worker.pid_iteration.connect(self.graph_controller._on_pid_iteration)
 
         sim_signals = SimulationSignalManager.get_instance()
         phys_signals = PhysicalSignalManager.get_instance()
-        sim_signals.update_graph_signal.connect(
-            self.worker.on_feedback_update)
-        phys_signals.update_graph_signal.connect(
-            self.worker.on_feedback_update)
+        sim_signals.sensor_position_signal.connect(
+            self.worker.on_simulation_feedback_update)
+        phys_signals.data_received.connect(
+            self.worker.on_physical_feedback_update)
 
     def set_camera_widget(self, camera_widget):
         """        Asocia el controlador con el widget de cámara."""
@@ -137,9 +141,19 @@ class PickAndPlaceController(QObject):
             self.overlay.show()
             self._sync_overlay_stack()
             self._install_filter()
-            
             # Show PID panel & restrict UI
             if self.kinematics_controller:
+                # Inicializar serial manualmente para P&P sin iniciar movimiento automatico
+                kw = self.kinematics_controller.get_worker()
+                kw.skip_home = True
+                
+                if self.kinematics_controller._robot_service:
+                    com = self.kinematics_controller._robot_service.get_com()
+                    self.kinematics_controller._robot_service.suspend_serial()
+                    
+                    if not kw.isRunning():
+                        kw.start_worker(com)
+                
                 widget = self.kinematics_controller.get_widget()
                 widget.show()
                 widget.set_pid_only_mode(True)
@@ -147,24 +161,34 @@ class PickAndPlaceController(QObject):
             
             if self.graph_controller:
                 self.graph_controller.set_graph_mode(False) # Cartesian
-
+            
             # Only start sequence if currently in IDLE
             if self.worker and self.worker.current_state_value == 'idle':
                 self.worker.start_sequence()
         else:
             self.overlay.hide()
             self.worker.abort()
+            # Restaurar el modo normal del worker
+            if self.kinematics_controller:
+                kw = self.kinematics_controller.get_worker()
+                kw.skip_home = False
+            
             if self.camera_widget and self._filter_installed:
                 self.camera_widget.removeEventFilter(self)
                 self._filter_installed = False
             # Hide PID panel & restore UI
             if self.kinematics_controller:
+                # Resume main robot serial
+                if self.kinematics_controller._robot_service:
+                    self.kinematics_controller._robot_service.resume_serial()
+                
                 widget = self.kinematics_controller.get_widget()
                 widget.hide()
                 widget.set_pid_only_mode(False)
             
             if self.graph_controller:
                 self.graph_controller.set_graph_mode(True) # Back to default
+
 
     def _install_filter(self):
         """Instala el filtro para sincronizar el redimensionamiento."""
@@ -228,6 +252,23 @@ class PickAndPlaceController(QObject):
         # Ruteado por el DataController hacia SearchSignalManager.
         self.signal_manager.search_circle_request.emit(False)
         self.worker.place(coords)
+
+    # def _update_simulation_with_positions(self, positions):
+    #     """Procesa y emite posiciones suavizadas a la simulación."""
+    #     positions[4]= positions[4]*-1
+    #     positions[5]= positions[5]*-1 
+    #     # 1. Aplicar filtro EMA
+    #     alpha = 0.1
+    #     if self._smoothed_pos is None:
+    #         self._smoothed_pos = positions
+    #     else:
+    #         self._smoothed_pos = [
+    #             (alpha * new) + ((1 - alpha) * old)
+    #             for new, old in zip(positions, self._smoothed_pos)
+    #         ]
+        
+    #     # 2. Enviar a la simulación
+    #     SimulationSignalManager.get_instance().update_robot_from_kinematics.emit(self._smoothed_pos)
 
     @pyqtSlot(dict)
     def _route_action(self, action):
@@ -299,3 +340,8 @@ class PickAndPlaceController(QObject):
     def get_widget(self):
         """Retorna el widget overlay."""
         return self.overlay
+
+    def stop_and_reset(self):
+        """Detiene la secuencia y limpia el estado del worker."""
+        if self.worker:
+            self.worker.stop_and_reset()

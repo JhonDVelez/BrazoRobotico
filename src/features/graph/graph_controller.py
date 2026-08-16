@@ -184,6 +184,12 @@ class GraphController(QObject):
         target_adj = [target_xyz[0] - 110, target_xyz[1], target_xyz[2]]
         self._cartesian_pid_plot.append_data(time_s, actual_adj, target_adj)
 
+    def plot_data(self, target, actual):
+        """Método wrapper para compatibilidad."""
+        # Asumiendo un timestamp arbitrario si no se recibe
+        import time
+        self._on_pid_iteration(time.time(), actual, target)
+
     def _on_mode_changed(self, is_angular):
         """
         Alterna la visibilidad de los paneles de gráficas según el modo.

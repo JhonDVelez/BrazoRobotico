@@ -3,11 +3,11 @@ Módulo que orquesta el PickAndPlaceWorker utilizando la nueva secuencia de 15 p
 """
 
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, QTimer
+import threading
 from src.features.pick_and_place.pick_place_states import PickPlaceState
 from src.features.pick_and_place.pick_place_state_machine import PickPlaceStateMachine
 from src.features.pick_and_place.logic.context import PickPlaceContext
 from src.services.data.utils.conversions import robotang_angulos
-from src.services.robot.pid_service import PidService
 import numpy as np
 
 class PickAndPlaceWorker(QObject):
@@ -21,26 +21,33 @@ class PickAndPlaceWorker(QObject):
         self.context = PickPlaceContext()
         self.kinematics_controller = kinematics_controller
         self._sm = PickPlaceStateMachine(on_state_change=self._on_state_change)
-        self.pid_service = PidService(self._read_positions, self._enviar_robot, self.action_request, self.pid_iteration)
+        
+        # Telemetry management
+        self._telemetry_lock = threading.Lock()
+        self._current_pos = [0.0] * 6
+        
+        # Conectar al KinematicsWorker si está disponible
+        if self.kinematics_controller:
+            self.kw = self.kinematics_controller.get_worker()
+            self.kw.movement_finished.connect(self._on_movement_finished)
+            self.kw.pid_iteration.connect(self.pid_iteration.emit)
+        else:
+            self.kw = None
+
         self._check_timer = QTimer()
         self._check_timer.setSingleShot(False)
 
-    def start_sequence(self):
-        self._sm.start_op()
-
-    def _dummy_signal(self, *args): pass # Placeholder
-
-    def _enviar_robot(self, servos):
-        self.action_request.emit({'type': 'move', 'target': servos})
-
     def _read_positions(self):
-        return self.context.current_feedback or [0]*6
+        with self._telemetry_lock:
+            return list(self._current_pos)
+
 
     @pyqtSlot(dict)
     def on_poses_from_camera(self, poses):
         self.context.sphere_poses.update(poses)
 
     def _on_state_change(self, state_name):
+        print(f"[DEBUG] >>> [StateMachine] Entering State: {state_name}")
         handlers = {
             PickPlaceState.HOME1_MOVE.value: self._enter_home1_move,
             PickPlaceState.HOME1_VALIDATE.value: self._enter_home1_validate,
@@ -50,7 +57,8 @@ class PickAndPlaceWorker(QObject):
             PickPlaceState.PICK_APPROACH.value: self._enter_pick_approach,
             PickPlaceState.PICK_DOWN.value: self._enter_pick_down,
             PickPlaceState.PICK_GRASP.value: self._enter_pick_grasp,
-            PickPlaceState.RETRACT_TO_PID_HOME.value: self._enter_retract_to_pid_home,
+            PickPlaceState.RETRACT_LIFT.value: self._enter_retract_lift,
+            PickPlaceState.RETRACT_TO_PID_HOME.value: self._enter_retract_to_pid_home_pick,
             PickPlaceState.PLACE_APPROACH.value: self._enter_place_approach,
             PickPlaceState.PLACE_DOWN.value: self._enter_place_down,
             PickPlaceState.PLACE_RELEASE.value: self._enter_place_release,
@@ -61,105 +69,196 @@ class PickAndPlaceWorker(QObject):
             PickPlaceState.FINAL_SEQ_HOME1.value: self._enter_final_seq_home1,
         }
         handler = handlers.get(state_name)
-        if handler: handler()
+        if handler:
+            handler()
+            print(f"[DEBUG] <<< [StateMachine] Finished Handler for State: {state_name}")
 
     def calcular_angulo_garra(self, tam):
         from src.features.kinematics.coordinate_correction import apertura_de_garra
         return apertura_de_garra(tam)
 
     def _enter_home1_move(self):
+        print("[DEBUG] PickAndPlaceWorker Entering HOME1_MOVE")
         servos = [0,0,0,0,0,0]
-        self._enviar_robot(servos)
-        self._sm.home1_done()
+        if self.kw:
+            self.kw.execute_direct_move(servos)
+        self._wait_for_settle(lambda: QTimer.singleShot(0, self._sm.home1_done))
 
     def _enter_home1_validate(self):
-        # Asegurarse de que no esté ya validando
-        if self._check_timer.isActive():
-            return
-        self._check_timer.timeout.connect(self._check_home1)
-        self._check_timer.start(500)
-    
-    def _check_home1(self):
-        if self.validar_angulos([0,0,0,0,0,0]):
-            self._check_timer.stop()
-            # Desconectar solo si está conectado para evitar errores
-            try:
-                self._check_timer.timeout.disconnect(self._check_home1)
-            except TypeError:
-                pass
-            if self.current_state_value == PickPlaceState.HOME1_VALIDATE.value:
-                self._sm.home1_validated()
+        self._sm.home1_validated()
+
+    def _wait_for_settle(self, callback):
+        """Espera no bloqueante de 2.5 segundos antes de disparar el callback."""
+        # Asegurarse de que el timer esté desconectado antes de iniciar
+        try:
+            self._check_timer.timeout.disconnect()
+        except Exception:
+            pass
+            
+        self._check_timer.setSingleShot(True)
+        self._check_timer.timeout.connect(callback)
+        self._check_timer.start(2500)
             
     def _enter_home2_move(self):
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
-        angulo_garra = self.calcular_angulo_garra(tam)
+        angulo_garra = self.calcular_angulo_garra(tam + 20)
         servos = [0, -45, 120, 0, 30, angulo_garra]
-        self._enviar_robot(servos)
-        self._sm.home2_done()
+        if self.kw:
+            self.kw.execute_direct_move(servos)
+        self._wait_for_settle(lambda: QTimer.singleShot(0, self._sm.home2_done))
 
     def _enter_home2_validate(self):
-        self._check_timer.timeout.connect(self._check_home2)
-        self._check_timer.start(500)
-    
-    def _check_home2(self):
-        tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
-        ang_garra = self.calcular_angulo_garra(tam)
-        if self.validar_angulos([0,-45,120,0,30,ang_garra]):
-            self._check_timer.stop()
-            self._check_timer.timeout.disconnect(self._check_home2)
-            self._sm.home2_validated()
+        self._sm.home2_validated()
 
-    def _enter_pid_home(self):
+    def _enter_pid_home(self, angulo_garra_custom=None):
+        print("Ejecutando PID Home ")
+        tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
+        print("Tamano seleccionado:", tam)
+        ang_garra = angulo_garra_custom if angulo_garra_custom is not None else self.calcular_angulo_garra(tam + 20)
+        print("Angulo garra calculado:", ang_garra)
+        self.update_gains_from_panel()
+        print("Gains actualizados desde el panel.")
         tx, ty, tz = 185, 0, 170
         tz = self.corregir_z(tx, ty, tz)
         tx, ty = self.corregir_xy(tx, ty)
-        self.pid_service.pid_control_loop([tx, ty, tz], [(-10, 10), (-50, -40), (0, 130), (0, 120)])
-        self._sm.pid_home_done()
+        print(f"PID Home Target: x={tx}, y={ty}, z={tz}, ang_garra={ang_garra}")
+        limites_home = [(-10, 10), (-50, -40), (0, 130), (0, 120)]
+        print(f"Limites para PID Home: {limites_home}")
+        if self.kw:
+            print("Ejecutando PID Home con KinematicsWorker.")
+            self.kw.execute_pid_only([tx, ty, tz], limites_home, angulo_garra=ang_garra)
         
-    def _enter_pick_approach(self):
-        x, y, z = self.context.pick_target
-        z += 50
-        self.pid_service.pid_control_loop([x, y, z], [(-100, 100), (-90, 90), (-130, 130), (-90, 120)])
-        self._sm.pick_approach_done()
-    
+    def _enter_pick_approach(self, angulo_garra_custom=None):
+        tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
+        ang_garra = angulo_garra_custom if angulo_garra_custom is not None else self.calcular_angulo_garra(tam + 20)
+        self.update_gains_from_panel()
+        x, y, z = self.context.ik_target
+        x1 = y
+        y1 = x
+        x = x1 + 115
+        y = y1 + 15
+        z = z + 70
+        z = self.corregir_z(x, y, z)
+        x, y = self.corregir_xy(x, y)
+        limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
+        print("Ejecutando Pick Approach con target:", [x, y, z], "y angulo garra:", ang_garra)
+        if self.kw:
+            self.kw.execute_pid_only([x, y, z], limites_target, angulo_garra=ang_garra)
+
     def _enter_pick_down(self):
-        x, y, z = self.context.pick_target
-        self.pid_service.pid_control_loop([x, y, z], [(-100, 100), (-90, 90), (-130, 130), (-90, 120)])
-        self._sm.pick_down_done()
+        tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
+        ang_garra = self.calcular_angulo_garra(tam + 20)
+        self.update_gains_from_panel()
+        x, y, z = self.context.ik_target
+        x1 = y
+        y1 = x
+        x = x1 + 115
+        y = y1 + 15
+        z = tam/2
+        z = self.corregir_z(x, y, z)
+        x, y = self.corregir_xy(x, y)
+        limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
+        if self.kw:
+            self.kw.execute_pid_only([x, y, z], limites_target, angulo_garra=ang_garra)
 
     def _enter_pick_grasp(self):
-        from src.features.kinematics.coordinate_correction import apertura_de_garra
-        ang = apertura_de_garra(20)
-        self.pid_service.set_claw_value(20)
-        self._sm.pick_grasp_done()
+        # 1. Obtener ángulos actuales
+        if self.kw:
+            current_pwm = self.kw._read_positions()
+        else:
+            current_pwm = self._read_positions()
+        
+        current_angles = list(robotang_angulos(*current_pwm))
+        
+        # 2. Calcular nuevo ángulo de la garra
+        tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
+        ang_garra = self.calcular_angulo_garra(tam - 20)
+        
+        # 3. Modificar y enviar movimiento
+        current_angles[5] = ang_garra
+        
+        if self.kw:
+            self.kw.disable_gripper_control()
+            self.kw.execute_direct_move(current_angles)
+            
+        self._wait_for_settle(lambda: (self.kw.enable_gripper_control(), QTimer.singleShot(0, self._sm.pick_grasp_done)))
 
-    def _enter_retract_to_pid_home(self):
-        self._enter_pid_home()
-        self._sm.retract_done()
-    
     def _enter_place_approach(self):
+        self.update_gains_from_panel()
+        if self.context.place_target_coords is None:
+            print("[ERROR] place_target_coords is None in _enter_place_approach")
+            self.sequence_failed.emit('No se ha seleccionado posición de colocación (place)')
+            self._sm.reset()
+            return
         x, y, z = self.context.place_target_coords
-        z += 50
-        self.pid_service.pid_control_loop([x, y, z], [(-100, 100), (-90, 90), (-130, 130), (-90, 120)])
-        self._sm.place_approach_done()
+        x1 = y
+        y1 = x
+        x = x1 + 115
+        y = y1 + 15
+        z = z + 70
+        z = self.corregir_z(x, y, z)
+        x, y = self.corregir_xy(x, y)
+        print("Ejecutando ")
+        limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
+        if self.kw:
+            self.kw.execute_pid_only([x, y, z], limites_target)
     
     def _enter_place_down(self):
+        self.update_gains_from_panel()
+        if self.context.place_target_coords is None:
+            print("[ERROR] place_target_coords is None in _enter_place_down")
+            self.sequence_failed.emit('No se ha seleccionado posición de colocación (place)')
+            self._sm.reset()
+            return
         x, y, z = self.context.place_target_coords
-        self.pid_service.pid_control_loop([x, y, z], [(-100, 100), (-90, 90), (-130, 130), (-90, 120)])
-        self._sm.place_down_done()
+        x += 110
+        z = self.corregir_z(x, y, z)
+        x, y = self.corregir_xy(x, y)
+        print(f"[DEBUG] PID Target (PLACE_DOWN): x={x}, y={y}, z={z}")
+        limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
+        if self.kw:
+            self.kw.execute_pid_only([x, y, z], limites_target)
+
+    def _enter_retract_lift(self):
+        print("[DEBUG] Entering RETRACT_LIFT")
+        tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
+        ang_garra = self.calcular_angulo_garra(tam - 20)
+        self._enter_pick_approach(angulo_garra_custom=ang_garra)
+
+    def _enter_retract_to_pid_home_pick(self):
+        print("[DEBUG] Entering RETRACT_TO_PID_HOME_PICK")
+        tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
+        ang_garra = self.calcular_angulo_garra(tam - 20)
+        self._enter_pid_home(angulo_garra_custom=ang_garra)
 
     def _enter_place_release(self):
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
         target_ang = tam + 15
+        if self.kw:
+            self.kw.disable_gripper_control()
+            self.kw.set_claw_value(target_ang)
+            self.kw.enable_gripper_control()
         self._sm.place_release_done()
-
+    
     def _enter_retract_to_place_above(self):
+        self.update_gains_from_panel()
+        if self.context.place_target_coords is None:
+            print("[ERROR] place_target_coords is None in _enter_retract_to_place_above")
+            self.sequence_failed.emit('No se ha seleccionado posición de colocación (place)')
+            self._sm.reset()
+            return
         x, y, z = self.context.place_target_coords
         z += 50
-        self.pid_service.pid_control_loop([x, y, z], [(-100, 100), (-90, 90), (-130, 130), (-90, 120)])
-        self._sm.place_release_done()
+        x += 110
+        z = self.corregir_z(x, y, z)
+        x, y = self.corregir_xy(x, y)
+        print(f"[DEBUG] PID Target (RETRACT_TO_PLACE_ABOVE): x={x}, y={y}, z={z}")
+        limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
+        if self.kw:
+            self.kw.execute_pid_only([x, y, z], limites_target)
 
     def _enter_retract_from_place(self):
+        self.update_gains_from_panel()
         self._enter_pid_home()
         self._sm.retract_from_place_to_pid()
     
@@ -175,9 +274,19 @@ class PickAndPlaceWorker(QObject):
         self._sm.final_home1_done()
 
     def validar_angulos(self, destino_angulos):
-        current_pwm = self._read_positions()
+        # 1. Usar la telemetría cruda directamente del KinematicsWorker
+        if self.kw:
+            current_pwm = self.kw._read_positions()
+        else:
+            current_pwm = self._read_positions()
+            
+        print(f"[DEBUG] Validating angles: Current PWM={current_pwm}")
         current_angles = robotang_angulos(*current_pwm)
-        return all(abs(current_angles[i] - destino_angulos[i]) < 5 for i in range(len(destino_angulos)))
+        print(f"[DEBUG] Validating: Current={current_angles}, Target={destino_angulos}")
+        
+        # 2. Validar solo los primeros 5 motores (índices 0-4), ignorando el 6to (índice 5)
+        return all(abs(current_angles[i] - destino_angulos[i]) < 5 for i in range(5))
+
 
     def corregir_xy(self, x, y):
         from src.features.kinematics.coordinate_correction import corregir_xy as corr_xy
@@ -189,8 +298,21 @@ class PickAndPlaceWorker(QObject):
 
     @pyqtSlot(str)
     def pick(self, color):
+        print(f"[DEBUG] User input: Pick {color}")
         self.update_gains_from_panel()
         self.context.selected_color = color
+        
+        # Populating ik_target based on selected color
+        if color in self.context.sphere_poses:
+            pose_data = self.context.sphere_poses[color]
+            if isinstance(pose_data, dict) and 'position' in pose_data:
+                self.context.ik_target = pose_data['position']
+                print(f"[DEBUG] Assigned ik_target: {self.context.ik_target}")
+            else:
+                self.context.ik_target = pose_data
+                print(f"[WARNING] pose_data does not have 'position' key: {pose_data}")
+        else:
+            print(f"[ERROR] Color {color} not found in sphere_poses: {self.context.sphere_poses}")
         
         # Solo avanzar si la maquina de estados esta en espera de entrada o en reposo.
         if self._sm.current_state_value == PickPlaceState.WAITING_FOR_INPUT.value:
@@ -204,47 +326,110 @@ class PickAndPlaceWorker(QObject):
 
     @pyqtSlot(dict)
     def place(self, coords):
+        print(f"[DEBUG] User input: Place {coords}")
         self.update_gains_from_panel()
         self.context.place_target_coords = coords
         
         # Solo avanzar si la maquina de estados esta en espera de entrada o en reposo.
         if self._sm.current_state_value == PickPlaceState.WAITING_FOR_INPUT.value:
-            self._sm.ready_to_home2()
+            # Diferenciar si estamos esperando el inicio o esperando el destino de colocacion
+            # Si ya pasamos por pick_grasp, deberíamos estar en estado de espera para colocar.
+            # Una forma sencilla es chequear si ya tenemos un objetivo de pick asignado o si el estado anterior fue retract_to_pid_home
+            # Como la maquina de estados no guarda historial, podemos inferir por el contexto.
+            
+            # Asumimos que si estamos en WAITING_FOR_INPUT y tenemos coordenadas de pick,
+            # pero no estamos al inicio, entonces vamos a colocar.
+            
+            # Verificamos si es el primer input (inicio operacion) o segundo (colocacion)
+            # Una forma robusta es revisar si la maquina ya pasó por el estado de agarre.
+            
+            # Si el robot ya ha realizado el agarre, entonces es una orden de 'place' real.
+            if self.context.ik_target is not None:
+                 self._sm.ready_to_place()
+            else:
+                 self._sm.ready_to_home2()
+                 
         elif self._sm.current_state_value == PickPlaceState.IDLE.value:
             self._sm.start_op()
         else:
             pass
 
+    @pyqtSlot()
+    def _on_movement_finished(self):
+        # Avanzar la maquina de estados segun el estado actual
+        current = self.current_state_value
+        print(f"[DEBUG] Movement finished. Current state: {current}")
+        if current == PickPlaceState.PID_HOME.value:
+            self._sm.pid_home_done()
+        elif current == PickPlaceState.PICK_APPROACH.value:
+            self._sm.pick_approach_done()
+        elif current == PickPlaceState.PICK_DOWN.value:
+            self._sm.pick_down_done()
+        elif current == PickPlaceState.PICK_GRASP.value:
+            print("[DEBUG] Pick grasp finished, triggering pick_grasp_done")
+            self._sm.pick_grasp_done()
+        elif current == PickPlaceState.RETRACT_LIFT.value:
+            self._sm.retract_lift_done()
+        elif current == PickPlaceState.RETRACT_TO_PID_HOME.value:
+            self._sm.retract_done()
+        elif current == PickPlaceState.PLACE_APPROACH.value:
+            self._sm.place_approach_done()
+        elif current == PickPlaceState.PLACE_DOWN.value:
+            self._sm.place_down_done()
+        elif current == PickPlaceState.RETRACT_TO_PLACE_ABOVE.value:
+            self._sm.place_release_done() # place_release_done moves to RETRACT_TO_PLACE_ABOVE
+        # Add more transitions if needed based on the StateMachine definitions
+
+
     @pyqtSlot(list)
     def on_target_reached(self, _positions): pass
+
     @pyqtSlot(dict)
     def on_ik_ready(self, result): pass
     @pyqtSlot()
     def abort(self):
         if self.current_state_value != PickPlaceState.IDLE.value:
             self._sm.reset()
+
+    def stop_and_reset(self):
+        """Detiene la secuencia y limpia el estado para un reseteo limpio."""
+        if self.current_state_value != 'idle':
+            self._sm.reset()
+        self._check_timer.stop()
+        self.context.reset()
+        if self.kw:
+            self.kw.execute_direct_move([0, 0, 0, 0, 0, 0])
+
     def update_pid_gains(self, gains):
         # gains: {"kp": [x,y,z], "ki": [x,y,z], "kd": [x,y,z]}
-        self.pid_service.set_pid_gains(gains['kp'], gains['ki'], gains['kd'])
+        if self.kw:
+            self.kw.set_pid_gains(gains['kp'], gains['ki'], gains['kd'])
 
     def update_gains_from_panel(self):
-        # Placeholder para actualizar ganancias desde la UI si fuera necesario
-        pass
+        if self.kinematics_controller:
+            widget = self.kinematics_controller.get_widget()
+            gains = widget.get_pid_gains()
+            self.kw.set_pid_gains(gains["kp"], gains["ki"], gains["kd"])
+
+    def start_sequence(self):
+        if self._sm.current_state_value == 'idle':
+            self._sm.start_op()
 
     @pyqtSlot(list)
-    def on_feedback_update(self, positions):
+    def on_simulation_feedback_update(self, positions):
+        # Simulation feedback often arrives in radians or specific units already.
+        # Assuming simulation positions are already in radians for kinematics direct.
+        with self._telemetry_lock:
+            self._current_pos = list(positions)
         self.context.current_feedback = positions
-        # Emitir señal para graficación en tiempo real
-        # Calculo rapido de cinematica directa para actualizar target de grafica
-        from src.services.data.utils.conversions import robotang_angulos
-        q_reales_deg = robotang_angulos(*positions)
-        q_actual_rad = np.radians([q_reales_deg[0], q_reales_deg[1], q_reales_deg[2], q_reales_deg[4]])
         
-        # Usamos el método de cinemática del PidService
-        p_actual = self.pid_service._cinematica_directa(q_actual_rad)
-        
-        target = self.context.current_target or p_actual.tolist()
-        self.action_request.emit({'type': 'graph_update', 'pos': p_actual.tolist(), 'target': target})
+    @pyqtSlot(list, list)
+    def on_physical_feedback_update(self, positions, temperatures):
+        # Hardware feedback arrives in raw PWM. Need to convert PWM -> Degrees -> Radians
+        with self._telemetry_lock:
+            self._current_pos = list(positions)
+        self.context.current_feedback = positions
+
 
     @property
     def current_state_value(self):

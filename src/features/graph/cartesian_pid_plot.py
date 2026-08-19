@@ -8,8 +8,11 @@ PID cartesiano en tiempo real, mostrando el valor real vs el objetivo
 """
 
 import pyqtgraph as pg
-from PyQt6.QtWidgets import QWidget, QVBoxLayout
+import numpy as np
+import csv
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QFileDialog
 from PyQt6.QtCore import Qt
+
 
 # ==========================================================================
 # CONFIGURACION ESTETICA Y FORMATO (MODIFICABLE)
@@ -23,12 +26,15 @@ class CartesianPIDPlot(QWidget):
     Widget que grafica la convergencia del PID cartesiano en tiempo real
     utilizando PyQtGraph para alto rendimiento.
     """
+    MAX_POINTS = 1000
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._real_data = [[] for _ in range(3)]
         self._target_data = [[] for _ in range(3)]
         self._time_data = []
+        self.text_items = []
+        self.proxies = []
 
         self._setup_ui()
 
@@ -65,6 +71,65 @@ class CartesianPIDPlot(QWidget):
             self.real_lines.append(line_real)
             self.target_lines.append(line_target)
 
+            # Elemento de texto para el hover
+            text = pg.TextItem(anchor=(1, 0), color='w')
+            text.hide()
+            plot.addItem(text)
+            self.text_items.append(text)
+
+            # Proxy para detectar mouseMove
+            proxy = pg.SignalProxy(plot.scene().sigMouseMoved, rateLimit=60, slot=lambda ev, idx=i: self.on_mouse_moved(ev, idx))
+            self.proxies.append(proxy)
+
+        # Botón de Guardar
+        self.save_button = QPushButton("GUARDAR")
+        self.save_button.clicked.connect(self.save_to_csv)
+        layout.addWidget(self.save_button)
+
+    def on_mouse_moved(self, event, idx):
+        """Maneja el evento de movimiento del mouse sobre el gráfico idx."""
+        if not self._time_data:
+            return
+
+        pos = event[0]
+        plot = self.plots[idx]
+        if plot.sceneBoundingRect().contains(pos):
+            mouse_point = plot.getViewBox().mapSceneToView(pos)
+            t_val = mouse_point.x()
+            
+            # Buscar el índice más cercano al tiempo del mouse
+            idx_closest = np.argmin(np.abs(np.array(self._time_data) - t_val))
+            
+            # Actualizar texto
+            time_val = self._time_data[idx_closest]
+            real_val = self._real_data[idx][idx_closest]
+            
+            self.text_items[idx].setText(f"t: {time_val:.2f}s\nVal: {real_val:.2f}mm")
+            self.text_items[idx].show()
+        else:
+            self.text_items[idx].hide()
+
+    def save_to_csv(self):
+        """Guarda los datos del gráfico a un archivo CSV."""
+        if not self._time_data:
+            return
+
+        file_path, _ = QFileDialog.getSaveFileName(self, "Guardar datos", "", "CSV Files (*.csv)")
+        if not file_path:
+            return
+            
+        with open(file_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(["Tiempo(s)", "X_real", "Y_real", "Z_real", "X_target", "Y_target", "Z_target"])
+            
+            # Iterar sobre la longitud de los datos y guardar fila a fila
+            for i in range(len(self._time_data)):
+                writer.writerow([
+                    self._time_data[i],
+                    self._real_data[0][i], self._real_data[1][i], self._real_data[2][i],
+                    self._target_data[0][i], self._target_data[1][i], self._target_data[2][i]
+                ])
+
     def update_theme(self, is_dark: bool):
         """
         Actualiza los colores de los gráficos según el tema (claro/oscuro).
@@ -91,6 +156,9 @@ class CartesianPIDPlot(QWidget):
 
             # Actualizar línea target
             self.target_lines[i].setPen(color=target_color, width=1.5, style=Qt.PenStyle.DashLine)
+            
+            # Actualizar color del texto
+            self.text_items[i].setColor(text_color)
 
     def reset_plot(self, target_xyz):
         """
@@ -112,6 +180,13 @@ class CartesianPIDPlot(QWidget):
             self._real_data[i].append(actual_xyz[i])
             self._target_data[i].append(target_xyz[i])
         self._time_data.append(time_s)
+
+        # Truncar si excede el límite
+        if len(self._time_data) > self.MAX_POINTS:
+            self._time_data.pop(0)
+            for i in range(3):
+                self._real_data[i].pop(0)
+                self._target_data[i].pop(0)
 
         self._redraw()
 

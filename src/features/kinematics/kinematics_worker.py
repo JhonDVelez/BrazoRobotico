@@ -67,6 +67,9 @@ class KinematicsWorker(QThread):
         self._telemetry_lock = threading.Lock()
         self._current_pos = [150.0] * 6
         self._last_valid = [150.0] * 6
+        self._last_pos_for_plot = None
+        self._last_target_for_plot = None
+        self._session_start_time = time.time()
         self._jump_freeze_count = [0] * 6
 
         self._work_queue = queue.Queue()
@@ -305,8 +308,10 @@ class KinematicsWorker(QThread):
         umbral_mm = 2.5
         if t_start is None:
             t_start = time.time()
+        self._session_start_time = t_start
         t_anterior = t_start
         p_anterior = np.zeros(3)
+        update_counter = 0
 
         for i in range(max_iter):
             if not self._running or self._pid_abort:
@@ -332,11 +337,12 @@ class KinematicsWorker(QThread):
                 q_reales_deg[2], q_reales_deg[4]])
             p_actual = self._cinematica_directa(q_actual_rad, self._links)
 
+            update_counter += 1
             if i > 0 and np.allclose(p_actual, p_anterior, atol=0.1):
                 q_deg = np.degrees(q_actual_rad)
                 self.joint_update.emit([q_deg[0], q_deg[1], q_deg[2], 0, q_deg[3], actual_angulo_garra])
-                self.pid_iteration.emit(
-                    round(time.time() - t_start, 4), p_actual.tolist(), target.tolist())
+                if update_counter % 3 == 0:
+                    self.actualizar_grafica(target.tolist(), p_actual.tolist())
                 t_anterior = time.time()  # Sincroniza el tiempo antes de saltar la iteración
 
                 elapsed = time.time() - t_iter_start
@@ -344,8 +350,8 @@ class KinematicsWorker(QThread):
                 continue
             p_anterior = p_actual.copy()
 
-            self.pid_iteration.emit(
-                round(time.time() - t_start, 4), p_actual.tolist(), target.tolist())
+            if update_counter % 3 == 0:
+                self.actualizar_grafica(target.tolist(), p_actual.tolist())
 
             error_actual = target - p_actual
             error_abs = np.abs(error_actual)
@@ -516,6 +522,39 @@ class KinematicsWorker(QThread):
         self._com_port = com_port
         return self._open_serial(com_port)
 
+    def actualizar_grafica(self, target_xyz, pos_actual_xyz):
+        """Emite la señal pid_iteration para actualizar la gráfica y guarda el estado."""
+        self._last_target_for_plot = list(target_xyz)
+        self._last_pos_for_plot = list(pos_actual_xyz)
+        
+        # Tiempo relativo al inicio de la sesión
+        t_relativo = round(time.time() - self._session_start_time, 4)
+        
+        self.pid_iteration.emit(t_relativo, self._last_pos_for_plot, self._last_target_for_plot)
+
+    def _update_graph_with_angles(self, target_angles_deg):
+        """Calcula cinemática para target y actual y actualiza la gráfica."""
+        # Convertir ángulos objetivo a radianes (considerando los 4 DOF usados en _pid_control_loop)
+        # target_angles_deg tiene 6 elementos (incluyendo garra)
+        if (target_angles_deg == [0,0,0,0,0,0]) or (target_angles_deg is None):
+
+            target_xyz = [0,0,468]  # Posición por defecto si los ángulos son nulos
+            pos_actual_xyz = [0,0,468]  # Posición por defecto si los ángulos son nulos
+            self.actualizar_grafica(target_xyz, pos_actual_xyz)
+        else:
+            target_rad = np.radians([target_angles_deg[0], target_angles_deg[1], 
+                                    target_angles_deg[2], target_angles_deg[4]])
+            target_xyz = self._cinematica_directa(target_rad, self._links)
+            
+            # Posición actual
+            pos_actual_deg = CartesianPidCompensator.robotang_angulos(*self._read_positions())
+            pos_actual_rad = np.radians([pos_actual_deg[0], pos_actual_deg[1], 
+                                        pos_actual_deg[2], pos_actual_deg[4]])
+            pos_actual_xyz = self._cinematica_directa(pos_actual_rad, self._links)
+            
+            self.actualizar_grafica(target_xyz.tolist(), pos_actual_xyz.tolist())
+
+
     # ------------------------------------------------------------------ #
     #                  FLUJO PRINCIPAL (run del QThread)                   #
     # ------------------------------------------------------------------ #
@@ -548,6 +587,12 @@ class KinematicsWorker(QThread):
             home_pos = [0, -45, 120, 0, 30, angulo_garra]
             servo_positions = CartesianPidCompensator.angulos_robotang(*home_pos)
             self._enviar_robot(servo_positions)
+            rad_home_pos = np.radians([home_pos[0], home_pos[1], home_pos[2], home_pos[4]])
+            target_home_xyz = self._cinematica_directa(rad_home_pos, self._links)
+            pos_actual = CartesianPidCompensator.robotang_angulos(*self._read_positions())
+            rad_actual = np.radians([pos_actual[0], pos_actual[1], pos_actual[2], pos_actual[4]])
+            pos_actual_xyz = self._cinematica_directa(rad_actual, self._links)
+            self.actualizar_grafica(target_home_xyz.tolist(), pos_actual_xyz.tolist())
             self.joint_update.emit(home_pos)
             self._wait_for_position(servo_positions)
 
@@ -585,6 +630,7 @@ class KinematicsWorker(QThread):
                     if abs(angulo_garra - self._last_sent_claw_angle) > 1.0:
                         servo_positions = CartesianPidCompensator.angulos_robotang(*self._last_commanded_angles)
                         self._enviar_robot(servo_positions)
+                        self._update_graph_with_angles(self._last_commanded_angles)
                         self._last_sent_claw_angle = angulo_garra
 
                 self.joint_update.emit(self._last_commanded_angles)
@@ -608,6 +654,7 @@ class KinematicsWorker(QThread):
                 self.joint_update.emit(positions)
                 servo_positions = CartesianPidCompensator.angulos_robotang(*positions)
                 self._enviar_robot(servo_positions)
+                self._update_graph_with_angles(positions)
                 self._last_commanded_angles = positions
 
             elif work[0] == 'send_home':
@@ -616,7 +663,7 @@ class KinematicsWorker(QThread):
                 self.joint_update.emit(home_pos)
                 home_servos = CartesianPidCompensator.angulos_robotang(*home_pos)
                 self._enviar_robot(home_servos)
-                #self.joint_update.emit(home_pos)
+                self._update_graph_with_angles(home_pos)
                 self._last_commanded_angles = home_pos
                 # Emitir señal para re-habilitar inputs tras el reinicio
                 self.input_enabled.emit()

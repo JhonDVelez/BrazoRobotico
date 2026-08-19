@@ -82,6 +82,24 @@ class PickAndPlaceWidget(QWidget):
         self.reset_button.hide()
         self.reset_button.clicked.connect(self._on_reset_clicked)
 
+        self.status_label = QLabel("", self)
+        self.status_label.setStyleSheet("""
+            QLabel {
+                background-color: rgba(0, 0, 0, 150);
+                color: red;
+                font-size: 16px;
+                padding: 5px;
+                border-radius: 5px;
+            }
+        """)
+        self.status_label.move(10, 10)
+        self.status_label.hide()
+
+    def update_status_message(self, message):
+        self.status_label.setText(message)
+        self.status_label.show()
+        self.status_label.raise_()
+
     def set_mode(self, mode):
         """Cambia el modo de interaccion y limpia la seleccion actual."""
         if mode not in ('pick', 'place'):
@@ -305,9 +323,11 @@ class PickAndPlaceWidget(QWidget):
         if self._mode == 'pick' and self._selected_color:
             self.sphere_selected.emit(self._selected_color)
             self._hide_confirm_button()
+            self.status_label.hide()
         elif self._mode == 'place' and self._selected_place:
             self.place_requested.emit(self._selected_place)
             self._hide_confirm_button()
+            self.status_label.hide()
             self.reset_button.hide()  # Ocultar durante el proceso de place
 
     def hideEvent(self, event):

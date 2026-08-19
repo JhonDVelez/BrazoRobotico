@@ -15,6 +15,7 @@ Conexiones:
 """
 
 from threading import Lock
+import time
 import numpy as np
 import cv2
 from PyQt6.QtCore import QThread, pyqtSignal, QThreadPool, pyqtSlot
@@ -63,6 +64,10 @@ class CameraWorker(QThread):
         self.last_roi = None
         self.sphere_radius = camera_config.get("sphere_radius", 30.0)
         self.custom_origin = (180.0, 0.0, 0.0)
+        
+        # Throttling de frames (limitar a 15 FPS)
+        self.last_frame_time = 0
+        self.fps_limit = 15
 
         # Inyección de configuración
         self.camera_config = camera_config or {}
@@ -141,13 +146,12 @@ class CameraWorker(QThread):
 
     def _emit_frame_ready(self, frame: np.ndarray):
         """
-        Emite la señal de frame listo para la UI de forma segura.
-
-        Args:
-            frame (np.ndarray): Imagen en formato BGR.
+        Emite la señal de frame listo para la UI de forma segura con throttling.
         """
-        if frame is not None:
+        now = time.time()
+        if frame is not None and (now - self.last_frame_time) > (1.0 / self.fps_limit):
             self.frame_ready.emit(frame)
+            self.last_frame_time = now
 
     def _emit_error(self, msg: str):
         """

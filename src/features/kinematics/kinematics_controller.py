@@ -180,9 +180,6 @@ class KinematicsController(QObject):
         # Asegurar que el worker no esté pausado antes de enviar la tarea
         self.kinematics_worker.resume()
         
-        if self._graph_controller:
-            self._graph_controller.reset_cartesian_plot()
-        
         self.kinematics_worker.execute_target(tx, ty, tz)
 
     @pyqtSlot(int)

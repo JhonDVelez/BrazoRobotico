@@ -88,6 +88,7 @@ class PickAndPlaceController(QObject):
         self.worker.action_request.connect(self._route_action)
         self.worker.sequence_completed.connect(self._on_sequence_completed)
         self.worker.sequence_failed.connect(self._on_sequence_failed)
+        self.worker.status_message_updated.connect(self.overlay.update_status_message)
         
         if self.graph_controller:
             self.worker.pid_iteration.connect(self.graph_controller._on_pid_iteration)

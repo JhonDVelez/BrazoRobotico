@@ -362,6 +362,8 @@ class KinematicsWorker(QThread):
                 contador_estabilidad += 1
                 error_anterior = error_actual.copy()
                 if contador_estabilidad >= iteraciones_requeridas:
+                    print(f"[DEBUG] PID convergido en {i} iteraciones.")
+                    self.movement_finished.emit()
                     return True
                 elapsed = time.time() - t_iter_start
                 time.sleep(max(0, TS - elapsed))
@@ -421,6 +423,7 @@ class KinematicsWorker(QThread):
             elapsed = time.time() - t_iter_start
             time.sleep(max(0, TS - elapsed))
 
+        self.movement_finished.emit()
         return False
 
     # ------------------------------------------------------------------ #
@@ -614,24 +617,29 @@ class KinematicsWorker(QThread):
                 # Inicializar caché si es None (primera vez que entra al bucle)
                 if self._last_commanded_angles is None:
                     self._last_commanded_angles = q_reales_deg.tolist()
-                else:
-                    # Actualizar las primeras 5 articulaciones con telemetría real
-                    for i in range(5):
+
+                # Determinar si la garra está en movimiento activo
+                gripper_moving = False
+                if self.gripper_control_enabled:
+                    with self._claw_lock:
+                        angulo_garra_calculado = apertura_de_garra(self._claw_mm)
+                    gripper_moving = abs(angulo_garra_calculado - self._last_sent_claw_angle) > 1.0
+
+                # Actualizar las primeras 5 articulaciones con filtro de 5 grados para evitar jitter
+                for i in range(5):
+                    if abs(q_reales_deg[i] - self._last_commanded_angles[i]) > 5.0:
                         self._last_commanded_angles[i] = q_reales_deg[i]
                 
                 if self.gripper_control_enabled:
-                    with self._claw_lock:
-                        angulo_garra = apertura_de_garra(self._claw_mm)
-                        
                     # Actualizar garra en el caché
-                    self._last_commanded_angles[5] = angulo_garra
+                    self._last_commanded_angles[5] = angulo_garra_calculado
                         
                     # Enviar físicamente al robot si cambió significativamente
-                    if abs(angulo_garra - self._last_sent_claw_angle) > 1.0:
+                    if gripper_moving:
                         servo_positions = CartesianPidCompensator.angulos_robotang(*self._last_commanded_angles)
                         self._enviar_robot(servo_positions)
                         self._update_graph_with_angles(self._last_commanded_angles)
-                        self._last_sent_claw_angle = angulo_garra
+                        self._last_sent_claw_angle = angulo_garra_calculado
 
                 self.joint_update.emit(self._last_commanded_angles)
                 continue 
@@ -645,15 +653,15 @@ class KinematicsWorker(QThread):
                 _, target, limites, max_iter, tol, t_start, angulo_garra = work
                 if t_start is None:
                     t_start = time.time()
+                self._pid_abort = False
                 self._pid_control_loop(target, limites, max_iter=max_iter, tolerancias=tol, t_start=t_start, angulo_garra=angulo_garra)
-                self.movement_finished.emit()
             elif work[0] == 'direct_move':
                 print(f"[DEBUG] Ejecutando movimiento directo a {work[1]}")
                 _, positions = work
                 # Emitir ángulos para la simulación antes de convertir a PWM
-                self.joint_update.emit(positions)
                 servo_positions = CartesianPidCompensator.angulos_robotang(*positions)
                 self._enviar_robot(servo_positions)
+                self.joint_update.emit(positions)
                 self._update_graph_with_angles(positions)
                 self._last_commanded_angles = positions
 

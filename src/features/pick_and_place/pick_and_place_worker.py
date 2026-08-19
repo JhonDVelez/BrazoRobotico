@@ -15,6 +15,7 @@ class PickAndPlaceWorker(QObject):
     sequence_completed = pyqtSignal()
     sequence_failed = pyqtSignal(str)
     status_message_updated = pyqtSignal(str)
+    mode_change_requested = pyqtSignal(str)
     pid_iteration = pyqtSignal(float, list, list)
 
     def __init__(self, kinematics_controller=None):
@@ -130,18 +131,22 @@ class PickAndPlaceWorker(QObject):
         print("[DEBUG] PickAndPlaceWorker Entering HOME1_MOVE")
         servos = [0,0,0,0,0,0]
         if self.kw:
-            self.kw.execute_direct_move(servos)
-        self._enter_home1_validate()
+            self.kw.disable_gripper_control()
+            self.kw.execute_direct_move(servos)     
+        self._sm.home1_done()  # Avanzar inmediatamente a la validación de home1
+
     # Validación de home1_move: Verifica que el brazo esté en la posición neutral inicial.
     def _enter_home1_validate(self):
-        self._wait_for_settle(lambda: QTimer.singleShot(0, self._sm.home1_done))
-        self._sm.home1_validated()
+        print("[DEBUG] Entering HOME1_VALIDATE")
+        self._wait_for_settle(self._sm.home1_validated)
 
     def _enter_waiting_for_input(self):
         if self.context.ik_target is None:
             self.status_message_updated.emit("Selecciona objeto y su color")
+            self.mode_change_requested.emit('pick')
         else:
             self.status_message_updated.emit("Selecciona destino en el plano")
+            self.mode_change_requested.emit('place')
 
     # Estado 2 home2_move: Mueve el brazo a la posición neutral de espera para pick and place.
     def _enter_home2_move(self):
@@ -149,12 +154,14 @@ class PickAndPlaceWorker(QObject):
         angulo_garra = self.calcular_angulo_garra(tam + 20)
         servos = [0, -45, 120, 0, 30, angulo_garra]
         if self.kw:
+            self.kw.disable_gripper_control()
             self.kw.execute_direct_move(servos)
-        self._enter_home2_validate()
+        self._sm.home2_done()  # Avanzar inmediatamente a la validación de home2
     # Validación de home2_move: Verifica que el brazo esté en la posición neutral de espera.
     def _enter_home2_validate(self):
-        self._wait_for_settle(lambda: QTimer.singleShot(0, self._sm.home2_done))
-        self._sm.home2_validated()
+        print("[DEBUG] Entering HOME2_VALIDATE")
+        self._wait_for_settle(self._sm.home2_validated)
+
     # Estado 3 pid_home: Mueve el brazo a la posición de home usando PID.
     def _enter_pid_home(self, angulo_garra_custom=None):
         print("Ejecutando PID Home ")
@@ -171,6 +178,7 @@ class PickAndPlaceWorker(QObject):
         limites_home = [(-10, 10), (-50, -40), (0, 130), (0, 120)]
         print(f"Limites para PID Home: {limites_home}")
         if self.kw:
+            self.kw.disable_gripper_control()
             print("Ejecutando PID Home con KinematicsWorker.")
             self.kw.execute_pid_only([tx, ty, tz], limites_home, angulo_garra=ang_garra)
     
@@ -256,6 +264,9 @@ class PickAndPlaceWorker(QObject):
             self._sm.reset()
             return
         x, y, z = self.context.place_target_coords
+        x = float(self.context.place_target_coords['x'])
+        y = float(self.context.place_target_coords['y'])
+        z = float(self.context.place_target_coords['z'])
         x1 = y
         y1 = x
         x = x1 + 115
@@ -278,6 +289,9 @@ class PickAndPlaceWorker(QObject):
             self._sm.reset()
             return
         x, y, z = self.context.place_target_coords
+        x = float(self.context.place_target_coords['x'])
+        y = float(self.context.place_target_coords['y'])
+        z = float(self.context.place_target_coords['z'])
         x1 = y
         y1 = x
         x = x1 + 115
@@ -306,6 +320,9 @@ class PickAndPlaceWorker(QObject):
             self._sm.reset()
             return
         x, y, z = self.context.place_target_coords
+        x = float(self.context.place_target_coords['x'])
+        y = float(self.context.place_target_coords['y'])
+        z = float(self.context.place_target_coords['z'])
         x1 = y
         y1 = x
         x = x1 + 115
@@ -329,6 +346,10 @@ class PickAndPlaceWorker(QObject):
         limites_home = [(-10, 10), (-50, -40), (0, 130), (0, 120)]
         if self.kw:
             self.kw.execute_pid_only([tx, ty, tz], limites_home, angulo_garra=ang_garra)
+    def _enter_final_seq_home(self):
+        print("[DEBUG] Entering FINAL_SEQ_HOME")
+        self._sm.final_home_done()
+
     # Estado 14 final_seq_home: Mueve el brazo a la posición neutral home2
     def _enter_final_seq_home2(self):
         print("[DEBUG] Entering FINAL_SEQ_HOME2")
@@ -337,7 +358,8 @@ class PickAndPlaceWorker(QObject):
         servos = [0, -45, 120, 0, 30, angulo_garra]
         if self.kw:
             self.kw.execute_direct_move(servos)
-        self._wait_for_settle(lambda: QTimer.singleShot(0, self._sm.final_home2_done))
+        self._wait_for_settle(self._sm.final_home2_done)
+        #self._wait_for_settle(lambda: QTimer.singleShot(0, self._sm.final_home2_done))
 
     # Estado 15 final_seq_home1: Mueve el brazo a la posición neutral home1
     def _enter_final_seq_home1(self):
@@ -345,7 +367,8 @@ class PickAndPlaceWorker(QObject):
         servos = [0,0,0,0,0,0]
         if self.kw:
             self.kw.execute_direct_move(servos)
-        self._wait_for_settle(lambda: QTimer.singleShot(0, self._sm.final_home1_done))
+        #self._wait_for_settle(lambda: QTimer.singleShot(0, self._sm.final_home1_done))
+        self._wait_for_settle(self._sm.final_home1_done)
         self.sequence_completed.emit()
 
     def validar_angulos(self, destino_angulos):
@@ -401,7 +424,7 @@ class PickAndPlaceWorker(QObject):
 
     @pyqtSlot(dict)
     def place(self, coords):
-        print(f"[DEBUG] User input: Place {coords}")
+        print(f"[DEBUG] >>> PickAndPlaceWorker.place() llamado con coords: {coords}")
         self.update_gains_from_panel()
         self.context.place_target_coords = coords
         
@@ -433,7 +456,7 @@ class PickAndPlaceWorker(QObject):
     def _on_movement_finished(self):
         # Avanzar la maquina de estados segun el estado actual
         current = self.current_state_value
-        print(f"[DEBUG] Movement finished. Current state: {current}")
+        print(f"[DEBUG] >>> _on_movement_finished. Current state: {current}")
         if current == PickPlaceState.PID_HOME.value:
             self._sm.pid_home_done()
         elif current == PickPlaceState.PICK_APPROACH.value:
@@ -446,13 +469,16 @@ class PickAndPlaceWorker(QObject):
         elif current == PickPlaceState.RETRACT_LIFT.value:
             self._sm.retract_lift_done()
         elif current == PickPlaceState.RETRACT_TO_PID_HOME.value:
+            print("[DEBUG] Retract to PID home finished, triggering retract_done")
             self._sm.retract_done()
         elif current == PickPlaceState.PLACE_APPROACH.value:
             self._sm.place_approach_done()
         elif current == PickPlaceState.PLACE_DOWN.value:
             self._sm.place_down_done()
         elif current == PickPlaceState.RETRACT_TO_PLACE_ABOVE.value:
-            self._sm.place_release_done() # place_release_done moves to RETRACT_TO_PLACE_ABOVE
+            self._sm.retract_from_place_done() # Avanza al estado de retract from place
+        elif current == PickPlaceState.RETRACT_FROM_PLACE.value:
+            self._sm.retract_from_place_to_pid()
         # Add more transitions if needed based on the StateMachine definitions
 
 
@@ -508,4 +534,4 @@ class PickAndPlaceWorker(QObject):
 
     @property
     def current_state_value(self):
-        return self._sm.current_state_value
+        return self._sm.current_state.value

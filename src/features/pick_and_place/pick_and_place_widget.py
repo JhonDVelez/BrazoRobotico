@@ -67,7 +67,7 @@ class PickAndPlaceWidget(QWidget):
 
         # Boton de reset (regresar a modo pick)
         self.reset_button = QPushButton(self)
-        self.reset_button.setFixedSize(30, 30)
+        self.reset_button.setFixedSize(10, 10)
         self.reset_button.setStyleSheet("""
             QPushButton {
                 background-color: white;
@@ -92,7 +92,7 @@ class PickAndPlaceWidget(QWidget):
                 border-radius: 5px;
             }
         """)
-        self.status_label.move(10, 10)
+        self.status_label.move(10, 50)
         self.status_label.hide()
 
     def update_status_message(self, message):
@@ -200,10 +200,8 @@ class PickAndPlaceWidget(QWidget):
     def mousePressEvent(self, event):
         """
         Detecta clics sobre la imagen de cámara cuando Pick and Place está activo.
-
-        El overlay consulta al `CameraWidget` padre para mapear coordenadas de UI
-        a coordenadas originales de imagen, sin acoplar la cámara a este feature.
         """
+        print(f"[DEBUG] [PickAndPlaceWidget] mousePressEvent. Mode: {self._mode}")
         if event.button() != Qt.MouseButton.LeftButton:
             super().mousePressEvent(event)
             return

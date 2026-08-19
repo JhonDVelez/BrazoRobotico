@@ -63,8 +63,14 @@ class SimulationWorker(QThread):
         """
         if joint_positions is None:
             joint_positions = [0, 0, 0, 0, 0, 0]
+        
+        # Guardamos copia para debug
+        input_pos = list(joint_positions)
+        
         for i in (4, 5):
             joint_positions[i] *= -1
+            
+
         for motor_name, angle, direction in zip(self.joint_names,
                                                 joint_positions,
                                                 self.direction_rotation):

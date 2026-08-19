@@ -93,6 +93,8 @@ class SimulationController(QObject):
             lambda mode: self._set_active_source(Modes.SLIDERS))
         KinematicsSignalManager.get_instance().change_mode_signal.connect(
             lambda mode: self._set_active_source(Modes.KINEMATIC))
+        PickPlaceSignalManager.get_instance().change_mode_signal.connect(
+            lambda mode: self._set_active_source(Modes.PICK_PLACE))
 
         # Escuchar señales especificas
         self.simulation_signal_manager.update_robot_from_kinematics.connect(
@@ -234,7 +236,9 @@ class SimulationController(QObject):
 
     @pyqtSlot(list)
     def _update_from_kinematics(self, joint_positions: list):
-        if self._active_source == Modes.KINEMATIC:
+    # Permitir si estamos en modo cinemático O si PickAndPlace está corriendo
+        #print(f"Debug sim_controller: estado activo: {self._active_source}")
+        if self._active_source == Modes.KINEMATIC or self._active_source == Modes.PICK_PLACE:
             self.update_simulation(joint_positions)
 
     @pyqtSlot(list)

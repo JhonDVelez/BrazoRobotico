@@ -35,6 +35,8 @@ class CartesianPIDPlot(QWidget):
         self._time_data = []
         self.text_items = []
         self.proxies = []
+        self._last_time_in_plot = 0.0
+        self._session_offset = 0.0
 
         self._setup_ui()
 
@@ -104,6 +106,7 @@ class CartesianPIDPlot(QWidget):
             time_val = self._time_data[idx_closest]
             real_val = self._real_data[idx][idx_closest]
             
+            self.text_items[idx].setPos(mouse_point.x(), mouse_point.y())
             self.text_items[idx].setText(f"t: {time_val:.2f}s\nVal: {real_val:.2f}mm")
             self.text_items[idx].show()
         else:
@@ -162,24 +165,26 @@ class CartesianPIDPlot(QWidget):
 
     def reset_plot(self, target_xyz):
         """
-        Limpia los datos acumulados y prepara el grafico para un nuevo movimiento.
+        Prepara el grafico para un nuevo movimiento sin limpiar los datos acumulados.
         """
-        for i in range(3):
-            self._real_data[i].clear()
-            self._target_data[i].clear()
-            self.real_lines[i].setData([], [])
-            self.target_lines[i].setData([], [])
-            
-        self._time_data.clear()
+        pass
 
     def append_data(self, time_s, actual_xyz, target_xyz):
         """
         Agrega un punto de datos y actualiza el grafico.
         """
+        # Si es el primer punto o el tiempo recibido es menor al último registrado (nueva sesión)
+        if not self._time_data or time_s < (self._last_time_in_plot - self._session_offset):
+            # Calcular nuevo offset para la nueva sesión
+            self._session_offset = self._last_time_in_plot + 0.1 if self._time_data else 0.0
+        
+        plot_time = time_s + self._session_offset
+        self._last_time_in_plot = plot_time
+        
         for i in range(3):
             self._real_data[i].append(actual_xyz[i])
             self._target_data[i].append(target_xyz[i])
-        self._time_data.append(time_s)
+        self._time_data.append(plot_time)
 
         # Truncar si excede el límite
         if len(self._time_data) > self.MAX_POINTS:

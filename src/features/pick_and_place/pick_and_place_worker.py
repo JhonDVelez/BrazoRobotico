@@ -17,6 +17,7 @@ class PickAndPlaceWorker(QObject):
     status_message_updated = pyqtSignal(str)
     mode_change_requested = pyqtSignal(str)
     pid_iteration = pyqtSignal(float, list, list)
+    vision_search_request = pyqtSignal(bool, bool)
 
     def __init__(self, kinematics_controller=None):
         super().__init__()
@@ -39,6 +40,7 @@ class PickAndPlaceWorker(QObject):
         self._check_timer = QTimer()
         self._check_timer.setSingleShot(False)
         self.TIEMPO_PASO_GARRA = 1000
+        self._pending_callback = None
 
     def _read_positions(self):
         with self._telemetry_lock:
@@ -51,21 +53,24 @@ class PickAndPlaceWorker(QObject):
 
     def _on_state_change(self, state_name):
         print(f"[DEBUG] >>> [StateMachine] Entering State: {state_name}")
+        
+        # Gestionar busqueda visual basada en estado
+        if state_name == PickPlaceState.WAITING_FOR_INPUT.value:
+            self.vision_search_request.emit(True, True)
+        else:
+            self.vision_search_request.emit(False, False)
+
         handlers = {
             PickPlaceState.HOME1_MOVE.value: self._enter_home1_move,
             PickPlaceState.HOME1_VALIDATE.value: self._enter_home1_validate,
-            PickPlaceState.HOME2_MOVE.value: self._enter_home2_move,
-            PickPlaceState.HOME2_VALIDATE.value: self._enter_home2_validate,
             PickPlaceState.PID_HOME.value: self._enter_pid_home,
-            PickPlaceState.PICK_APPROACH.value: self._enter_pick_approach,
             PickPlaceState.PICK_DOWN.value: self._enter_pick_down,
             PickPlaceState.PICK_GRASP.value: self._enter_pick_grasp,
             PickPlaceState.RETRACT_LIFT.value: self._enter_retract_lift,
-            PickPlaceState.RETRACT_TO_PID_HOME.value: self._enter_retract_to_pid_home_pick,
-            PickPlaceState.PLACE_APPROACH.value: self._enter_place_approach,
+            PickPlaceState.RETRACT_TO_HOME1_PICK.value: self._enter_retract_to_home1_pick,
+            PickPlaceState.PID_HOME_PLACE.value: self._enter_pid_home_place,
             PickPlaceState.PLACE_DOWN.value: self._enter_place_down,
             PickPlaceState.PLACE_RELEASE.value: self._enter_place_release,
-            PickPlaceState.RETRACT_TO_PLACE_ABOVE.value: self._enter_retract_to_place_above,
             PickPlaceState.RETRACT_FROM_PLACE.value: self._enter_retract_from_place,
             PickPlaceState.FINAL_SEQ_HOME.value: self._enter_final_seq_home,
             PickPlaceState.FINAL_SEQ_HOME2.value: self._enter_final_seq_home2,
@@ -83,6 +88,12 @@ class PickAndPlaceWorker(QObject):
 
     def _wait_for_settle(self, callback):
             """Espera no bloqueante de 2.5 segundos antes de disparar el callback."""
+            self._pending_callback = callback
+            
+            def wrapped_callback():
+                self._pending_callback = None
+                callback()
+            
             # Asegurarse de que el timer esté desconectado antes de iniciar
             try:
                 self._check_timer.timeout.disconnect()
@@ -90,7 +101,7 @@ class PickAndPlaceWorker(QObject):
                 pass
                 
             self._check_timer.setSingleShot(True)
-            self._check_timer.timeout.connect(callback)
+            self._check_timer.timeout.connect(wrapped_callback)
             self._check_timer.start(2500)
 
     # Funcion para abrir o cerrar la garra en la posicion actual
@@ -126,20 +137,33 @@ class PickAndPlaceWorker(QObject):
 
     # ESTOS SON LOS METODOS QUE SE EJECUTAN AL ENTRAR A CADA ESTADO DE LA MAQUINA DE ESTADOS
 
-    # Estado 1 home1_move: Mueve el brazo a la posición neutral inicial.
+    # Estado 1 home1_move: Mueve el brazo a la posición neutral inicial en 2 pasos.
     def _enter_home1_move(self):
-        print("[DEBUG] PickAndPlaceWorker Entering HOME1_MOVE")
-        servos = [0,0,0,0,0,0]
+        print("[DEBUG] PickAndPlaceWorker Entering HOME1_MOVE (Paso 1)")
+        servos_paso1 = [0, 0, 130, 0, -30, 0]
         if self.kw:
             self.kw.disable_gripper_control()
-            self.kw.execute_direct_move(servos)     
-        self._sm.home1_done()  # Avanzar inmediatamente a la validación de home1
+            self.kw.execute_direct_move(servos_paso1) 
+        
+        def ejecutar_paso_2():
+            print("[DEBUG] PickAndPlaceWorker Entering HOME1_MOVE (Paso 2)")
+            servos_paso2 = [0, -90, 130, 0, -30, 0]
+            if self.kw:
+                self.kw.disable_gripper_control()
+                self.kw.execute_direct_move(servos_paso2)
+            
+            def finalizar_home1():
+                self._sm.home1_done()
+                
+            self._wait_for_settle(finalizar_home1)
+
+        self._wait_for_settle(ejecutar_paso_2)
 
     # Validación de home1_move: Verifica que el brazo esté en la posición neutral inicial.
     def _enter_home1_validate(self):
         print("[DEBUG] Entering HOME1_VALIDATE")
         self._wait_for_settle(self._sm.home1_validated)
-
+    # despues de validar home1, espera la entrada del usuario para pick o place, si no hay entrada, se queda en este estado.
     def _enter_waiting_for_input(self):
         if self.context.ik_target is None:
             self.status_message_updated.emit("Selecciona objeto y su color")
@@ -148,82 +172,48 @@ class PickAndPlaceWorker(QObject):
             self.status_message_updated.emit("Selecciona destino en el plano")
             self.mode_change_requested.emit('place')
 
-    # Estado 2 home2_move: Mueve el brazo a la posición neutral de espera para pick and place.
-    def _enter_home2_move(self):
-        tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
-        angulo_garra = self.calcular_angulo_garra(tam + 20)
-        servos = [0, -45, 120, 0, 30, angulo_garra]
-        if self.kw:
-            self.kw.disable_gripper_control()
-            self.kw.execute_direct_move(servos)
-        self._sm.home2_done()  # Avanzar inmediatamente a la validación de home2
-    # Validación de home2_move: Verifica que el brazo esté en la posición neutral de espera.
-    def _enter_home2_validate(self):
-        print("[DEBUG] Entering HOME2_VALIDATE")
-        self._wait_for_settle(self._sm.home2_validated)
-
-    # Estado 3 pid_home: Mueve el brazo a la posición de home usando PID.
+    # Estado 2 pid_home: Mueve el brazo a la posición de home usando PID.
     def _enter_pid_home(self, angulo_garra_custom=None):
-        print("Ejecutando PID Home ")
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
-        print("Tamano seleccionado:", tam)
-        ang_garra = angulo_garra_custom if angulo_garra_custom is not None else self.calcular_angulo_garra(tam + 20)
-        print("Angulo garra calculado:", ang_garra)
+        ang_garra = angulo_garra_custom if angulo_garra_custom is not None else self.calcular_angulo_garra(tam + 30)
         self.update_gains_from_panel()
-        print("Gains actualizados desde el panel.")
-        tx, ty, tz = 185, 0, 170
+        tx, ty, tz = 185, 0, 160
         tz = self.corregir_z(tx, ty, tz)
         tx, ty = self.corregir_xy(tx, ty)
-        print(f"PID Home Target: x={tx}, y={ty}, z={tz}, ang_garra={ang_garra}")
         limites_home = [(-10, 10), (-50, -40), (0, 130), (0, 120)]
-        print(f"Limites para PID Home: {limites_home}")
         if self.kw:
             self.kw.disable_gripper_control()
-            print("Ejecutando PID Home con KinematicsWorker.")
             self.kw.execute_pid_only([tx, ty, tz], limites_home, angulo_garra=ang_garra)
-    
-    # Estado 4 pick_approach: Mueve el brazo sobre la esfera detectada.    
-    def _enter_pick_approach(self, angulo_garra_custom=None):
-        tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
-        ang_garra = angulo_garra_custom if angulo_garra_custom is not None else self.calcular_angulo_garra(tam + 20)
-        self.update_gains_from_panel()
-        x, y, z = self.context.ik_target
-        x1 = y
-        y1 = x
-        x = x1 + 115
-        y = y1 + 15
-        z = z + 70
-        z = self.corregir_z(x, y, z)
-        x, y = self.corregir_xy(x, y)
-        limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
-        print("Ejecutando Pick Approach con target:", [x, y, z], "y angulo garra:", ang_garra)
-        if self.kw:
-            self.kw.execute_pid_only([x, y, z], limites_target, angulo_garra=ang_garra)
 
-    # Estado 5 pick_down: Baja el brazo hasta la esfera para recogerla.
+    # Estado 3 pick: Mueve el brazo sobre la esfera detectada.
     def _enter_pick_down(self):
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
-        ang_garra = self.calcular_angulo_garra(tam + 20)
+        ang_garra = self.calcular_angulo_garra(tam + 30)
         self.update_gains_from_panel()
         x, y, z = self.context.ik_target
         x1 = y
         y1 = x
-        x = x1 + 115
-        y = y1 + 15
-        z = tam/2
+        if y1 < 0:
+            x = x1 + 125
+            y = y1 + 35
+        else:
+            x = x1 + 105
+            y = y1 + 30
+        z_comp = round((0.1667*x1) + 22)
+        z = tam/2 + z_comp 
         z = self.corregir_z(x, y, z)
         x, y = self.corregir_xy(x, y)
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
         if self.kw:
             self.kw.execute_pid_only([x, y, z], limites_target, angulo_garra=ang_garra)
-
-    # Estado 6 pick_grasp: Cierra la garra para sujetar la esfera.
+       
+    # Estado 4 pick_grasp: Cierra la garra para sujetar la esfera.
     def _enter_pick_grasp(self):
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
-        apertura = tam - 20
+        apertura = tam - 20 
         self._enviar_comando_movimiento(apertura)
         self._wait_for_settle(lambda: (QTimer.singleShot(0, self._sm.pick_grasp_done)))
-    # Estado 7 retract_lift: Eleva el brazo con la esfera sujeta.
+    # Estado 5 retract_lift: Eleva el brazo con la esfera sujeta.
     def _enter_retract_lift(self):
         print("[DEBUG] Entering RETRACT_LIFT")
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
@@ -232,53 +222,44 @@ class PickAndPlaceWorker(QObject):
         x, y, z = self.context.ik_target
         x1 = y
         y1 = x
-        x = x1 + 115
-        y = y1 + 15
-        z = z + 70
+        if y1 < 0:
+            x = x1 + 125
+            y = y1 + 35
+        else:
+            x = x1 + 105
+            y = y1 + 30
+        z = 100
         z = self.corregir_z(x, y, z)
         x, y = self.corregir_xy(x, y)
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
         if self.kw:
             self.kw.execute_pid_only([x, y, z], limites_target, angulo_garra=ang_garra)
 
-    # Estado 8 retract_to_pid_home: Mueve el brazo a la posición de home usando PID después de recoger la esfera.
-    def _enter_retract_to_pid_home_pick(self):
-        print("[DEBUG] Entering RETRACT_TO_PID_HOME_PICK")
+    # Estado 6 retract_to_home1_pick: Mueve el brazo a la posición de home1
+    def _enter_retract_to_home1_pick(self):
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
         ang_garra = self.calcular_angulo_garra(tam - 20)
+        print("[DEBUG] Entering RETRACT_TO_HOME1_PICK")
+        servos = [0,-90,130,0,-30,ang_garra]
+        if self.kw:
+            self.kw.disable_gripper_control()
+            self.kw.execute_direct_move(servos)
+        self._wait_for_settle(self._sm.retract_to_home1_pick_done)
+    # Entra en estado de espera para validar la coordenada de place
+    # Estado 7 place_home.
+    def _enter_pid_home_place(self, angulo_garra_custom=None):
+        print("[DEBUG] Entering PID_HOME_PLACE")
+        tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
+        ang_garra = angulo_garra_custom if angulo_garra_custom is not None else self.calcular_angulo_garra(tam - 20)
         self.update_gains_from_panel()
-        tx, ty, tz = 185, 0, 170
+        tx, ty, tz = 185, 0, 160
         tz = self.corregir_z(tx, ty, tz)
         tx, ty = self.corregir_xy(tx, ty)
         limites_home = [(-10, 10), (-50, -40), (0, 130), (0, 120)]
         if self.kw:
+            self.kw.disable_gripper_control()
             self.kw.execute_pid_only([tx, ty, tz], limites_home, angulo_garra=ang_garra)
-    # Estado 9 place_approach: Mueve el brazo sobre la posición de colocación seleccionada, cabe aclarar que aqui se espera la entrada del destino (place) seleccionada por el usuario para continuar la maquina de estados.
-    def _enter_place_approach(self, angulo_garra_custom=None):
-        tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
-        ang_garra = angulo_garra_custom if angulo_garra_custom is not None else self.calcular_angulo_garra(tam - 20)
-        self.update_gains_from_panel()
-        if self.context.place_target_coords is None:
-            print("[ERROR] place_target_coords is None in _enter_place_approach")
-            self.sequence_failed.emit('No se ha seleccionado posición de colocación (place)')
-            self._sm.reset()
-            return
-        x, y, z = self.context.place_target_coords
-        x = float(self.context.place_target_coords['x'])
-        y = float(self.context.place_target_coords['y'])
-        z = float(self.context.place_target_coords['z'])
-        x1 = y
-        y1 = x
-        x = x1 + 115
-        y = y1 + 15
-        z = z + 70
-        z = self.corregir_z(x, y, z)
-        x, y = self.corregir_xy(x, y)
-        print("Ejecutando ")
-        limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
-        if self.kw:
-            self.kw.execute_pid_only([x, y, z], limites_target, angulo_garra=ang_garra)
-    # Estado 10 place_down: Baja el brazo hasta la posición de colocación para soltar la esfera.
+    # Estado 8 place_down: Baja el brazo hasta la posición de colocación para soltar la esfera.
     def _enter_place_down(self):
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
         ang_garra = self.calcular_angulo_garra(tam - 20)
@@ -294,29 +275,33 @@ class PickAndPlaceWorker(QObject):
         z = float(self.context.place_target_coords['z'])
         x1 = y
         y1 = x
-        x = x1 + 115
-        y = y1 + 15
-        z = tam/2
+        x = x1 + 120
+        if y1 < 0:
+            y = y1 + 15
+        else:
+            y = y1 + 30
+        z_comp = round((0.1667*x1) + 40)
+        z = tam/2 + z_comp 
         z = self.corregir_z(x, y, z)
         x, y = self.corregir_xy(x, y)
         print(f"[DEBUG] PID Target (PLACE_DOWN): x={x}, y={y}, z={z}")
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
         if self.kw:
             self.kw.execute_pid_only([x, y, z], limites_target, angulo_garra=ang_garra)
-    # Estado 11 place_release: Abre la garra lentamente para soltar la esfera en la posición de colocación.
+    # Estado 9 place_release: Abre la garra para soltar la esfera en la posición de colocación.
     def _enter_place_release(self):
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
         apertura_total = tam + 20
-        apertura_inicial = tam - 20
-        # Iniciar la secuencia no bloqueante
-        self._ejecutar_paso_apertura(apertura_inicial, apertura_total, 10)
-    # Estado 12 retract_to_place_above: Eleva el brazo después de soltar la esfera.
-    def _enter_retract_to_place_above(self):
-        print("[DEBUG] Entering RETRACT_TO_PLACE_ABOVE")
+        self._enviar_comando_movimiento(apertura_total)
+        self._wait_for_settle(lambda: (QTimer.singleShot(0,  self._sm.place_release_done)))
+    # Estado 10 retract_to_hom: Eleva el brazo después de soltar la esfera.
+    def _enter_retract_from_place(self):
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
         ang_garra = self.calcular_angulo_garra(tam + 20)
         self.update_gains_from_panel()
         if self.context.place_target_coords is None:
+            print("[ERROR] place_target_coords is None in _enter_place_down")
+            self.sequence_failed.emit('No se ha seleccionado posición de colocación (place)')
             self._sm.reset()
             return
         x, y, z = self.context.place_target_coords
@@ -325,66 +310,42 @@ class PickAndPlaceWorker(QObject):
         z = float(self.context.place_target_coords['z'])
         x1 = y
         y1 = x
-        x = x1 + 115
-        y = y1 + 15
-        z = z + 70
+        x = x1 + 135
+        if y1 < 0:
+            y = y1 + 15
+        else:
+            y = y1 + 30
+        z = 100
         z = self.corregir_z(x, y, z)
         x, y = self.corregir_xy(x, y)
+        print(f"[DEBUG] PID Target (PLACE_UP): x={x}, y={y}, z={z}")
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
         if self.kw:
             self.kw.execute_pid_only([x, y, z], limites_target, angulo_garra=ang_garra)
 
-    # Estado 13 retract_from_place: Mueve el brazo a la posición de home usando PID
-    def _enter_retract_from_place(self):
-        print("[DEBUG] Entering RETRACT_FROM_PLACE")
-        tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
-        ang_garra = self.calcular_angulo_garra(tam + 20)
-        self.update_gains_from_panel()
-        tx, ty, tz = 185, 0, 170
-        tz = self.corregir_z(tx, ty, tz)
-        tx, ty = self.corregir_xy(tx, ty)
-        limites_home = [(-10, 10), (-50, -40), (0, 130), (0, 120)]
+    # Estado 11 final_seq_home: Mueve el brazo a la posición home1
+    def _enter_final_seq_home1(self):
+        print("[DEBUG] Entering FINAL_SEQ_HOME1")
+        servos = [0,-90,130,0,-30,0]
         if self.kw:
-            self.kw.execute_pid_only([tx, ty, tz], limites_home, angulo_garra=ang_garra)
+            self.kw.disable_gripper_control()
+            self.kw.execute_direct_move(servos)
+        self._wait_for_settle(self._final_home1_cleanup)
+    
+    #limpia el contexto y avanza al estado de espera.
+    def _final_home1_cleanup(self):
+        """Limpia el contexto y avanza al estado de espera."""
+        self.context.reset()
+        self._sm.final_home1_done()
+        self.sequence_completed.emit()
+
     def _enter_final_seq_home(self):
         print("[DEBUG] Entering FINAL_SEQ_HOME")
         self._sm.final_home_done()
 
-    # Estado 14 final_seq_home: Mueve el brazo a la posición neutral home2
     def _enter_final_seq_home2(self):
         print("[DEBUG] Entering FINAL_SEQ_HOME2")
-        tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
-        angulo_garra = self.calcular_angulo_garra(tam + 20)
-        servos = [0, -45, 120, 0, 30, angulo_garra]
-        if self.kw:
-            self.kw.execute_direct_move(servos)
-        self._wait_for_settle(self._sm.final_home2_done)
-        #self._wait_for_settle(lambda: QTimer.singleShot(0, self._sm.final_home2_done))
-
-    # Estado 15 final_seq_home1: Mueve el brazo a la posición neutral home1
-    def _enter_final_seq_home1(self):
-        print("[DEBUG] Entering FINAL_SEQ_HOME1")
-        servos = [0,0,0,0,0,0]
-        if self.kw:
-            self.kw.execute_direct_move(servos)
-        #self._wait_for_settle(lambda: QTimer.singleShot(0, self._sm.final_home1_done))
-        self._wait_for_settle(self._sm.final_home1_done)
-        self.sequence_completed.emit()
-
-    def validar_angulos(self, destino_angulos):
-        # 1. Usar la telemetría cruda directamente del KinematicsWorker
-        if self.kw:
-            current_pwm = self.kw._read_positions()
-        else:
-            current_pwm = self._read_positions()
-            
-        print(f"[DEBUG] Validating angles: Current PWM={current_pwm}")
-        current_angles = robotang_angulos(*current_pwm)
-        print(f"[DEBUG] Validating: Current={current_angles}, Target={destino_angulos}")
-        
-        # 2. Validar solo los primeros 5 motores (índices 0-4), ignorando el 6to (índice 5)
-        return all(abs(current_angles[i] - destino_angulos[i]) < 5 for i in range(5))
-
+        self._sm.final_home2_done()
 
     def corregir_xy(self, x, y):
         from src.features.kinematics.coordinate_correction import corregir_xy as corr_xy
@@ -459,8 +420,6 @@ class PickAndPlaceWorker(QObject):
         print(f"[DEBUG] >>> _on_movement_finished. Current state: {current}")
         if current == PickPlaceState.PID_HOME.value:
             self._sm.pid_home_done()
-        elif current == PickPlaceState.PICK_APPROACH.value:
-            self._sm.pick_approach_done()
         elif current == PickPlaceState.PICK_DOWN.value:
             self._sm.pick_down_done()
         elif current == PickPlaceState.PICK_GRASP.value:
@@ -468,18 +427,23 @@ class PickAndPlaceWorker(QObject):
             self._sm.pick_grasp_done()
         elif current == PickPlaceState.RETRACT_LIFT.value:
             self._sm.retract_lift_done()
-        elif current == PickPlaceState.RETRACT_TO_PID_HOME.value:
-            print("[DEBUG] Retract to PID home finished, triggering retract_done")
-            self._sm.retract_done()
-        elif current == PickPlaceState.PLACE_APPROACH.value:
-            self._sm.place_approach_done()
+        elif current == PickPlaceState.RETRACT_TO_HOME1_PICK.value:
+            print("[DEBUG] Retract to home1 pick finished, triggering retract_to_home1_pick_done")
+            self._sm.retract_to_home1_pick_done()
+        elif current == PickPlaceState.PID_HOME_PLACE.value:
+            self._sm.pid_home_place_done()
         elif current == PickPlaceState.PLACE_DOWN.value:
             self._sm.place_down_done()
-        elif current == PickPlaceState.RETRACT_TO_PLACE_ABOVE.value:
-            self._sm.retract_from_place_done() # Avanza al estado de retract from place
+        elif current == PickPlaceState.PLACE_RELEASE.value:
+            self._sm.place_release_done()
         elif current == PickPlaceState.RETRACT_FROM_PLACE.value:
-            self._sm.retract_from_place_to_pid()
-        # Add more transitions if needed based on the StateMachine definitions
+            self._sm.retract_from_place_done()
+        elif current == PickPlaceState.FINAL_SEQ_HOME.value:
+            self._sm.final_home_done()
+        elif current == PickPlaceState.FINAL_SEQ_HOME2.value:
+            self._sm.final_home2_done()
+        elif current == PickPlaceState.FINAL_SEQ_HOME1.value:
+            self._sm.final_home1_done()
 
 
     @pyqtSlot(list)
@@ -499,7 +463,23 @@ class PickAndPlaceWorker(QObject):
         self._check_timer.stop()
         self.context.reset()
         if self.kw:
+            self.kw.reset_state()
             self.kw.execute_direct_move([0, 0, 0, 0, 0, 0])
+
+    def pause(self):
+        """Pausa la ejecución del worker de Pick and Place."""
+        self._check_timer.stop()
+        if self.kw:
+            self.kw.pause()
+
+    def resume(self):
+        """Reanuda la ejecución del worker de Pick and Place."""
+        if self.kw:
+            self.kw.resume()
+        
+        if self._pending_callback:
+            # Reiniciar la espera si estábamos esperando algo
+            self._wait_for_settle(self._pending_callback)
 
     def update_pid_gains(self, gains):
         # gains: {"kp": [x,y,z], "ki": [x,y,z], "kd": [x,y,z]}

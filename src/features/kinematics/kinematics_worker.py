@@ -25,6 +25,7 @@ import serial
 import numpy as np
 from PyQt6.QtCore import QThread, pyqtSignal
 from src.services.robot.robot_compensator import CartesianPidCompensator
+from src.services.robot.serial_manager import SerialPortManager
 
 
 class KinematicsWorker(QThread):
@@ -49,6 +50,8 @@ class KinematicsWorker(QThread):
     status_changed = pyqtSignal(str)
     movement_finished = pyqtSignal()
     input_enabled = pyqtSignal()
+    worker_ready = pyqtSignal()
+    port_released = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -69,6 +72,7 @@ class KinematicsWorker(QThread):
         self._last_valid = [150.0] * 6
         self._last_pos_for_plot = None
         self._last_target_for_plot = None
+        self._last_emit_time = 0.0
         self._session_start_time = time.time()
         self._jump_freeze_count = [0] * 6
 
@@ -76,8 +80,8 @@ class KinematicsWorker(QThread):
 
         self._com_port = None
         self._kp = np.array([1.5, 1.0, 1.38])
-        self._ki = np.array([0.25, 0.1, 0.6])  
-        self._kd = np.array([0.02, 0.01, 0.04])   
+        self._ki = np.array([0.2, 0.1, 0.9])  
+        self._kd = np.array([0.01, 0.01, 0.02])   
 
         self._claw_mm = 30 # Valor por defecto
         self._last_sent_claw_angle = -999 # Valor inicial para forzar envío
@@ -117,6 +121,8 @@ class KinematicsWorker(QThread):
             self._work_queue.queue.clear()
         self._pause_event.set()
         self._t_resume_pending = False
+        self._session_start_time = time.time()
+        self._last_emit_time = 0.0
 
     def abort_pid(self):
         self.reset_state()
@@ -179,38 +185,43 @@ class KinematicsWorker(QThread):
     # ------------------------------------------------------------------ #
 
     def _open_serial(self, com_port):
-        try:
-            self._serial = serial.Serial(com_port, 9600, timeout=1)
-            return True
-        except (serial.SerialException, PermissionError, OSError) as e:
-            print(f"Error abriendo serial {com_port}: {e}")
-            self._serial = None
-            return False
+        return SerialPortManager.get_instance().request_access(com_port, "KinematicsWorker")
 
     def _close_serial(self):
-        try:
-            if self._serial and self._serial.is_open:
-                self._serial.close()
-        except (serial.SerialException, OSError):
-            pass
-        self._serial = None
+        SerialPortManager.get_instance().release_access("KinematicsWorker")
 
     def _enviar_robot(self, q_servos):
-        
-        if self._serial is None or not self._serial.is_open:
+        spm = SerialPortManager.get_instance()
+        com = self._com_port or spm._com or "COM7"
+        if not spm.is_active("KinematicsWorker"):
+            try:
+                spm.request_access(com, "KinematicsWorker")
+            except Exception as e:
+                print(f"[DEBUG] [KinematicsWorker] Error solicitando acceso a {com}: {e}")
+                return
+            
+        ser = spm.get_serial()
+        if ser is None or not ser.is_open:
+            try:
+                spm.request_access(com, "KinematicsWorker")
+                ser = spm.get_serial()
+            except Exception as e:
+                print(f"[DEBUG] [KinematicsWorker] Error reabriendo {com}: {e}")
+
+        if ser is None or not ser.is_open:
             print("[DEBUG] Serial port not open, cannot send command.")
             return
+
         try:
             trama = ""
-            # ... resto del código sin cambios ...
             motores = ['A', 'B', 'C', 'D', 'E', 'F']
             for i, char in enumerate(motores):
                 val_pwm = int(round(
                     max(0, min(300, float(q_servos[i]))) * (1023 / 300)))
                 trama += f"{char}{val_pwm}"
             trama += "\n"
-            self._serial.write(trama.encode('ascii'))
-            self._serial.flush()
+            ser.write(trama.encode('ascii'))
+            ser.flush()
         except (serial.SerialException, OSError) as e:
             print(f"Error enviando comando: {e}")
 
@@ -221,12 +232,19 @@ class KinematicsWorker(QThread):
 
         while self._telemetry_running:
             try:
-                if self._serial is None or not self._serial.is_open:
+                spm = SerialPortManager.get_instance()
+                if not spm.is_active("KinematicsWorker"):
+                    time.sleep(0.1)
+                    continue
+                    
+                ser = spm.get_serial()
+                if ser is None or not ser.is_open:
+                    print(f"[DEBUG] Telemetry waiting for serial")
                     time.sleep(0.1)
                     continue
 
-                if self._serial.in_waiting > 0:
-                    line = self._serial.readline().decode('ascii', errors='ignore').strip()
+                if ser.in_waiting > 0:
+                    line = ser.readline().decode('ascii', errors='ignore').strip()
                     if not line:
                         continue
 
@@ -286,7 +304,7 @@ class KinematicsWorker(QThread):
     # ------------------------------------------------------------------ #
 
     def _pid_control_loop(self, target_xyz, limites_deg,
-                          max_iter=3000, tolerancias=None, t_start=None, angulo_garra=None):
+                          max_iter=800, tolerancias=None, t_start=None, angulo_garra=None):
         from .coordinate_correction import apertura_de_garra
         TS = 0.08
 
@@ -308,10 +326,8 @@ class KinematicsWorker(QThread):
         umbral_mm = 2.5
         if t_start is None:
             t_start = time.time()
-        self._session_start_time = t_start
         t_anterior = t_start
         p_anterior = np.zeros(3)
-        update_counter = 0
 
         for i in range(max_iter):
             if not self._running or self._pid_abort:
@@ -337,12 +353,12 @@ class KinematicsWorker(QThread):
                 q_reales_deg[2], q_reales_deg[4]])
             p_actual = self._cinematica_directa(q_actual_rad, self._links)
 
-            update_counter += 1
             if i > 0 and np.allclose(p_actual, p_anterior, atol=0.1):
                 q_deg = np.degrees(q_actual_rad)
                 self.joint_update.emit([q_deg[0], q_deg[1], q_deg[2], 0, q_deg[3], actual_angulo_garra])
-                if update_counter % 3 == 0:
+                if t_actual - self._last_emit_time >= 0.1:
                     self.actualizar_grafica(target.tolist(), p_actual.tolist())
+                    self._last_emit_time = t_actual
                 t_anterior = time.time()  # Sincroniza el tiempo antes de saltar la iteración
 
                 elapsed = time.time() - t_iter_start
@@ -350,8 +366,9 @@ class KinematicsWorker(QThread):
                 continue
             p_anterior = p_actual.copy()
 
-            if update_counter % 3 == 0:
+            if t_actual - self._last_emit_time >= 0.1:
                 self.actualizar_grafica(target.tolist(), p_actual.tolist())
+                self._last_emit_time = t_actual
 
             error_actual = target - p_actual
             error_abs = np.abs(error_actual)
@@ -481,12 +498,13 @@ class KinematicsWorker(QThread):
     def start_worker(self, com_port):
         self._com_port = com_port
         self._running = True
+        self._pid_abort = False # Asegurar reset PID
         self.start()
 
     def execute_target(self, tx, ty, tz):
         self._work_queue.put(('execute_target', tx, ty, tz))
 
-    def execute_pid_only(self, target_xyz, limites_deg, max_iter=3000, tolerancias=None, t_start=None, angulo_garra=None):
+    def execute_pid_only(self, target_xyz, limites_deg, max_iter=800, tolerancias=None, t_start=None, angulo_garra=None):
         self._work_queue.put(('execute_pid_only', target_xyz, limites_deg, max_iter, tolerancias, t_start, angulo_garra))
 
     def execute_direct_move(self, positions):
@@ -510,12 +528,44 @@ class KinematicsWorker(QThread):
     def send_home(self):
         self._work_queue.put(('send_home',))
 
-    def stop(self):
+    def force_abort(self):
+        """Forzar detención inmediata e interrupción de IO serial."""
         self._running = False
-        self._telemetry_running = False
-        self._work_queue.put(('stop',))
-        self.wait(3000)
-        self._close_serial()
+        self._telemetry_running = False # Stop telemetry reader thread
+        self._pid_abort = True
+        self._pause_event.set() # Desbloquear si estaba pausado
+        
+        # Interrumpir IO bloqueante
+        ser = SerialPortManager.get_instance().get_serial()
+        if ser:
+            try:
+                ser.cancel_read()
+                ser.cancel_write()
+                ser.close()
+            except:
+                pass
+        
+        # Vaciar cola de forma sincrónica
+        with self._work_queue.mutex:
+            self._work_queue.queue.clear()
+        
+        self.quit()
+        self.wait(1000)
+
+    def release_and_cleanup(self):
+        """Libera el puerto serial, limpia buffers y notifica."""
+        # Interrumpir IO bloqueante
+        ser = SerialPortManager.get_instance().get_serial()
+        if ser:
+            try:
+                ser.cancel_read()
+                ser.cancel_write()
+                ser.reset_input_buffer()
+                ser.reset_output_buffer()
+                ser.close()
+            except:
+                pass
+        self.port_released.emit()
 
     def set_com_port(self, com_port):
         self._com_port = com_port
@@ -563,7 +613,8 @@ class KinematicsWorker(QThread):
     # ------------------------------------------------------------------ #
 
     def run(self):
-        if self._serial is None or not self._serial.is_open:
+        ser = SerialPortManager.get_instance().get_serial()
+        if ser is None or not ser.is_open:
             if not self._com_port:
                 return
 
@@ -578,6 +629,7 @@ class KinematicsWorker(QThread):
             target=self._telemetry_reader, daemon=True)
         telemetry_thread.start()
 
+        self.worker_ready.emit()
         time.sleep(1)
 
         if not self.skip_home:
@@ -588,6 +640,10 @@ class KinematicsWorker(QThread):
                 angulo_garra = apertura_de_garra(self._claw_mm)
                 
             home_pos = [0, -45, 120, 0, 30, angulo_garra]
+            
+            ser = SerialPortManager.get_instance().get_serial()
+            print(f"[DEBUG] _serial: {ser}, is_open: {ser.is_open if ser else 'N/A'}")
+            
             servo_positions = CartesianPidCompensator.angulos_robotang(*home_pos)
             self._enviar_robot(servo_positions)
             rad_home_pos = np.radians([home_pos[0], home_pos[1], home_pos[2], home_pos[4]])
@@ -654,6 +710,7 @@ class KinematicsWorker(QThread):
                 if t_start is None:
                     t_start = time.time()
                 self._pid_abort = False
+                print(f"[DEBUG] Ejecutando PID solo a {target} con limites {limites}, max_iter={max_iter}, tolerancias={tol}, t_start={t_start}, angulo_garra={angulo_garra}")
                 self._pid_control_loop(target, limites, max_iter=max_iter, tolerancias=tol, t_start=t_start, angulo_garra=angulo_garra)
             elif work[0] == 'direct_move':
                 print(f"[DEBUG] Ejecutando movimiento directo a {work[1]}")

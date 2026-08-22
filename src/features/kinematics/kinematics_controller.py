@@ -20,7 +20,7 @@ Flujo:
 """
 
 import numpy as np
-from PyQt6.QtCore import QObject, pyqtSlot, QTimer
+from PyQt6.QtCore import QObject, pyqtSlot, QTimer, QThread
 from PyQt6.QtWidgets import QMessageBox
 from src.features.kinematics.kinematics_widget import KinematicsWidget
 from src.features.kinematics.kinematics_worker import KinematicsWorker
@@ -125,11 +125,22 @@ class KinematicsController(QObject):
             return
 
         self._mode_active = False
-        self.kinematics_worker.stop()
+        # Usar release_and_cleanup para cerrar y notificar
+        self.kinematics_worker.port_released.connect(self._on_kinematics_port_released)
+        self.kinematics_worker.release_and_cleanup()
+
+    @pyqtSlot()
+    def _on_kinematics_port_released(self):
+        try:
+            self.kinematics_worker.port_released.disconnect(self._on_kinematics_port_released)
+        except:
+            pass
 
         SimulationSignalManager.get_instance().resume_simulation.emit()
 
         if self._robot_service is not None:
+            # Espera breve de seguridad
+            QThread.msleep(200)
             self._robot_service.resume_serial()
 
         self._set_inputs_enabled(False)

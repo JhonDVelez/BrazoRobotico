@@ -11,12 +11,13 @@ Conexiones:
     - Worker -> Bus Global: action_request(dict) ruteado a Simulation/Physical/Kinematics.
 """
 
-from PyQt6.QtCore import QObject, pyqtSlot, QEvent, QTimer
+from PyQt6.QtCore import QObject, pyqtSlot, QEvent, QTimer, QThread
 from src.services.data.utils import robotang_angulos
 import numpy as np
 from src.services.data.signals import (
     PickPlaceSignalManager, SimulationSignalManager,
-    PhysicalSignalManager, CameraSignalManager
+    PhysicalSignalManager, CameraSignalManager,
+    SearchSignalManager
 )
 from src.features.pick_and_place.pick_and_place_widget import PickAndPlaceWidget
 from src.features.pick_and_place.pick_and_place_worker import PickAndPlaceWorker
@@ -90,6 +91,7 @@ class PickAndPlaceController(QObject):
         self.worker.sequence_failed.connect(self._on_sequence_failed)
         self.worker.status_message_updated.connect(self.overlay.update_status_message)
         self.worker.mode_change_requested.connect(self.overlay.set_mode)
+        self.worker.vision_search_request.connect(self._on_vision_search_request)
         
         if self.graph_controller:
             self.worker.pid_iteration.connect(self.graph_controller._on_pid_iteration)
@@ -154,7 +156,10 @@ class PickAndPlaceController(QObject):
                     self.kinematics_controller._robot_service.suspend_serial()
                     
                     if not kw.isRunning():
+                        kw.worker_ready.connect(self._start_sequence_when_ready)
                         kw.start_worker(com)
+                    else:
+                        self.worker.start_sequence()
                 
                 widget = self.kinematics_controller.get_widget()
                 widget.show()
@@ -173,6 +178,8 @@ class PickAndPlaceController(QObject):
             # Restaurar el modo normal del worker
             if self.kinematics_controller:
                 kw = self.kinematics_controller.get_worker()
+                kw.port_released.connect(self._on_kinematics_port_released_for_pp)
+                kw.release_and_cleanup()
                 kw.skip_home = False
             
             if self.camera_widget and self._filter_installed:
@@ -180,10 +187,7 @@ class PickAndPlaceController(QObject):
                 self._filter_installed = False
             # Hide PID panel & restore UI
             if self.kinematics_controller:
-                # Resume main robot serial
-                if self.kinematics_controller._robot_service:
-                    self.kinematics_controller._robot_service.resume_serial()
-                
+                # El resume_serial se hace en _on_kinematics_port_released_for_pp
                 widget = self.kinematics_controller.get_widget()
                 widget.hide()
                 widget.set_pid_only_mode(False)
@@ -191,6 +195,32 @@ class PickAndPlaceController(QObject):
             if self.graph_controller:
                 self.graph_controller.set_graph_mode(True) # Back to default
 
+    @pyqtSlot()
+    def _on_kinematics_port_released_for_pp(self):
+        kw = self.kinematics_controller.get_worker()
+        try:
+            kw.port_released.disconnect(self._on_kinematics_port_released_for_pp)
+        except:
+            pass
+            
+        # Resume main robot serial
+        if self.kinematics_controller and self.kinematics_controller._robot_service:
+            QThread.msleep(200)
+            self.kinematics_controller._robot_service.resume_serial()
+
+
+    @pyqtSlot()
+    def _start_sequence_when_ready(self):
+        """Callback cuando el kinematics_controller está listo."""
+        if self.kinematics_controller:
+            kw = self.kinematics_controller.get_worker()
+            try:
+                kw.worker_ready.disconnect(self._start_sequence_when_ready)
+            except:
+                pass
+        
+        if self.worker and self.worker.current_state_value == 'idle':
+            self.worker.start_sequence()
 
     def _install_filter(self):
         """Instala el filtro para sincronizar el redimensionamiento."""
@@ -210,6 +240,12 @@ class PickAndPlaceController(QObject):
         """Actualiza el estado del overlay con nuevas detecciones."""
         if self.overlay.isVisible():
             self.overlay.update_detected_circles(circles_2d)
+
+    @pyqtSlot(bool, bool)
+    def _on_vision_search_request(self, charuco, circle):
+        """Activa o desactiva la búsqueda visual según el estado del worker."""
+        SearchSignalManager.get_instance().set_charuco(charuco)
+        SearchSignalManager.get_instance().set_circle(circle)
 
     @pyqtSlot(int, object)
     def _on_charuco_done(self, frame_id, data):
@@ -347,3 +383,13 @@ class PickAndPlaceController(QObject):
         """Detiene la secuencia y limpia el estado del worker."""
         if self.worker:
             self.worker.stop_and_reset()
+
+    def pause(self):
+        """Pausa el worker de Pick and Place."""
+        if self.worker:
+            self.worker.pause()
+
+    def resume(self):
+        """Reanuda el worker de Pick and Place."""
+        if self.worker:
+            self.worker.resume()

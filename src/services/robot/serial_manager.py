@@ -11,6 +11,7 @@ class SerialPortManager(QObject):
         self._serial = None
         self._com = None
         self._lock = threading.Lock()
+        self._io_lock = threading.Lock()
         self._active_worker = None
 
     @classmethod
@@ -61,3 +62,21 @@ class SerialPortManager(QObject):
 
     def get_serial(self):
         return self._serial
+
+    def safe_write(self, data):
+        with self._io_lock:
+            if self._serial and self._serial.is_open:
+                self._serial.write(data)
+                self._serial.flush()
+
+    def safe_readline(self):
+        with self._io_lock:
+            if self._serial and self._serial.is_open:
+                return self._serial.readline()
+            return b""
+
+    def get_in_waiting(self):
+        with self._io_lock:
+            if self._serial and self._serial.is_open:
+                return self._serial.in_waiting
+            return 0

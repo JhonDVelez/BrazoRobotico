@@ -181,8 +181,7 @@ class RobotWorker(QThread):
                 # Envío de trama compacta: A<pwm>B<pwm>C<pwm>D<pwm>E<pwm>F<pwm>\n
                 try:
                     frame = self._build_command_frame(valorm)
-                    cm904.write(frame)
-                    cm904.flush()
+                    spm.safe_write(frame)
                 except (serial.SerialException, OSError) as e:
                     print(f"[DEBUG] [RobotWorker] SerialException/OSError en write/flush: {e}")
                     self.connection_status_changed.emit(False)
@@ -241,9 +240,9 @@ class RobotWorker(QThread):
         """
         Lee una linea del puerto serial, parsea y filtra la telemetria.
         """
-        cm904 = SerialPortManager.get_instance().get_serial()
+        spm = SerialPortManager.get_instance()
         try:
-            waiting = cm904.in_waiting
+            waiting = spm.get_in_waiting()
         except Exception:
             self.connection_status_changed.emit(False)
             return None
@@ -251,7 +250,7 @@ class RobotWorker(QThread):
         if waiting == 0:
             time.sleep(0.05)
             try:
-                waiting = cm904.in_waiting
+                waiting = spm.get_in_waiting()
             except Exception:
                 self.connection_status_changed.emit(False)
                 return None
@@ -259,7 +258,8 @@ class RobotWorker(QThread):
                 return None
 
         try:
-            line = cm904.readline().decode('ascii', errors='ignore').strip()
+            raw_line = spm.safe_readline()
+            line = raw_line.decode('ascii', errors='ignore').strip()
             if not line:
                 return None
         except Exception as e:

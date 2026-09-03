@@ -79,9 +79,9 @@ class KinematicsWorker(QThread):
         self._work_queue = queue.Queue()
 
         self._com_port = None
-        self._kp = np.array([1.5, 1.0, 1.38])
-        self._ki = np.array([0.2, 0.1, 0.9])  
-        self._kd = np.array([0.01, 0.01, 0.02])   
+        self._kp = np.array([0.3, 0.3, 0.198])
+        self._ki = np.array([0.7261, 0.1, 0.3898])  
+        self._kd = np.array([0.0309, 0.01, 0.0251])   
 
         self._claw_mm = 30 # Valor por defecto
         self._last_sent_claw_angle = -999 # Valor inicial para forzar envío
@@ -204,11 +204,10 @@ class KinematicsWorker(QThread):
         if ser is None or not ser.is_open:
             try:
                 spm.request_access(com, "KinematicsWorker")
-                ser = spm.get_serial()
             except Exception as e:
                 print(f"[DEBUG] [KinematicsWorker] Error reabriendo {com}: {e}")
 
-        if ser is None or not ser.is_open:
+        if not spm.get_serial() or not spm.get_serial().is_open:
             print("[DEBUG] Serial port not open, cannot send command.")
             return
 
@@ -220,8 +219,7 @@ class KinematicsWorker(QThread):
                     max(0, min(300, float(q_servos[i]))) * (1023 / 300)))
                 trama += f"{char}{val_pwm}"
             trama += "\n"
-            ser.write(trama.encode('ascii'))
-            ser.flush()
+            spm.safe_write(trama.encode('ascii'))
         except (serial.SerialException, OSError) as e:
             print(f"Error enviando comando: {e}")
 
@@ -243,8 +241,9 @@ class KinematicsWorker(QThread):
                     time.sleep(0.1)
                     continue
 
-                if ser.in_waiting > 0:
-                    line = ser.readline().decode('ascii', errors='ignore').strip()
+                if spm.get_in_waiting() > 0:
+                    raw_line = spm.safe_readline()
+                    line = raw_line.decode('ascii', errors='ignore').strip()
                     if not line:
                         continue
 

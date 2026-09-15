@@ -31,6 +31,7 @@ class PickAndPlaceWorker(QThread):
     mode_change_requested = pyqtSignal(str)
     pid_iteration = pyqtSignal(float, list, list)
     joint_update = pyqtSignal(list)
+    direct_joint_update = pyqtSignal(list)
     vision_search_request = pyqtSignal(bool, bool)
     movement_finished = pyqtSignal()
     worker_ready = pyqtSignal()
@@ -67,9 +68,9 @@ class PickAndPlaceWorker(QThread):
         self._work_queue = queue.Queue()
         self._com_port = None
 
-        self._kp = np.array([0.3, 0.3, 0.198])
-        self._ki = np.array([0.7261, 0.1, 0.3898])
-        self._kd = np.array([0.0309, 0.01, 0.0251])
+        self._kp = np.array([0.6, 0.45, 0.495])
+        self._ki = np.array([1.4522, 0.1, 0.9746])
+        self._kd = np.array([0.0619, 0.01, 0.0376])
 
         self._claw_mm = 30
         self._last_sent_claw_angle = -999
@@ -308,7 +309,7 @@ class PickAndPlaceWorker(QThread):
                             if temp_pos[i] is not None:
                                 self._current_pos[i] = temp_pos[i]
                                 self._last_valid[i] = temp_pos[i]
-                        print(f"[DEBUG] Updated _current_pos: {self._current_pos}")
+                        #print(f"[DEBUG] Updated _current_pos: {self._current_pos}")
 
             except Exception as e:
                 print(f"Alerta: Hilo de telemetria interrumpido: {e}")
@@ -338,7 +339,7 @@ class PickAndPlaceWorker(QThread):
             actual_angulo_garra = angulo_garra
 
         if tolerancias is None:
-            tolerancias = np.array([5.0, 5.0, 5.0])
+            tolerancias = np.array([5.0, 7.0, 5.0])
 
         target = np.array(target_xyz, dtype=float)
         error_acumulado = np.zeros(3)
@@ -455,7 +456,7 @@ class PickAndPlaceWorker(QThread):
             servo_positions = CartesianPidCompensator.angulos_robotang(
                 *q_final)
 
-            print(f"[DEBUG] PID Iter {i}: Target {target}, Actual {p_actual}, Error {error_actual}, Servo Pos {servo_positions}")
+            #print(f"[DEBUG] PID Iter {i}: Target {target}, Actual {p_actual}, Error {error_actual}, Servo Pos {servo_positions}")
 
             self._enviar_robot(servo_positions)
 
@@ -561,7 +562,7 @@ class PickAndPlaceWorker(QThread):
                 _, positions = work
                 servo_positions = CartesianPidCompensator.angulos_robotang(*positions)
                 self._enviar_robot(servo_positions)
-                self.joint_update.emit(positions)
+                self.direct_joint_update.emit(positions)
                 self._update_graph_with_angles(positions)
                 self._last_commanded_angles = positions
                 self._wait_for_position(servo_positions)
@@ -581,7 +582,10 @@ class PickAndPlaceWorker(QThread):
         print(f"[DEBUG] >>> [StateMachine] Entering State: {state_name}")
         
         if state_name == PickPlaceState.WAITING_FOR_INPUT.value:
-            self.vision_search_request.emit(True, True)
+            if self.context.ik_target is None:
+                self.vision_search_request.emit(True, True)
+            else:
+                self.vision_search_request.emit(True, False)
         else:
             self.vision_search_request.emit(False, False)
 
@@ -589,11 +593,13 @@ class PickAndPlaceWorker(QThread):
             PickPlaceState.HOME1_MOVE.value: self._enter_home1_move,
             PickPlaceState.HOME1_VALIDATE.value: self._enter_home1_validate,
             PickPlaceState.PID_HOME.value: self._enter_pid_home,
+            PickPlaceState.PICK_APPROACH.value: self._enter_pick_approach,
             PickPlaceState.PICK_DOWN.value: self._enter_pick_down,
             PickPlaceState.PICK_GRASP.value: self._enter_pick_grasp,
             PickPlaceState.RETRACT_LIFT.value: self._enter_retract_lift,
             PickPlaceState.RETRACT_TO_HOME1_PICK.value: self._enter_retract_to_home1_pick,
             PickPlaceState.PID_HOME_PLACE.value: self._enter_pid_home_place,
+            PickPlaceState.PLACE_APPROACH.value: self._enter_place_approach,
             PickPlaceState.PLACE_DOWN.value: self._enter_place_down,
             PickPlaceState.PLACE_RELEASE.value: self._enter_place_release,
             PickPlaceState.RETRACT_FROM_PLACE.value: self._enter_retract_from_place,
@@ -674,7 +680,7 @@ class PickAndPlaceWorker(QThread):
     def _enter_pid_home(self, angulo_garra_custom=None):
         print("[DEBUG] Entering PID_HOME")
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
-        ang_garra = angulo_garra_custom if angulo_garra_custom is not None else self.calcular_angulo_garra(tam + 30)
+        ang_garra = angulo_garra_custom if angulo_garra_custom is not None else self.calcular_angulo_garra(tam + 50)
         self.update_gains_from_panel()
         tx, ty, tz = 185, 0, 170
         tz = self.corregir_z(tx, ty, tz)
@@ -682,10 +688,10 @@ class PickAndPlaceWorker(QThread):
         limites_home = [(-10, 10), (-50, -40), (0, 130), (0, 120)]
         self.execute_pid_only([tx, ty, tz], limites_home, angulo_garra=ang_garra)
 
-    def _enter_pick_down(self):
-        print("[DEBUG] Entering PICK_DOWN")
+    def _enter_pick_approach(self):
+        print("[DEBUG] Entering PICK_APPROACH")
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
-        ang_garra = self.calcular_angulo_garra(tam + 30)
+        ang_garra = self.calcular_angulo_garra(tam + 50)
         self.update_gains_from_panel()
         x, y, z = self.context.ik_target
         x1 = y
@@ -694,13 +700,40 @@ class PickAndPlaceWorker(QThread):
             x = x1 + 125
             y = y1 + 35
         else:
-            x = x1 + 105
+            x = x1 + 95
             y = y1 + 30
-        z_comp = round((0.1667*x1) + 22)
+        z_comp = round((0.2167*x1) + 15.5)
         z = tam/2 + z_comp 
         z = self.corregir_z(x, y, z)
         x, y = self.corregir_xy(x, y)
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
+        # Aproximar primero en Y y Z (retrasado en X)
+        if y < 0:
+            y = y + 30
+        else:
+            y = y - 30
+        self.execute_pid_only([x-50, y, z], limites_target, angulo_garra=ang_garra)
+
+    def _enter_pick_down(self):
+        print("[DEBUG] Entering PICK_DOWN")
+        tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
+        ang_garra = self.calcular_angulo_garra(tam + 50)
+        self.update_gains_from_panel()
+        x, y, z = self.context.ik_target
+        x1 = y
+        y1 = x
+        if y1 < 0:
+            x = x1 + 125
+            y = y1 + 35
+        else:
+            x = x1 + 95
+            y = y1 + 30
+        z_comp = round((0.2167*x1) + 15.5)
+        z = tam/2 + z_comp 
+        z = self.corregir_z(x, y, z)
+        x, y = self.corregir_xy(x, y)
+        limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
+        # Luego aproximar en X a la posición final
         self.execute_pid_only([x, y, z], limites_target, angulo_garra=ang_garra)
        
     def _enter_pick_grasp(self):
@@ -747,6 +780,39 @@ class PickAndPlaceWorker(QThread):
         limites_home = [(-10, 10), (-50, -40), (0, 130), (0, 120)]
         self.execute_pid_only([tx, ty, tz], limites_home, angulo_garra=ang_garra)
 
+    def _enter_place_approach(self):
+        print("[DEBUG] Entering PLACE_APPROACH")
+        tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
+        ang_garra = self.calcular_angulo_garra(tam - 20)
+        self.update_gains_from_panel()
+        if self.context.place_target_coords is None:
+            print("[ERROR] place_target_coords is None in _enter_place_approach")
+            self.sequence_failed.emit('No se ha seleccionado posición de colocación (place)')
+            self._sm.reset()
+            return
+        x, y, z = self.context.place_target_coords
+        x = float(self.context.place_target_coords['x'])
+        y = float(self.context.place_target_coords['y'])
+        z = float(self.context.place_target_coords['z'])
+        x1 = y
+        y1 = x
+        x = x1 + 130
+        if y1 < 0:
+            y = y1 + 15
+        else:
+            y = y1 + 30
+        z_comp = round((0.1667*x1) + 40)
+        z = tam/2 + z_comp 
+        z = self.corregir_z(x, y, z)
+        x, y = self.corregir_xy(x, y)
+        print(f"[DEBUG] PID Target (PLACE_APPROACH): x={x-30}, y={y}, z={z}")
+        limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
+        if y < 0:
+            y = y + 30
+        else:
+            y = y - 30
+        self.execute_pid_only([x-50, y, z], limites_target, angulo_garra=ang_garra)
+
     def _enter_place_down(self):
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
         ang_garra = self.calcular_angulo_garra(tam - 20)
@@ -762,7 +828,7 @@ class PickAndPlaceWorker(QThread):
         z = float(self.context.place_target_coords['z'])
         x1 = y
         y1 = x
-        x = x1 + 120
+        x = x1 + 130
         if y1 < 0:
             y = y1 + 15
         else:
@@ -771,6 +837,8 @@ class PickAndPlaceWorker(QThread):
         z = tam/2 + z_comp 
         z = self.corregir_z(x, y, z)
         x, y = self.corregir_xy(x, y)
+        if x<=170:
+            x = x + 10
         print(f"[DEBUG] PID Target (PLACE_DOWN): x={x}, y={y}, z={z}")
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
         self.execute_pid_only([x, y, z], limites_target, angulo_garra=ang_garra)
@@ -872,16 +940,18 @@ class PickAndPlaceWorker(QThread):
         print(f"[DEBUG] >>> _on_movement_finished. Current state: {current}")
         if current == PickPlaceState.PID_HOME.value:
             self._sm.pid_home_done()
+        elif current == PickPlaceState.PICK_APPROACH.value:
+            self._sm.pick_approach_done()
         elif current == PickPlaceState.PICK_DOWN.value:
             self._sm.pick_down_done()
         elif current == PickPlaceState.PICK_GRASP.value:
             self._sm.pick_grasp_done()
         elif current == PickPlaceState.RETRACT_LIFT.value:
             self._sm.retract_lift_done()
-        elif current == PickPlaceState.RETRACT_TO_HOME1_PICK.value:
-            self._sm.retract_to_home1_pick_done()
         elif current == PickPlaceState.PID_HOME_PLACE.value:
             self._sm.pid_home_place_done()
+        elif current == PickPlaceState.PLACE_APPROACH.value:
+            self._sm.place_approach_done()
         elif current == PickPlaceState.PLACE_DOWN.value:
             self._sm.place_down_done()
         elif current == PickPlaceState.PLACE_RELEASE.value:
@@ -892,8 +962,6 @@ class PickAndPlaceWorker(QThread):
             self._sm.final_home_done()
         elif current == PickPlaceState.FINAL_SEQ_HOME2.value:
             self._sm.final_home2_done()
-        elif current == PickPlaceState.FINAL_SEQ_HOME1.value:
-            self._sm.final_home1_done()
 
     @pyqtSlot(list)
     def on_target_reached(self, _positions): pass
@@ -924,14 +992,12 @@ class PickAndPlaceWorker(QThread):
 
     @pyqtSlot(list)
     def on_simulation_feedback_update(self, positions):
-        with self._telemetry_lock:
-            self._current_pos = list(positions)
+        # Desactivado para evitar interferencia de radianes de simulación en _current_pos del hardware real
         self.context.current_feedback = positions
         
     @pyqtSlot(list, list)
     def on_physical_feedback_update(self, positions, temperatures):
-        with self._telemetry_lock:
-            self._current_pos = list(positions)
+        # Desactivado para evitar interferencia en _current_pos del worker
         self.context.current_feedback = positions
 
     @property

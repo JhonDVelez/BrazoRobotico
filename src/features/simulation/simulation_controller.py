@@ -239,7 +239,7 @@ class SimulationController(QObject):
         # Solo actualizar si es cinemática directa o si la secuencia P&P está realmente corriendo
         if self._active_source == Modes.KINEMATIC:
             self.update_simulation(joint_positions)
-        elif self._active_source == Modes.PICK_PLACE and self.pick_place_signal_manager.is_pick_place_running():
+        elif self._active_source == Modes.PICK_PLACE:
             self.update_simulation(joint_positions)
 
     @pyqtSlot(list)

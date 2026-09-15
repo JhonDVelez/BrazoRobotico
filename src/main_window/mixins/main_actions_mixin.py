@@ -75,15 +75,12 @@ class MainActionsMixin:
 
     def pause(self):
         """
-        Pausa la simulación, cámara y gráficos.
+        Pausa la simulación y gráficos (la cámara sigue activa).
 
         Detiene el servicio del robot si está conectado.
         Habilita el botón de inicio y deshabilita pausa.
         """
         SimulationSignalManager.get_instance().pause_request.emit(True)
-
-        self.camera_controller.pause_video()
-        self.camera_paused = True
 
         self.graph_controller.pause()
 

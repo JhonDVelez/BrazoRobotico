@@ -23,23 +23,24 @@ class SerialPortManager(QObject):
     def request_access(self, com, owner_id):
         """Solicita acceso al puerto serial."""
         with self._lock:
-            print(f"[DEBUG] [SerialPortManager] {owner_id} solicitando acceso a {com}. Actualmente activo: {self._active_worker}")
+            #print(f"[DEBUG] [SerialPortManager] {owner_id} solicitando acceso a {com}. Actualmente activo: {self._active_worker}")
             if self._active_worker == owner_id:
                 return True
             
             # Si hay otro, cerrarlo
             if self._serial and self._serial.is_open:
-                print(f"[DEBUG] [SerialPortManager] Cerrando puerto para {self._active_worker} antes de dar acceso a {owner_id}")
+                #print(f"[DEBUG] [SerialPortManager] Cerrando puerto para {self._active_worker} antes de dar acceso a {owner_id}")
                 self._serial.close()
             
             try:
                 self._serial = serial.Serial(com, 9600, timeout=1)
                 self._active_worker = owner_id
                 self._com = com
-                print(f"[SerialPortManager] Acceso concedido a {owner_id} en {com}")
+                #print(f"[SerialPortManager] Acceso concedido a {owner_id} en {com}")
                 return True
             except Exception as e:
                 print(f"[SerialPortManager] Error abriendo {com}: {e}")
+                pass
                 self._serial = None
                 self._active_worker = None
                 return False
@@ -54,7 +55,7 @@ class SerialPortManager(QObject):
                     self._serial.close()
                 self._serial = None
                 self._active_worker = None
-                print(f"[SerialPortManager] Acceso liberado por {owner_id}")
+                #print(f"[SerialPortManager] Acceso liberado por {owner_id}")
 
     def is_active(self, owner_id):
         with self._lock:

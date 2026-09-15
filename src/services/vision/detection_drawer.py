@@ -118,22 +118,23 @@ class DetectionDrawer(QRunnable):
             pt = tuple(corner[0].astype(int))
             cv2.circle(frame, pt, self.dynamic_dot_size, (220, 60, 0), -1)
 
-        physical_corners = results["physical_corners"]
-        for corner, phy_corner in zip(corners.reshape(-1, 1, 2), physical_corners.reshape(-1, 1, 2)):
-            corner = corner[0]
-            phy_corner = phy_corner[0]
-            adjusted_x = phy_corner[1] - self.custom_origin[1]
-            adjusted_y = phy_corner[0] - self.custom_origin[0]
-            cv2.putText(
-                frame,
-                f"[{adjusted_y:.1f},{adjusted_x:.1f}]",
-                tuple(corner.astype(int) + [-25, 15]),
-                cv2.FONT_HERSHEY_COMPLEX_SMALL,
-                self.font_scale,
-                (0, 0, 255),
-                self.label_thickness,
-                cv2.LINE_AA
-            )
+        # Optimización: Desactivar renderizado pesado de texto en cada esquina para mantener fluidez en modo Place
+        # physical_corners = results["physical_corners"]
+        # for corner, phy_corner in zip(corners.reshape(-1, 1, 2), physical_corners.reshape(-1, 1, 2)):
+        #     corner = corner[0]
+        #     phy_corner = phy_corner[0]
+        #     adjusted_x = phy_corner[1] - self.custom_origin[1]
+        #     adjusted_y = phy_corner[0] - self.custom_origin[0]
+        #     cv2.putText(
+        #         frame,
+        #         f"[{adjusted_y:.1f},{adjusted_x:.1f}]",
+        #         tuple(corner.astype(int) + [-25, 15]),
+        #         cv2.FONT_HERSHEY_COMPLEX_SMALL,
+        #         self.font_scale,
+        #         (0, 0, 255),
+        #         self.label_thickness,
+        #         cv2.LINE_AA
+        #     )
 
         return frame
 

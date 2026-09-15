@@ -251,6 +251,7 @@ class PickAndPlaceWidget(QWidget):
     def _handle_place_click(self, x, y):
         """Calcula la posicion 3D en el tablero y aplica snapping."""
         if not self._charuco_pose:
+            self.update_status_message("Tablero ChArUco no detectado. Espere o reubique la cámara.")
             return
 
         #         Verificar datos de calibración y pose
@@ -258,6 +259,7 @@ class PickAndPlaceWidget(QWidget):
         if not all(k in self._charuco_pose and self._charuco_pose[k] is not None for k in required):
             print(
                 "[PickPlace] Error: Faltan datos de pose o camara para calcular coordenadas")
+            self.update_status_message("Tablero ChArUco no detectado. Espere o reubique la cámara.")
             return
 
         # 1. Proyectar pixel a coordenadas del tablero (z=0)

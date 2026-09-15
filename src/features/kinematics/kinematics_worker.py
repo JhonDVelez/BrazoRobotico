@@ -79,9 +79,9 @@ class KinematicsWorker(QThread):
         self._work_queue = queue.Queue()
 
         self._com_port = None
-        self._kp = np.array([0.3, 0.3, 0.198])
-        self._ki = np.array([0.7261, 0.1, 0.3898])  
-        self._kd = np.array([0.0309, 0.01, 0.0251])   
+        self._kp = np.array([0.6, 0.45, 0.495])
+        self._ki = np.array([1.4522, 0.1, 0.9746])
+        self._kd = np.array([0.0619, 0.01, 0.0376])
 
         self._claw_mm = 30 # Valor por defecto
         self._last_sent_claw_angle = -999 # Valor inicial para forzar envío
@@ -314,7 +314,7 @@ class KinematicsWorker(QThread):
             actual_angulo_garra = angulo_garra
 
         if tolerancias is None:
-            tolerancias = np.array([5.0, 5.0, 5.0])
+            tolerancias = np.array([5.0, 7.0, 5.0])
 
         target = np.array(target_xyz, dtype=float)
         error_acumulado = np.zeros(3)

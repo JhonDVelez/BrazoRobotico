@@ -109,34 +109,36 @@ class CameraWorker(QThread):
                     raise IOError(
                         "No fue posible obtener el frame de video, verifique la conexión de la cámara.")
 
-                frame_umat = cv2.UMat(frame.copy())
-
-                if self.thread_pool.activeThreadCount() >= self.thread_pool.maxThreadCount():
-                    continue
-
                 if self.is_calibration:
                     self._emit_frame_ready(frame)
                     continue
-                elif self._process_frame:
-                    with self.lock:
-                        charuco_state, circle_state = self._search_state
-                    self.frame_id += 1
-                    if charuco_state:
-                        self.thread_pool.start(ChArUcoDetection(
-                            frame_umat, self.frame_id, self.camera_matrix, self.dist_coeff,
-                            self.on_charuco_done, self._emit_error))
-                    if circle_state:
-                        self.thread_pool.start(CircleDetection(
-                            frame_umat, self.frame_id, self.last_roi, self.hsv_colors,
-                            self.on_circles_done, self._emit_error))
 
+                frame_umat = cv2.UMat(frame.copy())
+
+                if self._process_frame:
+                    if self.thread_pool.activeThreadCount() < self.thread_pool.maxThreadCount():
+                        with self.lock:
+                            charuco_state, circle_state = self._search_state
+                        self.frame_id += 1
+                        if charuco_state:
+                            self.thread_pool.start(ChArUcoDetection(
+                                frame_umat, self.frame_id, self.camera_matrix, self.dist_coeff,
+                                self.on_charuco_done, self._emit_error))
+                        if circle_state:
+                            self.thread_pool.start(CircleDetection(
+                                frame_umat, self.frame_id, self.last_roi, self.hsv_colors,
+                                self.on_circles_done, self._emit_error))
                     self._process_frame = False
 
                 view = self.draw_view_state()
-                self.thread_pool.start(DetectionDrawer(
-                    frame, self.results.get(
-                        self.frame_id-1, {}), view, self.custom_origin,
-                    self.frame_size[0], self._emit_frame_ready, self._emit_error))
+                if self.thread_pool.activeThreadCount() < self.thread_pool.maxThreadCount() - 1:
+                    self.thread_pool.start(DetectionDrawer(
+                        frame, self.results.get(
+                            self.frame_id-1, {}), view, self.custom_origin,
+                        self.frame_size[0], self._emit_frame_ready, self._emit_error))
+                else:
+                    self._emit_frame_ready(frame)
+
                 self.frame_counter.tick()
 
         except (OSError, RuntimeError) as e:

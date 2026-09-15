@@ -93,14 +93,15 @@ class PickAndPlaceController(QObject):
         self.worker.mode_change_requested.connect(self.overlay.set_mode)
         self.worker.vision_search_request.connect(self._on_vision_search_request)
         self.worker.joint_update.connect(self._on_joint_update)
+        self.worker.direct_joint_update.connect(lambda pos: self._update_simulation_with_positions(pos, smooth=False))
         
         if self.graph_controller:
             self.worker.pid_iteration.connect(self.graph_controller._on_pid_iteration)
 
         sim_signals = SimulationSignalManager.get_instance()
         phys_signals = PhysicalSignalManager.get_instance()
-        sim_signals.sensor_position_signal.connect(
-            self.worker.on_simulation_feedback_update)
+        # sim_signals.sensor_position_signal.connect(
+        #     self.worker.on_simulation_feedback_update)
 
     def set_camera_widget(self, camera_widget):
         """        Asocia el controlador con el widget de cámara."""
@@ -243,14 +244,21 @@ class PickAndPlaceController(QObject):
     def _on_charuco_done(self, frame_id, data):
         """Actualiza la pose del tablero en el overlay."""
         if self.overlay.isVisible() and data:
-            if self.overlay._charuco_pose is None:
-                self.overlay._charuco_pose = {}
+            rvec = data.get('rvec')
+            tvec = data.get('tvec')
+            if rvec is not None and tvec is not None:
+                if self.overlay._charuco_pose is None:
+                    self.overlay._charuco_pose = {}
 
-            self.overlay._charuco_pose.update({
-                'rvec': data.get('rvec'),
-                'tvec': data.get('tvec')
-            })
-            self.overlay.update()
+                self.overlay._charuco_pose.update({
+                    'rvec': rvec,
+                    'tvec': tvec
+                })
+                self.overlay.update()
+
+                # Congelar detección de ChArUco una vez obtenida la pose en modo place
+                if self.overlay._mode == 'place' and self.worker and self.worker.current_state_value == 'waiting_for_input':
+                    SearchSignalManager.get_instance().set_charuco(False)
 
     @pyqtSlot(str)
     def _request_pick(self, color):
@@ -282,23 +290,6 @@ class PickAndPlaceController(QObject):
         # Ruteado por el DataController hacia SearchSignalManager.
         self.signal_manager.search_circle_request.emit(False)
         self.worker.place(coords)
-
-    # def _update_simulation_with_positions(self, positions):
-    #     """Procesa y emite posiciones suavizadas a la simulación."""
-    #     positions[4]= positions[4]*-1
-    #     positions[5]= positions[5]*-1 
-    #     # 1. Aplicar filtro EMA
-    #     alpha = 0.1
-    #     if self._smoothed_pos is None:
-    #         self._smoothed_pos = positions
-    #     else:
-    #         self._smoothed_pos = [
-    #             (alpha * new) + ((1 - alpha) * old)
-    #             for new, old in zip(positions, self._smoothed_pos)
-    #         ]
-        
-    #     # 2. Enviar a la simulación
-    #     SimulationSignalManager.get_instance().update_robot_from_kinematics.emit(self._smoothed_pos)
 
     @pyqtSlot(dict)
     def _route_action(self, action):
@@ -388,20 +379,24 @@ class PickAndPlaceController(QObject):
 
     @pyqtSlot(list)
     def _on_joint_update(self, joints):
-        self._update_simulation_with_positions(joints)
+        self._update_simulation_with_positions(joints, smooth=True)
 
-    def _update_simulation_with_positions(self, positions):
-        """Procesa y emite posiciones suavizadas a la simulación."""
+    def _update_simulation_with_positions(self, positions, smooth=True):
+        """Procesa y emite posiciones a la simulación (con opción de suavizado EMA)."""
         positions = list(positions)
         if len(positions) >= 6:
             positions[4] = positions[4] * -1
             positions[5] = positions[5] * -1
-        alpha = 0.1
-        if self._smoothed_pos is None:
+        
+        if not smooth:
             self._smoothed_pos = positions
         else:
-            self._smoothed_pos = [
-                (alpha * new) + ((1 - alpha) * old)
-                for new, old in zip(positions, self._smoothed_pos)
-            ]
+            alpha = 0.1
+            if self._smoothed_pos is None:
+                self._smoothed_pos = positions
+            else:
+                self._smoothed_pos = [
+                    (alpha * new) + ((1 - alpha) * old)
+                    for new, old in zip(positions, self._smoothed_pos)
+                ]
         SimulationSignalManager.get_instance().update_robot_from_kinematics.emit(self._smoothed_pos)

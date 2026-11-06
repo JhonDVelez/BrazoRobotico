@@ -149,9 +149,7 @@ class MainActionsMixin:
             
         # 2. Reset Pick and Place
         elif hasattr(self, 'pick_and_place_controller') and self.pick_and_place_controller and self.pick_and_place_controller.signal_manager.get_state():
-            self.pick_and_place_controller.stop_and_reset()
-            if hasattr(self, 'graph_controller') and self.graph_controller:
-                self.graph_controller.reset_cartesian_plot()
+            self.pick_and_place_controller.restart_sequence()
             
         # 3. Reset Sliders (modo por defecto)
         else:

@@ -116,6 +116,7 @@ class PickAndPlaceController(QObject):
 
         self.overlay.sphere_selected.connect(self._request_pick)
         self.overlay.place_requested.connect(self._request_place)
+        self.overlay.reset_requested.connect(self.restart_sequence)
 
         sim_signals = SimulationSignalManager.get_instance()
         phys_signals = PhysicalSignalManager.get_instance()
@@ -382,6 +383,19 @@ class PickAndPlaceController(QObject):
         """Detiene la secuencia y limpia el estado del worker."""
         if self.worker:
             self.worker.stop_and_reset()
+
+    @pyqtSlot()
+    def restart_sequence(self):
+        """Detiene el estado actual, reinicia worker, contexto, gráficas y regresa al primer estado (home1_move)."""
+        if self.worker:
+            self.worker.stop_and_reset()
+            self.worker.start_sequence()
+        if self.graph_controller:
+            self.graph_controller.reset_cartesian_plot()
+        self.overlay.set_mode('pick')
+        self._current_color = None
+        self.signal_manager.search_circle_request.emit(True)
+        self.signal_manager.set_pick_place_running(False)
 
     def pause(self):
         """Pausa el worker de Pick and Place."""

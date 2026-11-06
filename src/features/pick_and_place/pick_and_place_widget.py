@@ -26,6 +26,7 @@ class PickAndPlaceWidget(QWidget):
     place_requested = pyqtSignal(dict)
     mode_changed = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
+    reset_requested = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -118,7 +119,7 @@ class PickAndPlaceWidget(QWidget):
         self.update()
 
     def _on_reset_clicked(self):
-        self.set_mode('pick')
+        self.reset_requested.emit()
 
     def update_config(self, orig_w, orig_h, custom_origin=None):
         """Actualiza la resolucion y el origen personalizado."""

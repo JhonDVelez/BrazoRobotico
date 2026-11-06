@@ -22,7 +22,7 @@ class MainTitleBarMixin(TitleBarBase):
     automático de anchos laterales.
     """
 
-    def __init__(self, parent, title="OpenBotV Control Lab"):
+    def __init__(self, parent, title="Openbotv Studio"):
         """
         Inicializa la barra de título con el layout y controles de ventana.
 

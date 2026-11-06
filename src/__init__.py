@@ -1,5 +1,5 @@
 """
-Paquete raíz de la aplicación OpenBotv Control Lab.
+Paquete raíz de la aplicación Openbotv Studio.
 
 Expone los subpaquetes principales del sistema:
 - features: Módulos funcionales (calibración, cámara, color, gráficos, cinemática, etc.).

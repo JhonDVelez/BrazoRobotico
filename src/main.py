@@ -1,5 +1,5 @@
 """
-Módulo de entrada principal de la aplicación OpenBotv Control Lab.
+Módulo de entrada principal de la aplicación Openbotv Studio.
 
 Gestiona la secuencia de arranque: configuración inicial, splash screen,
 precarga del motor 3D (Quick3D/QML) y del motor de física (PyBullet),
@@ -277,7 +277,7 @@ sys.excepthook = _excepthook
 
 if __name__ == '__main__':
     if sys.platform == "win32":
-        myappid = 'laser.openbotv.control.lab'  # string único
+        myappid = 'laser.openbotv.studio'  # string único
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     elif sys.platform == "linux":
         # Forzar xcb en Linux para evitar errores EGL/Wayland con NVIDIA+Qt6
@@ -311,8 +311,8 @@ if __name__ == '__main__':
     laser_icon_b = QIcon("img:laser_b.png")
     app.setWindowIcon(laser_icon_w if darkdetect.theme()
                       == "Dark" else laser_icon_b)
-    app.setApplicationName("OpenBotv Control Lab")
-    app.setDesktopFileName("OpenBotv Control Lab")
+    app.setApplicationName("OpenBotv Studio")
+    app.setDesktopFileName("OpenBotv Studio")
 
     # Splash screen
     img_path = os.path.join("img:openbotv_v1.png")
@@ -355,7 +355,7 @@ if __name__ == '__main__':
             Qt.GlobalColor.white
         )
         window = MainWindow(preloaded_container, pybullet_robot)
-        window.setWindowTitle("OpenBotv-Control-Lab")
+        window.setWindowTitle("OpenBotv-Studio")
         preloader.cleanup_preload_resources()
 
         window.show()

@@ -74,7 +74,7 @@ class MainInitMixin:
         self.modelBox.setSizePolicy(box_size_policy)
         self.modelDock.setWidget(self.modelBox)
         self.modelDock.setMinimumSizeHintMode(
-            ads.CDockWidget.eMinimumSizeHintMode.MinimumSizeHintFromContentMinimumSize)
+            ads.CDockWidget.eMinimumSizeHintMode.MinimumSizeHintFromContent)
         self.dock_manager.addDockWidget(
             Area.LeftDockWidgetArea, self.modelDock)
         self._configure_dock_title_bar(self.modelDock)
@@ -86,9 +86,9 @@ class MainInitMixin:
         self.cameraBox.setObjectName("cameraBox")
         self.cameraBox.setFlat(True)
         self.cameraBox.setSizePolicy(box_size_policy)
-        self.cameraDock.setWidget(self.cameraBox)
+        self.cameraDock.setWidget(self.cameraBox, ads.CDockWidget.eInsertMode.ForceNoScrollArea)
         self.cameraDock.setMinimumSizeHintMode(
-            ads.CDockWidget.eMinimumSizeHintMode.MinimumSizeHintFromContentMinimumSize)
+            ads.CDockWidget.eMinimumSizeHintMode.MinimumSizeHintFromDockWidgetMinimumSize)
         self.dock_manager.addDockWidget(
             Area.BottomDockWidgetArea, self.cameraDock, self.modelDock.dockAreaWidget())
         self._configure_dock_title_bar(self.cameraDock)
@@ -103,7 +103,7 @@ class MainInitMixin:
         self.graphsBox.setSizePolicy(box_size_policy)
         self.graphsDock.setWidget(self.graphsBox)
         self.graphsDock.setMinimumSizeHintMode(
-            ads.CDockWidget.eMinimumSizeHintMode.MinimumSizeHintFromContentMinimumSize)
+            ads.CDockWidget.eMinimumSizeHintMode.MinimumSizeHintFromDockWidgetMinimumSize)
         self.dock_manager.addDockWidget(
             Area.RightDockWidgetArea, self.graphsDock)
         self._configure_dock_title_bar(self.graphsDock)
@@ -121,9 +121,9 @@ class MainInitMixin:
         self.verticalLayout_2.setSpacing(0)
         self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
 
-        self.controlsDock.setWidget(self.controlsBox)
+        self.controlsDock.setWidget(self.controlsBox, ads.CDockWidget.eInsertMode.ForceNoScrollArea)
         self.controlsDock.setMinimumSizeHintMode(
-            ads.CDockWidget.eMinimumSizeHintMode.MinimumSizeHintFromContentMinimumSize)
+            ads.CDockWidget.eMinimumSizeHintMode.MinimumSizeHintFromDockWidgetMinimumSize)
         self.dock_manager.addDockWidget(
             Area.BottomDockWidgetArea, self.controlsDock, self.graphsDock.dockAreaWidget())
         self._configure_dock_title_bar(self.controlsDock)

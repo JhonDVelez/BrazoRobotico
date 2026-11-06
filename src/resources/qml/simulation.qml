@@ -163,6 +163,8 @@ View3D {
         sphereRadius: view3D.sphereRadius
         modelColor: "#d3612d"
         modelPosition: Qt.vector3d(0, 0, 0)
+        hideOnZero: false
+
     }
 
     Sphere {
@@ -170,6 +172,8 @@ View3D {
         sphereRadius: view3D.sphereRadius
         modelColor: "#44ff44"
         modelPosition: Qt.vector3d(0, 0, 0)
+        hideOnZero: false
+
     }
 
     Sphere {
@@ -177,6 +181,8 @@ View3D {
         sphereRadius: view3D.sphereRadius
         modelColor: "#4488ff"
         modelPosition: Qt.vector3d(0, 0, 0)
+        hideOnZero: false
+
     }
 
     Sphere {
@@ -184,6 +190,8 @@ View3D {
         sphereRadius: view3D.sphereRadius
         modelColor: "#c3f314"
         modelPosition: Qt.vector3d(0, 0, 0)
+        hideOnZero: false
+
     }
 
     Sphere {
@@ -191,6 +199,8 @@ View3D {
         sphereRadius: view3D.sphereRadius
         modelColor: "#a11e90"
         modelPosition: Qt.vector3d(0, 0, 0)
+        hideOnZero: false
+
     }
 
     // "Ghost" node that follows the object you want to track
@@ -221,7 +231,7 @@ View3D {
             Label {
                 color: "#4488ff"
                 font.bold: true
-                text: "Y: " + sceneEffectorZ.toFixed(4)
+                text: "Y: " + (-sceneEffectorZ).toFixed(4)
             }
             Label {
                 color: "#44ff44"

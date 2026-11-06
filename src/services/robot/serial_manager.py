@@ -3,7 +3,7 @@ import threading
 from PyQt6.QtCore import QObject, pyqtSignal
 
 class SerialPortManager(QObject):
-    """Gestor centralizado para la comunicación serial."""
+    """Gestor centralizado para la comunicación serial con limpieza estricta de buffers."""
     _instance = None
     
     def __init__(self):
@@ -21,41 +21,58 @@ class SerialPortManager(QObject):
         return cls._instance
 
     def request_access(self, com, owner_id):
-        """Solicita acceso al puerto serial."""
+        """Solicita acceso al puerto serial y limpia buffers rigurosamente."""
         with self._lock:
-            #print(f"[DEBUG] [SerialPortManager] {owner_id} solicitando acceso a {com}. Actualmente activo: {self._active_worker}")
             if self._active_worker == owner_id:
+                if self._serial and self._serial.is_open:
+                    try:
+                        self._serial.reset_input_buffer()
+                        self._serial.reset_output_buffer()
+                    except Exception:
+                        pass
                 return True
             
-            # Si hay otro, cerrarlo
+            # Si hay otro propietario, cerrar limpiando buffers primero
             if self._serial and self._serial.is_open:
-                #print(f"[DEBUG] [SerialPortManager] Cerrando puerto para {self._active_worker} antes de dar acceso a {owner_id}")
-                self._serial.close()
+                try:
+                    self._serial.reset_input_buffer()
+                    self._serial.reset_output_buffer()
+                except Exception:
+                    pass
+                try:
+                    self._serial.close()
+                except Exception:
+                    pass
             
             try:
-                self._serial = serial.Serial(com, 9600, timeout=1)
+                self._serial = serial.Serial(com, 9600, timeout=0.5)
+                self._serial.reset_input_buffer()
+                self._serial.reset_output_buffer()
                 self._active_worker = owner_id
                 self._com = com
-                #print(f"[SerialPortManager] Acceso concedido a {owner_id} en {com}")
                 return True
             except Exception as e:
                 print(f"[SerialPortManager] Error abriendo {com}: {e}")
-                pass
                 self._serial = None
                 self._active_worker = None
                 return False
 
     def release_access(self, owner_id):
-        """Libera el puerto serial."""
+        """Libera el puerto serial y limpia buffers."""
         with self._lock:
             if self._active_worker == owner_id:
                 if self._serial and self._serial.is_open:
-                    self._serial.reset_input_buffer()
-                    self._serial.reset_output_buffer()
-                    self._serial.close()
+                    try:
+                        self._serial.reset_input_buffer()
+                        self._serial.reset_output_buffer()
+                    except Exception:
+                        pass
+                    try:
+                        self._serial.close()
+                    except Exception:
+                        pass
                 self._serial = None
                 self._active_worker = None
-                #print(f"[SerialPortManager] Acceso liberado por {owner_id}")
 
     def is_active(self, owner_id):
         with self._lock:

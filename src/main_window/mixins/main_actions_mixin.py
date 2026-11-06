@@ -303,7 +303,7 @@ class MainActionsMixin:
         if checked:
             # Reseteamos otros modos antes de activar sliders
             if hasattr(self, 'kinematics_controller') and self.kinematics_controller:
-                self.kinematics_controller.get_worker().stop_and_reset()
+                self.kinematics_controller.exit_kinematics_mode()
                 SerialPortManager.get_instance().release_access("KinematicsWorker")
             if hasattr(self, 'pick_and_place_controller') and self.pick_and_place_controller:
                 self.pick_and_place_controller.stop_and_reset()

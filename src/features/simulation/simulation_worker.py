@@ -3,19 +3,18 @@ Módulo que gestiona la actualización visual del modelo 3D en QtQuick.
 
 Este módulo contiene la clase SimulationWorker, la cual actúa como un puente
 entre los datos cinemáticos/físicos y las propiedades de los objetos 3D
-definidos en el motor gráfico de Qt (QML/Quick3D).
+definidos en el motor gráfico de Qt (QML/Quick3D), implementando throttling
+y seguridad de hilos.
 """
 
-from PyQt6.QtCore import QThread, QObject
+from PyQt6.QtCore import QObject, QTimer, pyqtSlot
 from PyQt6.QtGui import QVector3D, QQuaternion
 
 
-class SimulationWorker(QThread):
+class SimulationWorker(QObject):
     """
-    Worker thread encargado de la sincronización visual del robot y su entorno.
-
-    Manipula dinamicamente las propiedades de eulerRotation de los eslabones
-    y las posiciones de las esferas detectadas en la escena 3D.
+    Worker encargado de la sincronización visual del robot y su entorno
+    de forma thread-safe y optimizada mediante throttling.
     """
 
     def __init__(self, root_object, robot_id):
@@ -27,8 +26,10 @@ class SimulationWorker(QThread):
             robot_id (str): Identificador único del robot.
         """
         super().__init__()
-        self.timer = None
         self.root_object = root_object
+        self.robot_id = robot_id
+        self._pending_positions = None
+
         self.joint_names = [
             "arm1_link_1",
             "arm2_link_1",
@@ -53,26 +54,49 @@ class SimulationWorker(QThread):
             "morado": ["spherePurplePos", "spherePurpleRot"]
         }
 
+        # Timer para throttling (60 FPS / ~16ms) para evitar saturar el loop principal y congelamientos
+        self.throttle_timer = QTimer(self)
+        self.throttle_timer.setInterval(16)
+        self.throttle_timer.timeout.connect(self._process_pending_update)
+
+    def start(self):
+        if not self.throttle_timer.isActive():
+            self.throttle_timer.start()
+
+    def quit(self):
+        if self.throttle_timer.isActive():
+            self.throttle_timer.stop()
+
+    def isRunning(self):
+        return self.throttle_timer.isActive()
+
+    def wait(self, msecs=None):
+        pass
+
+    @pyqtSlot(list)
     def update_simulation(self, joint_positions=None):
         """
-        Actualiza los ángulos de rotación de cada eslabón en el modelo 3D.
-
-        Args:
-            joint_positions (list, optional): Lista de 6 ángulos en grados.
-                Defaults to None (posicion cero).
+        Actualiza los ángulos de rotación de cada eslabón en el modelo 3D (con buffering / throttling).
         """
         if joint_positions is None:
             joint_positions = [0, 0, 0, 0, 0, 0]
-        
-        # Guardamos copia para debug
-        input_pos = list(joint_positions)
-        
+        self._pending_positions = list(joint_positions)
+
+    def _process_pending_update(self):
+        """Procesa la última posición pendiente de forma segura en el hilo GUI."""
+        if self._pending_positions is None or self.root_object is None:
+            return
+
+        joint_positions = self._pending_positions
+        self._pending_positions = None
+
+        pos_copy = list(joint_positions)
         for i in (4, 5):
-            joint_positions[i] *= -1
-            
+            if i < len(pos_copy):
+                pos_copy[i] *= -1
 
         for motor_name, angle, direction in zip(self.joint_names,
-                                                joint_positions,
+                                                pos_copy,
                                                 self.direction_rotation):
             motor = self.root_object.findChild(QObject, motor_name)
             if motor is not None:
@@ -83,22 +107,21 @@ class SimulationWorker(QThread):
                 elif direction == "x":
                     motor.setProperty("eulerRotation", QVector3D(angle, 0, 0))
 
+    @pyqtSlot(float)
     def update_sphere_radius(self, radius):
         """
         Actualiza el radio de las esferas en la escena QML.
-
-        Args:
-            radius (float): Nuevo radio en mm.
         """
-        self.root_object.setProperty("sphereRadius", float(radius))
+        if self.root_object:
+            self.root_object.setProperty("sphereRadius", float(radius))
 
+    @pyqtSlot(dict)
     def update_sphere_pose_simulation(self, poses: dict):
         """
         Actualiza la posición visual de las esferas de color en la escena 3D.
-
-        Args:
-            poses (dict): Diccionario {color: dict} con coordenadas y orientacion.
         """
+        if self.root_object is None:
+            return
         for color, properties in self.colors.items():
             pos_prop, rot_prop = properties
             if color in poses:
@@ -107,13 +130,10 @@ class SimulationWorker(QThread):
                 orientation = data.get('orientation')
 
                 if pose is not None:
-                    # Mapeo de coordenadas cartesianas al espacio local de la escena QML
-                    # UI(x,y,z) -> QML(x, y_up, z)
                     self.root_object.setProperty(
                         pos_prop, QVector3D(pose[0], pose[1], pose[2]))
 
                 if orientation is not None and len(orientation) == 4:
-                    # PyBullet entrega [x, y, z, w]. QQuaternion espera (w, x, y, z)
                     quat = QQuaternion(
                         orientation[3],
                         orientation[0],
@@ -122,5 +142,4 @@ class SimulationWorker(QThread):
                     )
                     self.root_object.setProperty(rot_prop, quat)
             else:
-                # Ocultar o resetear esferas no detectadas
                 self.root_object.setProperty(pos_prop, QVector3D(0, 0, 0))

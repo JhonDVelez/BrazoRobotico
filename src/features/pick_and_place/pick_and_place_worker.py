@@ -57,8 +57,8 @@ class PickAndPlaceWorker(QThread):
 
         self._telemetry_lock = threading.Lock()
         self._serial_lock = threading.Lock()
-        self._current_pos = [150.0] * 6
-        self._last_valid = [150.0] * 6
+        self._current_pos = [None] * 6
+        self._last_valid = [None] * 6
         self._last_pos_for_plot = None
         self._last_target_for_plot = None
         self._last_emit_time = 0.0
@@ -125,7 +125,6 @@ class PickAndPlaceWorker(QThread):
         self._check_timer.stop()
         self.context.reset()
         self.reset_state()
-        self.execute_direct_move([0, 0, 0, 0, 0, 0])
 
     def force_abort(self):
         """Forzar detención inmediata e interrupción de IO serial."""
@@ -222,7 +221,6 @@ class PickAndPlaceWorker(QThread):
             try:
                 spm.request_access(com, "PickAndPlaceWorker")
             except Exception as e:
-                print(f"[DEBUG] [PickAndPlaceWorker] Error solicitando acceso a {com}: {e}")
                 return
             
         ser = spm.get_serial()
@@ -230,10 +228,9 @@ class PickAndPlaceWorker(QThread):
             try:
                 spm.request_access(com, "PickAndPlaceWorker")
             except Exception as e:
-                print(f"[DEBUG] [PickAndPlaceWorker] Error reabriendo {com}: {e}")
+                pass
 
         if not spm.get_serial() or not spm.get_serial().is_open:
-            print("[DEBUG] Serial port not open, cannot send command.")
             return
 
         try:
@@ -249,7 +246,6 @@ class PickAndPlaceWorker(QThread):
             print(f"Error enviando comando: {e}")
 
     def _telemetry_reader(self):
-        print("[DEBUG] Telemetry reader thread started.")
         pattern = re.compile(r"([A-F])(\d+\.?\d*)T[A-F](\d+)")
         congelado_count = [0] * 6
 
@@ -262,7 +258,6 @@ class PickAndPlaceWorker(QThread):
                     
                 ser = spm.get_serial()
                 if ser is None or not ser.is_open:
-                    print(f"[DEBUG] Telemetry waiting for serial")
                     time.sleep(0.1)
                     continue
 
@@ -287,7 +282,7 @@ class PickAndPlaceWorker(QThread):
                         # Validacion de rango: filtrar valores fuera de rango fisico individualmente
                         for i in range(6):
                             if temp_pos[i] is not None and not (0 <= temp_pos[i] <= 300):
-                                temp_pos[i] = self._last_valid[i]
+                                temp_pos[i] = self._last_valid[i] if self._last_valid[i] is not None else 150.0
 
                         # Deteccion de tramas nulas / caidas de tension
                         if all(v is not None and abs(v) < 0.001 for v in temp_pos[:4]):
@@ -296,13 +291,16 @@ class PickAndPlaceWorker(QThread):
                         # Filtro anti-ruido electromagnetico con correccion individual
                         for i in range(6):
                             if temp_pos[i] is not None:
-                                diff = abs(temp_pos[i] - self._last_valid[i])
-                                if diff > 35.0:
-                                    congelado_count[i] += 1
-                                    if congelado_count[i] <= 4:
-                                        temp_pos[i] = self._last_valid[i]
-                                else:
-                                    congelado_count[i] = 0
+                                if self._last_valid[i] is not None:
+                                    diff = abs(temp_pos[i] - self._last_valid[i])
+                                    if diff > 35.0:
+                                        congelado_count[i] += 1
+                                        if congelado_count[i] <= 4:
+                                            temp_pos[i] = self._last_valid[i]
+                                        else:
+                                            congelado_count[i] = 0
+                                    else:
+                                        congelado_count[i] = 0
 
                         # Actualizacion limpia de la telemetria
                         for i in range(6):
@@ -403,7 +401,6 @@ class PickAndPlaceWorker(QThread):
                 contador_estabilidad += 1
                 error_anterior = error_actual.copy()
                 if contador_estabilidad >= iteraciones_requeridas:
-                    print(f"[DEBUG] PID P&P convergido en {i} iteraciones.")
                     self.movement_finished.emit()
                     return True
                 elapsed = time.time() - t_iter_start
@@ -472,15 +469,6 @@ class PickAndPlaceWorker(QThread):
     #              EJECUCION DE SECUENCIA PID (en el hilo worker)          #
     # ------------------------------------------------------------------ #
 
-    def _wait_for_position(self, target, timeout=5.0):
-        start_time = time.time()
-        while time.time() - start_time < timeout:
-            current_pos = self._read_positions()
-            if all(abs(current_pos[i] - target[i]) < 5 for i in range(len(target))):
-                return True
-            time.sleep(0.1)
-        return False
-
     def start_worker(self, com_port):
         self._com_port = com_port
         self._running = True
@@ -538,6 +526,8 @@ class PickAndPlaceWorker(QThread):
                 work = self._work_queue.get(timeout=0.01)
             except queue.Empty:
                 raw_pos = self._read_positions()
+                if any(p is None for p in raw_pos):
+                    continue
                 q_reales_deg = np.array(
                     CartesianPidCompensator.robotang_angulos(
                         *raw_pos))
@@ -548,7 +538,6 @@ class PickAndPlaceWorker(QThread):
                 for i in range(5):
                     if abs(q_reales_deg[i] - self._last_commanded_angles[i]) > 5.0:
                         self._last_commanded_angles[i] = q_reales_deg[i]
-
                 self.joint_update.emit(self._last_commanded_angles)
                 continue
 
@@ -562,10 +551,9 @@ class PickAndPlaceWorker(QThread):
                 _, positions = work
                 servo_positions = CartesianPidCompensator.angulos_robotang(*positions)
                 self._enviar_robot(servo_positions)
-                self.direct_joint_update.emit(positions)
+                #self.direct_joint_update.emit(positions)
                 self._update_graph_with_angles(positions)
                 self._last_commanded_angles = positions
-                self._wait_for_position(servo_positions)
                 self.movement_finished.emit()
             elif work[0] == 'stop':
                 break
@@ -579,7 +567,6 @@ class PickAndPlaceWorker(QThread):
         self.context.sphere_poses.update(poses)
 
     def _on_state_change(self, state_name):
-        print(f"[DEBUG] >>> [StateMachine] Entering State: {state_name}")
         
         if state_name == PickPlaceState.WAITING_FOR_INPUT.value:
             if self.context.ik_target is None:
@@ -611,7 +598,6 @@ class PickAndPlaceWorker(QThread):
         handler = handlers.get(state_name)
         if handler:
             handler()
-            print(f"[DEBUG] <<< [StateMachine] Finished Handler for State: {state_name}")
 
     def calcular_angulo_garra(self, tam):
         from src.features.kinematics.coordinate_correction import apertura_de_garra
@@ -634,11 +620,16 @@ class PickAndPlaceWorker(QThread):
             self._check_timer.start(2500)
 
     def _enviar_comando_movimiento(self, apertura):
-        current_pwm = self._read_positions()
-        current_angles = list(robotang_angulos(*current_pwm))
+        if self._last_commanded_angles is not None:
+            current_angles = list(self._last_commanded_angles)
+        else:
+            current_pwm = self._read_positions()
+            current_angles = list(robotang_angulos(*current_pwm))
         ang_garra = self.calcular_angulo_garra(apertura)
         current_angles[5] = ang_garra
+        self._last_commanded_angles = current_angles
         self.execute_direct_move(current_angles)
+        
 
     def _ejecutar_paso_apertura(self, apertura_actual, apertura_final, incremento):
         nueva_apertura = min(apertura_actual + incremento, apertura_final)
@@ -649,12 +640,10 @@ class PickAndPlaceWorker(QThread):
             self._sm.place_release_done()
 
     def _enter_home1_move(self):
-        print("[DEBUG] PickAndPlaceWorker Entering HOME1_MOVE (Paso 1)")
         servos_paso1 = [0, 0, 130, 0, -30, 0]
         self.execute_direct_move(servos_paso1) 
         
         def ejecutar_paso_2():
-            print("[DEBUG] PickAndPlaceWorker Entering HOME1_MOVE (Paso 2)")
             servos_paso2 = [0, -90, 130, 0, -30, 0]
             self.execute_direct_move(servos_paso2)
             
@@ -666,7 +655,6 @@ class PickAndPlaceWorker(QThread):
         self._wait_for_settle(ejecutar_paso_2)
 
     def _enter_home1_validate(self):
-        print("[DEBUG] Entering HOME1_VALIDATE")
         self._wait_for_settle(self._sm.home1_validated)
 
     def _enter_waiting_for_input(self):
@@ -678,7 +666,6 @@ class PickAndPlaceWorker(QThread):
             self.mode_change_requested.emit('place')
 
     def _enter_pid_home(self, angulo_garra_custom=None):
-        print("[DEBUG] Entering PID_HOME")
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
         ang_garra = angulo_garra_custom if angulo_garra_custom is not None else self.calcular_angulo_garra(tam + 50)
         self.update_gains_from_panel()
@@ -689,47 +676,31 @@ class PickAndPlaceWorker(QThread):
         self.execute_pid_only([tx, ty, tz], limites_home, angulo_garra=ang_garra)
 
     def _enter_pick_approach(self):
-        print("[DEBUG] Entering PICK_APPROACH")
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
         ang_garra = self.calcular_angulo_garra(tam + 50)
         self.update_gains_from_panel()
         x, y, z = self.context.ik_target
         x1 = y
         y1 = x
-        if y1 < 0:
-            x = x1 + 125
-            y = y1 + 35
-        else:
-            x = x1 + 95
-            y = y1 + 30
-        z_comp = round((0.2167*x1) + 15.5)
-        z = tam/2 + z_comp 
+        x = x1 + 110
+        y = y1 + 35
+        z = tam 
         z = self.corregir_z(x, y, z)
         x, y = self.corregir_xy(x, y)
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
         # Aproximar primero en Y y Z (retrasado en X)
-        if y < 0:
-            y = y + 30
-        else:
-            y = y - 30
         self.execute_pid_only([x-50, y, z], limites_target, angulo_garra=ang_garra)
 
     def _enter_pick_down(self):
-        print("[DEBUG] Entering PICK_DOWN")
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
         ang_garra = self.calcular_angulo_garra(tam + 50)
         self.update_gains_from_panel()
         x, y, z = self.context.ik_target
         x1 = y
         y1 = x
-        if y1 < 0:
-            x = x1 + 125
-            y = y1 + 35
-        else:
-            x = x1 + 95
-            y = y1 + 30
-        z_comp = round((0.2167*x1) + 15.5)
-        z = tam/2 + z_comp 
+        x = x1 + 110
+        y = y1 + 35
+        z = tam
         z = self.corregir_z(x, y, z)
         x, y = self.corregir_xy(x, y)
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
@@ -740,21 +711,17 @@ class PickAndPlaceWorker(QThread):
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
         apertura = tam - 20 
         self._enviar_comando_movimiento(apertura)
+        self._wait_for_settle(self._sm.pick_grasp_done)
 
     def _enter_retract_lift(self):
-        print("[DEBUG] Entering RETRACT_LIFT")
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
         ang_garra = self.calcular_angulo_garra(tam - 20)
         self.update_gains_from_panel()
         x, y, z = self.context.ik_target
         x1 = y
         y1 = x
-        if y1 < 0:
-            x = x1 + 125
-            y = y1 + 35
-        else:
-            x = x1 + 105
-            y = y1 + 30
+        x = x1 + 110
+        y = y1 + 35
         z = 100
         z = self.corregir_z(x, y, z)
         x, y = self.corregir_xy(x, y)
@@ -764,13 +731,11 @@ class PickAndPlaceWorker(QThread):
     def _enter_retract_to_home1_pick(self):
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
         ang_garra = self.calcular_angulo_garra(tam - 20)
-        print("[DEBUG] Entering RETRACT_TO_HOME1_PICK")
         servos = [0,-90,130,0,-30,ang_garra]
         self.execute_direct_move(servos)
         self._wait_for_settle(self._sm.retract_to_home1_pick_done)
 
     def _enter_pid_home_place(self, angulo_garra_custom=None):
-        print("[DEBUG] Entering PID_HOME_PLACE")
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
         ang_garra = angulo_garra_custom if angulo_garra_custom is not None else self.calcular_angulo_garra(tam - 20)
         self.update_gains_from_panel()
@@ -781,7 +746,6 @@ class PickAndPlaceWorker(QThread):
         self.execute_pid_only([tx, ty, tz], limites_home, angulo_garra=ang_garra)
 
     def _enter_place_approach(self):
-        print("[DEBUG] Entering PLACE_APPROACH")
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
         ang_garra = self.calcular_angulo_garra(tam - 20)
         self.update_gains_from_panel()
@@ -796,21 +760,12 @@ class PickAndPlaceWorker(QThread):
         z = float(self.context.place_target_coords['z'])
         x1 = y
         y1 = x
-        x = x1 + 130
-        if y1 < 0:
-            y = y1 + 15
-        else:
-            y = y1 + 30
-        z_comp = round((0.1667*x1) + 40)
-        z = tam/2 + z_comp 
+        x = x1 + 110
+        y = y1 + 20
+        z = tam*2
         z = self.corregir_z(x, y, z)
         x, y = self.corregir_xy(x, y)
-        print(f"[DEBUG] PID Target (PLACE_APPROACH): x={x-30}, y={y}, z={z}")
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
-        if y < 0:
-            y = y + 30
-        else:
-            y = y - 30
         self.execute_pid_only([x-50, y, z], limites_target, angulo_garra=ang_garra)
 
     def _enter_place_down(self):
@@ -828,25 +783,19 @@ class PickAndPlaceWorker(QThread):
         z = float(self.context.place_target_coords['z'])
         x1 = y
         y1 = x
-        x = x1 + 130
-        if y1 < 0:
-            y = y1 + 15
-        else:
-            y = y1 + 30
-        z_comp = round((0.1667*x1) + 40)
-        z = tam/2 + z_comp 
+        x = x1 + 110
+        y = y1 + 20
+        z = tam*2
         z = self.corregir_z(x, y, z)
         x, y = self.corregir_xy(x, y)
-        if x<=170:
-            x = x + 10
-        print(f"[DEBUG] PID Target (PLACE_DOWN): x={x}, y={y}, z={z}")
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
-        self.execute_pid_only([x, y, z], limites_target, angulo_garra=ang_garra)
+        self.execute_pid_only([x+20, y, z], limites_target, angulo_garra=ang_garra)
 
     def _enter_place_release(self):
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
         apertura_total = tam + 20
         self._enviar_comando_movimiento(apertura_total)
+        self._wait_for_settle(self._sm.place_release_done)
 
     def _enter_retract_from_place(self):
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
@@ -863,20 +812,15 @@ class PickAndPlaceWorker(QThread):
         z = float(self.context.place_target_coords['z'])
         x1 = y
         y1 = x
-        x = x1 + 135
-        if y1 < 0:
-            y = y1 + 15
-        else:
-            y = y1 + 30
+        x = x1 + 110
+        y = y1 + 35
         z = 100
         z = self.corregir_z(x, y, z)
         x, y = self.corregir_xy(x, y)
-        print(f"[DEBUG] PID Target (PLACE_UP): x={x}, y={y}, z={z}")
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
-        self.execute_pid_only([x, y, z], limites_target, angulo_garra=ang_garra)
+        self.execute_pid_only([x+20, y, z], limites_target, angulo_garra=ang_garra)
 
     def _enter_final_seq_home1(self):
-        print("[DEBUG] Entering FINAL_SEQ_HOME1")
         servos = [0,-90,130,0,-30,0]
         self.execute_direct_move(servos)
         self._wait_for_settle(self._final_home1_cleanup)
@@ -887,11 +831,9 @@ class PickAndPlaceWorker(QThread):
         self.sequence_completed.emit()
 
     def _enter_final_seq_home(self):
-        print("[DEBUG] Entering FINAL_SEQ_HOME")
         self._sm.final_home_done()
 
     def _enter_final_seq_home2(self):
-        print("[DEBUG] Entering FINAL_SEQ_HOME2")
         self._sm.final_home2_done()
 
     def corregir_xy(self, x, y):
@@ -904,7 +846,6 @@ class PickAndPlaceWorker(QThread):
 
     @pyqtSlot(str)
     def pick(self, color):
-        print(f"[DEBUG] User input: Pick {color}")
         self.update_gains_from_panel()
         self.context.selected_color = color
         
@@ -922,7 +863,6 @@ class PickAndPlaceWorker(QThread):
 
     @pyqtSlot(dict)
     def place(self, coords):
-        print(f"[DEBUG] >>> PickAndPlaceWorker.place() llamado con coords: {coords}")
         self.update_gains_from_panel()
         self.context.place_target_coords = coords
         
@@ -937,15 +877,12 @@ class PickAndPlaceWorker(QThread):
     @pyqtSlot()
     def _on_movement_finished(self):
         current = self.current_state_value
-        print(f"[DEBUG] >>> _on_movement_finished. Current state: {current}")
         if current == PickPlaceState.PID_HOME.value:
             self._sm.pid_home_done()
         elif current == PickPlaceState.PICK_APPROACH.value:
             self._sm.pick_approach_done()
         elif current == PickPlaceState.PICK_DOWN.value:
             self._sm.pick_down_done()
-        elif current == PickPlaceState.PICK_GRASP.value:
-            self._sm.pick_grasp_done()
         elif current == PickPlaceState.RETRACT_LIFT.value:
             self._sm.retract_lift_done()
         elif current == PickPlaceState.PID_HOME_PLACE.value:
@@ -954,8 +891,6 @@ class PickAndPlaceWorker(QThread):
             self._sm.place_approach_done()
         elif current == PickPlaceState.PLACE_DOWN.value:
             self._sm.place_down_done()
-        elif current == PickPlaceState.PLACE_RELEASE.value:
-            self._sm.place_release_done()
         elif current == PickPlaceState.RETRACT_FROM_PLACE.value:
             self._sm.retract_from_place_done()
         elif current == PickPlaceState.FINAL_SEQ_HOME.value:
@@ -984,7 +919,7 @@ class PickAndPlaceWorker(QThread):
                 gains = widget.get_pid_gains()
                 self.set_pid_gains(gains["kp"], gains["ki"], gains["kd"])
             except Exception as e:
-                print(f"[DEBUG] Error actualizando ganancias desde panel: {e}")
+                pass
 
     def start_sequence(self):
         if self._sm.current_state_value == 'idle':

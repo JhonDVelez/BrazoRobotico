@@ -60,25 +60,25 @@ class PickAndPlaceController(QObject):
         if camera_widget:
             self.set_camera_widget(camera_widget)
     
-    def set_kinematics_controller(self, kinematics_controller, graph_controller=None):
-        self.kinematics_controller = kinematics_controller
-        self.graph_controller = graph_controller
-        self.worker = PickAndPlaceWorker(kinematics_controller=kinematics_controller)
-        self._setup_connections()
-        self.noti_manager = NotificationManager.get_instance()
+    def _create_worker(self):
+        if hasattr(self, 'worker') and self.worker:
+            try:
+                self.signal_manager.poses_from_camera.disconnect(self.worker.on_poses_from_camera)
+                self.signal_manager.target_reached.disconnect(self.worker.on_target_reached)
+                self.signal_manager.inverse_kinematics_ready.disconnect(self.worker.on_ik_ready)
+                self.worker.action_request.disconnect(self._route_action)
+                self.worker.sequence_completed.disconnect(self._on_sequence_completed)
+                self.worker.sequence_failed.disconnect(self._on_sequence_failed)
+                self.worker.status_message_updated.disconnect(self.overlay.update_status_message)
+                self.worker.mode_change_requested.disconnect(self.overlay.set_mode)
+                self.worker.vision_search_request.disconnect(self._on_vision_search_request)
+                self.worker.joint_update.disconnect(self._on_joint_update)
+            except Exception:
+                pass
+            self.worker.force_abort()
 
-    def _setup_connections(self):
-        """        Configura conexiones entre señales globales, worker y overlay."""
-        self.signal_manager.state_changed.connect(self._on_state_changed)
-        self.signal_manager.spheres_detected_2d.connect(
-            self._on_spheres_detected_2d)
-
-        # Conectar resultados de charuco para modo Place
-        CameraSignalManager.get_instance().charuco_done.connect(self._on_charuco_done)
-
-        self.overlay.sphere_selected.connect(self._request_pick)
-        self.overlay.place_requested.connect(self._request_place)
-
+        self.worker = PickAndPlaceWorker(kinematics_controller=self.kinematics_controller)
+        
         self.signal_manager.poses_from_camera.connect(
             self.worker.on_poses_from_camera)
         self.signal_manager.target_reached.connect(
@@ -96,7 +96,26 @@ class PickAndPlaceController(QObject):
         self.worker.direct_joint_update.connect(lambda pos: self._update_simulation_with_positions(pos, smooth=False))
         
         if self.graph_controller:
-            self.worker.pid_iteration.connect(self.graph_controller._on_pid_iteration)
+            self.graph_controller.set_kinematics_worker(self.worker)
+
+    def set_kinematics_controller(self, kinematics_controller, graph_controller=None):
+        self.kinematics_controller = kinematics_controller
+        self.graph_controller = graph_controller
+        self._create_worker()
+        self._setup_connections()
+        self.noti_manager = NotificationManager.get_instance()
+
+    def _setup_connections(self):
+        """        Configura conexiones entre señales globales, worker y overlay."""
+        self.signal_manager.state_changed.connect(self._on_state_changed)
+        self.signal_manager.spheres_detected_2d.connect(
+            self._on_spheres_detected_2d)
+
+        # Conectar resultados de charuco para modo Place
+        CameraSignalManager.get_instance().charuco_done.connect(self._on_charuco_done)
+
+        self.overlay.sphere_selected.connect(self._request_pick)
+        self.overlay.place_requested.connect(self._request_place)
 
         sim_signals = SimulationSignalManager.get_instance()
         phys_signals = PhysicalSignalManager.get_instance()
@@ -151,12 +170,9 @@ class PickAndPlaceController(QObject):
                     com = self.kinematics_controller._robot_service.get_com()
                     self.kinematics_controller._robot_service.suspend_serial()
                     
-                    if self.worker and not self.worker.isRunning():
-                        self.worker.worker_ready.connect(self._start_sequence_when_ready)
-                        self.worker.start_worker(com)
-                    else:
-                        if self.worker:
-                            self.worker.start_sequence()
+                    self._create_worker()
+                    self.worker.worker_ready.connect(self._start_sequence_when_ready)
+                    self.worker.start_worker(com)
                 
                 widget = self.kinematics_controller.get_widget()
                 widget.show()
@@ -269,7 +285,7 @@ class PickAndPlaceController(QObject):
         """
         self._current_color = color
         self.signal_manager.sphere_selected.emit(color)
-        self.sim_signals.change_mode_signal.emit(Modes.KINEMATIC)
+        self.signal_manager.change_mode_signal.emit(Modes.PICK_PLACE)
         self.signal_manager.release_sphere_request.emit(color)
         self.signal_manager.set_pick_place_running(True)
         # Desactivar búsqueda de esferas durante el movimiento para evitar ruido.
@@ -327,7 +343,7 @@ class PickAndPlaceController(QObject):
                 self.signal_manager.search_circle_request.emit(True)
                 self.overlay.set_mode('pick')
 
-        self.sim_signals.change_mode_signal.emit(Modes.KINEMATIC)
+        self.signal_manager.change_mode_signal.emit(Modes.PICK_PLACE)
 
     @pyqtSlot(str)
     def _on_sequence_failed(self, reason):

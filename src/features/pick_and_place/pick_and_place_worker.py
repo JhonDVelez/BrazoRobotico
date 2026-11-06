@@ -680,29 +680,36 @@ class PickAndPlaceWorker(QThread):
         ang_garra = self.calcular_angulo_garra(tam + 50)
         self.update_gains_from_panel()
         x, y, z = self.context.ik_target
-        x1 = y
+        des = 1 if np.sqrt(x**2 + (y+110)**2) < 190 else 3.0
+        r = tam + des
+        angle = math.atan((x)/(y+110))
+        x = x + r*math.sin(1.5708 - angle)
+        y = y - r*math.cos(1.5708 - angle)
+        x1 = y + 110
         y1 = x
-        x = x1 + 110
-        y = y1 + 35
         z = tam 
-        z = self.corregir_z(x, y, z)
-        x, y = self.corregir_xy(x, y)
+        z = self.corregir_z(x1, y1, z)
+        x, y = self.corregir_xy(x1, y1)
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
         # Aproximar primero en Y y Z (retrasado en X)
-        self.execute_pid_only([x-50, y, z], limites_target, angulo_garra=ang_garra)
+        self.execute_pid_only([x-60, y, z], limites_target, angulo_garra=ang_garra)
 
     def _enter_pick_down(self):
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
         ang_garra = self.calcular_angulo_garra(tam + 50)
         self.update_gains_from_panel()
         x, y, z = self.context.ik_target
-        x1 = y
+        des = 1 if np.sqrt(x**2 + (y+110)**2) < 190 else 3.0
+        r = tam + des
+        angle = math.atan((x)/(y+110))
+        x = x + r*math.sin(1.5708 - angle)
+        y = y - r*math.cos(1.5708 - angle)
+        x1 = y + 110
         y1 = x
-        x = x1 + 110
-        y = y1 + 35
-        z = tam
-        z = self.corregir_z(x, y, z)
-        x, y = self.corregir_xy(x, y)
+        z = tam + 5
+        z = self.corregir_z(x1, y1, z)
+        x, y = self.corregir_xy(x1, y1)
+        print(f"[DEBUG] Pick Down Target: x={x}, y={y}, z={z}, ang_garra={ang_garra}")
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
         # Luego aproximar en X a la posición final
         self.execute_pid_only([x, y, z], limites_target, angulo_garra=ang_garra)
@@ -718,13 +725,16 @@ class PickAndPlaceWorker(QThread):
         ang_garra = self.calcular_angulo_garra(tam - 20)
         self.update_gains_from_panel()
         x, y, z = self.context.ik_target
-        x1 = y
+        des = 1 if np.sqrt(x**2 + (y+110)**2) < 190 else 3.0
+        r = tam + des
+        angle = math.atan((x)/(y+110))
+        x = x + r*math.sin(1.5708 - angle)
+        y = y - r*math.cos(1.5708 - angle)
+        x1 = y + 110
         y1 = x
-        x = x1 + 110
-        y = y1 + 35
         z = 100
-        z = self.corregir_z(x, y, z)
-        x, y = self.corregir_xy(x, y)
+        z = self.corregir_z(x1, y1, z)
+        x, y = self.corregir_xy(x1, y1)
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
         self.execute_pid_only([x, y, z], limites_target, angulo_garra=ang_garra)
 
@@ -758,15 +768,19 @@ class PickAndPlaceWorker(QThread):
         x = float(self.context.place_target_coords['x'])
         y = float(self.context.place_target_coords['y'])
         z = float(self.context.place_target_coords['z'])
-        x1 = y
+        des = 1 if np.sqrt(x**2 + (y+110)**2) < 190 else 3.0
+        desz = tam + 10 if np.sqrt(x**2 + (y+110)**2) < 190 else tam*2
+        r = tam + des
+        angle = math.atan((x)/(y+110))
+        x = x + r*math.sin(1.5708 - angle)
+        y = y - r*math.cos(1.5708 - angle)
+        x1 = y + 110
         y1 = x
-        x = x1 + 110
-        y = y1 + 20
-        z = tam*2
-        z = self.corregir_z(x, y, z)
-        x, y = self.corregir_xy(x, y)
+        z = desz
+        z = self.corregir_z(x1, y1, z)
+        x, y = self.corregir_xy(x1, y1)
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
-        self.execute_pid_only([x-50, y, z], limites_target, angulo_garra=ang_garra)
+        self.execute_pid_only([x-60, y, z], limites_target, angulo_garra=ang_garra)
 
     def _enter_place_down(self):
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
@@ -781,15 +795,25 @@ class PickAndPlaceWorker(QThread):
         x = float(self.context.place_target_coords['x'])
         y = float(self.context.place_target_coords['y'])
         z = float(self.context.place_target_coords['z'])
-        x1 = y
+        des = 1 if np.sqrt(x**2 + (y+110)**2) < 190 else 3.0
+        #desz = tam + 10 if np.sqrt(x**2 + (y+110)**2) < 190 else tam*2
+        r = tam + des
+        angle = math.atan((x)/(y+110))
+        x = x + r*math.sin(1.5708 - angle)
+        y = y - r*math.cos(1.5708 - angle)
+        x1 = y + 110
         y1 = x
-        x = x1 + 110
-        y = y1 + 20
         z = tam*2
-        z = self.corregir_z(x, y, z)
-        x, y = self.corregir_xy(x, y)
+        z = self.corregir_z(x1, y1, z)
+        x, y = self.corregir_xy(x1, y1)
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
-        self.execute_pid_only([x+20, y, z], limites_target, angulo_garra=ang_garra)
+        if y < 0:
+            y = y - 20
+            x = x
+        else:
+            y = y
+            x = x + 20
+        self.execute_pid_only([x, y, z], limites_target, angulo_garra=ang_garra)
 
     def _enter_place_release(self):
         tam = self.context.tamano_seleccionado if self.context.tamano_seleccionado else 30
@@ -810,15 +834,18 @@ class PickAndPlaceWorker(QThread):
         x = float(self.context.place_target_coords['x'])
         y = float(self.context.place_target_coords['y'])
         z = float(self.context.place_target_coords['z'])
-        x1 = y
+        des = 1 if np.sqrt(x**2 + (y+110)**2) < 190 else 3.0
+        r = tam + des
+        angle = math.atan((x)/(y+110))
+        x = x + r*math.sin(1.5708 - angle)
+        y = y - r*math.cos(1.5708 - angle)
+        x1 = y + 110
         y1 = x
-        x = x1 + 110
-        y = y1 + 35
         z = 100
-        z = self.corregir_z(x, y, z)
-        x, y = self.corregir_xy(x, y)
+        z = self.corregir_z(x1, y1, z)
+        x, y = self.corregir_xy(x1, y1)
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
-        self.execute_pid_only([x+20, y, z], limites_target, angulo_garra=ang_garra)
+        self.execute_pid_only([x, y, z], limites_target, angulo_garra=ang_garra)
 
     def _enter_final_seq_home1(self):
         servos = [0,-90,130,0,-30,0]

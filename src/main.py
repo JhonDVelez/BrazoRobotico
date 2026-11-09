@@ -124,6 +124,8 @@ class CompletePreloader:
             self.preloaded_view.setResizeMode(
                 QQuickView.ResizeMode.SizeRootObjectToView)
             self.preloaded_view.resize(512, 288)
+            if getattr(sys, 'frozen', False):
+                self.preloaded_view.engine().addImportPath(sys._MEIPASS)
             self.preloaded_view.setSource(QUrl.fromLocalFile(self.qml_path))
 
             for _ in range(3):
@@ -276,6 +278,9 @@ def _excepthook(exc_type, exc_value, exc_tb):
 sys.excepthook = _excepthook
 
 if __name__ == '__main__':
+    if getattr(sys, 'frozen', False):
+        os.environ["QT_PLUGIN_PATH"] = sys._MEIPASS
+
     if sys.platform == "win32":
         myappid = 'laser.openbotv.studio'  # string único
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
@@ -298,7 +303,10 @@ if __name__ == '__main__':
     app.setStyle('fusion')
     from src.services.data.utils.widget_inspector import WidgetInspector
     WidgetInspector.install(app)
-    src_path = os.path.dirname(__file__)
+    if getattr(sys, 'frozen', False):
+        src_path = os.path.join(sys._MEIPASS, "src")
+    else:
+        src_path = os.path.dirname(__file__)
 
     QDir.addSearchPath(
         "tabla", f"{src_path}/resources/tabla_compensacion")
@@ -334,11 +342,12 @@ if __name__ == '__main__':
         "qml", f"{src_path}/resources/qml")
     QDir.addSearchPath(
         "pybullet", f"{src_path}/resources/pybullet/")
-    qml_path = QDir("qml:simulation.qml").path()
-    urdf_path = QDir("pybullet:/urdf/openbot_v1.urdf").path()
-    box_visual_path = QDir("pybullet:/meshes/visual/caja.obj").path()
-    box_collision_path = QDir(
-        "pybullet:/meshes/collision/caja_vhacd.obj").path()
+    
+    # Rutas físicas absolutas para PyBullet y motores externos (compatible con PyInstaller / _MEIPASS)
+    qml_path = os.path.join(src_path, "resources", "qml", "simulation.qml")
+    urdf_path = os.path.join(src_path, "resources", "pybullet", "urdf", "openbot_v1.urdf")
+    box_visual_path = os.path.join(src_path, "resources", "pybullet", "meshes", "visual", "caja.obj")
+    box_collision_path = os.path.join(src_path, "resources", "pybullet", "meshes", "collision", "caja_vhacd.obj")
 
     if cv2.ocl.haveOpenCL():
         cv2.ocl.setUseOpenCL(True)

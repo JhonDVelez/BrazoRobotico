@@ -12,3 +12,7 @@ graphify-out/
 AGENTS.md
 CLAUDE.md
 .env
+dist/
+build/
+*.rar
+*.zip

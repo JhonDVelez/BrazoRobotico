@@ -133,13 +133,13 @@ class RobotWorker(QThread):
             except queue.Empty:
                 continue
             except Exception as e:
-                print(f"[DEBUG] [RobotWorker] Error en queue.get: {e}")
+
                 continue
 
             try:
                 self._send_and_receive(valorm)
             except Exception as e:
-                print(f"[DEBUG] [RobotWorker] Excepción no controlada en _send_and_receive: {e}")
+
                 traceback.print_exc()
                 try:
                     self.connection_status_changed.emit(False)
@@ -165,7 +165,7 @@ class RobotWorker(QThread):
             if not self._suspended and spm.is_active("RobotWorker"):
                 cm904 = spm.get_serial()
                 if cm904 is None or not getattr(cm904, 'is_open', False):
-                    print(f"[DEBUG] Attempting auto-reconnect serial, suspended: {self._suspended}")
+
                     try:
                         spm.request_access(self._com, "RobotWorker")
                         self.connection_status_changed.emit(True)
@@ -183,7 +183,7 @@ class RobotWorker(QThread):
                     frame = self._build_command_frame(valorm)
                     spm.safe_write(frame)
                 except (serial.SerialException, OSError) as e:
-                    print(f"[DEBUG] [RobotWorker] SerialException/OSError en write/flush: {e}")
+
                     self.connection_status_changed.emit(False)
                     try:
                         if cm904:
@@ -211,7 +211,7 @@ class RobotWorker(QThread):
                 # Si no es activo o está suspendido, no intentar enviar
                 return
         except Exception as e:
-            print(f"[DEBUG] [RobotWorker] Excepción capturada en _send_and_receive: {e}")
+
             traceback.print_exc()
             try:
                 self.connection_status_changed.emit(False)
@@ -349,14 +349,14 @@ class RobotWorker(QThread):
         """
         Reabre el puerto serial despues de una suspension.
         """
-        print(f"[DEBUG] Resuming serial for {self._com}, was suspended: {self._suspended}")
+
         self._suspended = False
         try:
             cm904 = SerialPortManager.get_instance().get_serial()
             if cm904 is None or not getattr(cm904, 'is_open', False):
                 SerialPortManager.get_instance().request_access(self._com, "RobotWorker")
                 self.connection_status_changed.emit(True)
-                print(f"[DEBUG] Serial re-opened successfully")
+
         except Exception as e:
             print(f"Error reabriendo {self._com}: {e}")
             self.connection_status_changed.emit(False)

@@ -294,7 +294,7 @@ class PlotController(QObject):
                     QMessageBox.warning(
                         self._widget, "Error", "Se requiere 'openpyxl' y 'pandas' para exportar a Excel")
         except (OSError, IOError, ValueError) as e:
-            print(f"[DEBUG] Error al exportar datos ({type(e).__name__}): {e}")
+            # print(f"[DEBUG] Error al exportar datos ({type(e).__name__}): {e}")
             QMessageBox.critical(self._widget, "Error",
                                  f"Error al exportar: {type(e).__name__}: {str(e)}")
 

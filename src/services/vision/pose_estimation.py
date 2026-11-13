@@ -108,7 +108,7 @@ class PoseEstimation(QRunnable):
                 self.pose_callback(self.frame_id, final_poses)
 
         except (cv2.error, ValueError, np.linalg.LinAlgError) as e:
-            print(f"[DEBUG] Error en estimación de pose ({type(e).__name__}): {e}")
+            # print(f"[DEBUG] Error en estimación de pose ({type(e).__name__}): {e}")
             self.error_callback(f"Error en estimación de pose: {type(e).__name__}: {e}")
 
     def _apply_custom_origin(self, p_world):

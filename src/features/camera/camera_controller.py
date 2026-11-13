@@ -215,7 +215,7 @@ class CameraController(QObject):
             self.active_state_changed.emit(True)
 
         except (OSError, RuntimeError, ValueError) as e:
-            print(f"[DEBUG] Error al iniciar video ({type(e).__name__}): {e}")
+            # print(f"[DEBUG] Error al iniciar video ({type(e).__name__}): {e}")
             self.noti_manager.notify(
                 f"Error al iniciar video: {e}", NotificationType.DIALOG_ERROR, self.view)
             self._on_video_error(str(e))

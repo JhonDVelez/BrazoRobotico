@@ -235,7 +235,7 @@ class DetectionDrawer(QRunnable):
             bottom_left = corners[rows - 1, 0].astype(float)
             bottom_right = corners[rows - 1, cols - 1].astype(float)
         except (IndexError, ValueError) as e:
-            print(f"[DEBUG] Error calculando escala de fuente dinámica ({type(e).__name__}): {e}")
+            # print(f"[DEBUG] Error calculando escala de fuente dinámica ({type(e).__name__}): {e}")
             return self.base_font_scale
 
         width_top = np.linalg.norm(top_right - top_left) / max(1, cols - 1)

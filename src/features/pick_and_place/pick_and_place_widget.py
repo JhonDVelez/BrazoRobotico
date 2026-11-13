@@ -202,7 +202,7 @@ class PickAndPlaceWidget(QWidget):
         """
         Detecta clics sobre la imagen de cámara cuando Pick and Place está activo.
         """
-        print(f"[DEBUG] [PickAndPlaceWidget] mousePressEvent. Mode: {self._mode}")
+        # print(f"[DEBUG] [PickAndPlaceWidget] mousePressEvent. Mode: {self._mode}")
         if event.button() != Qt.MouseButton.LeftButton:
             super().mousePressEvent(event)
             return

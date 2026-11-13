@@ -89,11 +89,11 @@ class CameraConnection:
             return True
 
         except IOError as e:
-            print(f"[DEBUG] IOError al inicializar cámara (índice {self.camera_index}): {e}")
+            # print(f"[DEBUG] IOError al inicializar cámara (índice {self.camera_index}): {e}")
             self.__release_camera()
             return False
         except RuntimeError as e:
-            print(f"[DEBUG] RuntimeError al inicializar cámara (índice {self.camera_index}): {e}")
+            # print(f"[DEBUG] RuntimeError al inicializar cámara (índice {self.camera_index}): {e}")
             self.__release_camera()
             return False
 

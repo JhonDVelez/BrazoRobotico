@@ -149,7 +149,7 @@ class ImageHandler(QObject):
                                  bytes_per_line, QImage.Format.Format_BGR888)
                 return QPixmap.fromImage(q_image)
         except (cv2.error, ValueError, AttributeError) as e:
-            print(f"[DEBUG] Error en conversión de frame a QPixmap ({type(e).__name__}): {e}")
+            # print(f"[DEBUG] Error en conversión de frame a QPixmap ({type(e).__name__}): {e}")
             return QPixmap()
 
     @staticmethod

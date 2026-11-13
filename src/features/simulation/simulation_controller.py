@@ -241,19 +241,20 @@ class SimulationController(QObject):
     def _update_from_kinematics(self, joint_positions: list):
        #print(f"[DEBUG SimulationController] _update_from_kinematics: active_source={self._active_source}, pp_running={self.pick_place_signal_manager.is_pick_place_running()}, positions={joint_positions}")
         if self._active_source == Modes.SLIDERS:
-            print("[DEBUG SimulationController] BLOCKED kinematics update because active_source is SLIDERS")
+            pass
             return
         # Actualizar si el modo activo es cinemática o pick & place, o si la secuencia P&P está corriendo
         if self._active_source in (Modes.KINEMATIC, Modes.PICK_PLACE) or self.pick_place_signal_manager.is_pick_place_running():
             self.update_simulation(joint_positions)
         else:
-            print("[DEBUG SimulationController] DISCARDED kinematics update: conditions not met")
+            pass
+
 
     @pyqtSlot(list)
     def _update_from_sliders(self, joint_positions: list):
         #print(f"[DEBUG SimulationController] _update_from_sliders: active_source={self._active_source}, positions={joint_positions}")
         if self._active_source != Modes.SLIDERS:
-            print(f"[DEBUG SimulationController] BLOCKED sliders update because active_source is {self._active_source}")
+            pass
             return
         self.update_simulation(joint_positions)
 
@@ -261,7 +262,9 @@ class SimulationController(QObject):
     def _update_from_simulation(self, joint_positions: list):
         #print(f"[DEBUG SimulationController] _update_from_simulation: active_source={self._active_source}, positions={joint_positions}")
         if self._active_source in (Modes.KINEMATIC, Modes.PICK_PLACE):
-            print(f"[DEBUG SimulationController] BLOCKED simulation feedback update because active_source is {self._active_source}")
+            pass
+            return
+
             return
         self.update_simulation(joint_positions)
 
@@ -316,7 +319,7 @@ class SimulationController(QObject):
 
             self.physics_worker.start()
         except RuntimeError as e:
-            print(f"[DEBUG] RuntimeError iniciando simulación: {e}")
+
             self.noti_manager.notify(
                 f"Error iniciando simulación: {e}", NotificationType.TOAST_ERROR)
 
@@ -363,5 +366,6 @@ class SimulationController(QObject):
                     self.simulation_worker.quit()
                     self.simulation_worker.wait(2000)
             except RuntimeError as e:
-                print(f"[DEBUG] RuntimeError cerrando worker de simulación: {e}")
+                pass
+
             self.simulation_worker = None

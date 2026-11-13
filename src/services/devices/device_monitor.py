@@ -241,7 +241,8 @@ class LinuxDeviceMonitor(_QObjectABC, DeviceMonitor):
                     self.serial_changed.emit()
 
         except Exception as e:
-            print(f"[DEBUG] Error en monitoreo de dispositivos Linux ({type(e).__name__}): {e}")
+            # print(f"[DEBUG] Error en monitoreo de dispositivos Linux ({type(e).__name__}): {e}")
+            pass
 
 
 class CameraEventFilterLinux(_QObjectABC, DeviceMonitor):
@@ -317,7 +318,8 @@ class CameraEventFilterLinux(_QObjectABC, DeviceMonitor):
                     self.camera_changed.emit()
 
         except Exception as e:
-            print(f"[DEBUG] Error en monitoreo de cámaras Linux ({type(e).__name__}): {e}")
+            # print(f"[DEBUG] Error en monitoreo de cámaras Linux ({type(e).__name__}): {e}")
+            pass
 
 
 class DummyDeviceMonitor(DeviceMonitor):

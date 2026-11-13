@@ -132,7 +132,8 @@ class SimulationWidget(QWidget):
                 print("Error de inicialización del worker")
 
         except (RuntimeError, AttributeError) as e:
-            print(f"[DEBUG] Error integrando contenedor precargado ({type(e).__name__}): {e}")
+            # print(f"[DEBUG] Error integrando contenedor precargado ({type(e).__name__}): {e}")
+            pass
 
     def get_simulation_widget(self):
         """

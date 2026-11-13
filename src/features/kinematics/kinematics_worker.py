@@ -197,7 +197,7 @@ class KinematicsWorker(QThread):
             try:
                 spm.request_access(com, "KinematicsWorker")
             except Exception as e:
-                print(f"[DEBUG] [KinematicsWorker] Error solicitando acceso a {com}: {e}")
+
                 return
             
         ser = spm.get_serial()
@@ -205,10 +205,9 @@ class KinematicsWorker(QThread):
             try:
                 spm.request_access(com, "KinematicsWorker")
             except Exception as e:
-                print(f"[DEBUG] [KinematicsWorker] Error reabriendo {com}: {e}")
+                pass
 
         if not spm.get_serial() or not spm.get_serial().is_open:
-            print("[DEBUG] Serial port not open, cannot send command.")
             return
 
         try:
@@ -223,8 +222,7 @@ class KinematicsWorker(QThread):
         except (serial.SerialException, OSError) as e:
             print(f"Error enviando comando: {e}")
 
-    def _telemetry_reader(self):
-        print("[DEBUG] Telemetry reader thread started.")
+
         pattern = re.compile(r"([A-F])(\d+\.?\d*)T[A-F](\d+)")
         congelado_count = [0] * 6
 
@@ -237,7 +235,7 @@ class KinematicsWorker(QThread):
                     
                 ser = spm.get_serial()
                 if ser is None or not ser.is_open:
-                    print(f"[DEBUG] Telemetry waiting for serial")
+
                     time.sleep(0.1)
                     continue
 
@@ -378,7 +376,7 @@ class KinematicsWorker(QThread):
                 contador_estabilidad += 1
                 error_anterior = error_actual.copy()
                 if contador_estabilidad >= iteraciones_requeridas:
-                    print(f"[DEBUG] PID convergido en {i} iteraciones.")
+
                     self.movement_finished.emit()
                     return True
                 elapsed = time.time() - t_iter_start
@@ -641,7 +639,7 @@ class KinematicsWorker(QThread):
             home_pos = [0, -45, 120, 0, 30, angulo_garra]
             
             ser = SerialPortManager.get_instance().get_serial()
-            print(f"[DEBUG] _serial: {ser}, is_open: {ser.is_open if ser else 'N/A'}")
+
             
             servo_positions = CartesianPidCompensator.angulos_robotang(*home_pos)
             self._enviar_robot(servo_positions)
@@ -700,7 +698,7 @@ class KinematicsWorker(QThread):
                 continue 
 
             # Procesar el trabajo
-            print(f"[DEBUG] Procesando trabajo: {work}")
+
             if work[0] == 'execute_target':
                 _, tx, ty, tz = work
                 self._run_pid_sequence(tx, ty, tz)
@@ -709,10 +707,10 @@ class KinematicsWorker(QThread):
                 if t_start is None:
                     t_start = time.time()
                 self._pid_abort = False
-                print(f"[DEBUG] Ejecutando PID solo a {target} con limites {limites}, max_iter={max_iter}, tolerancias={tol}, t_start={t_start}, angulo_garra={angulo_garra}")
+
                 self._pid_control_loop(target, limites, max_iter=max_iter, tolerancias=tol, t_start=t_start, angulo_garra=angulo_garra)
             elif work[0] == 'direct_move':
-                print(f"[DEBUG] Ejecutando movimiento directo a {work[1]}")
+
                 _, positions = work
                 # Emitir ángulos para la simulación antes de convertir a PWM
                 servo_positions = CartesianPidCompensator.angulos_robotang(*positions)

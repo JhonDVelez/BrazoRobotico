@@ -709,7 +709,7 @@ class PickAndPlaceWorker(QThread):
         z = tam + 5
         z = self.corregir_z(x1, y1, z)
         x, y = self.corregir_xy(x1, y1)
-        print(f"[DEBUG] Pick Down Target: x={x}, y={y}, z={z}, ang_garra={ang_garra}")
+
         limites_target = [(-100, 100), (-90, 90), (-130, 130), (-90, 120)]
         # Luego aproximar en X a la posición final
         self.execute_pid_only([x, y, z], limites_target, angulo_garra=ang_garra)

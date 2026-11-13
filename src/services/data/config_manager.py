@@ -245,7 +245,7 @@ def get(filename: str, *keys, default=None):
                 return default
         return data
     except (json.JSONDecodeError, OSError, KeyError, TypeError) as e:
-        print(f"[DEBUG] Error leyendo config '{filename}' keys={keys} ({type(e).__name__}): {e}")
+        # print(f"[DEBUG] Error leyendo config '{filename}' keys={keys} ({type(e).__name__}): {e}")
         return default
 
 

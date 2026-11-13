@@ -195,13 +195,13 @@ class DataController(QObject):
     @pyqtSlot(list)
     def update_target_positions(self, data: list):
         """Actualiza el buffer de estado central."""
-        print(f"[DEBUG DataController] update_target_positions called with data: {data}, mode: {self._mode}")
+
         self._target_data = data
 
     @pyqtSlot(object)
     def set_mode(self, mode: Modes):
         """Cambia el modo de operación global."""
-        print(f"[DEBUG DataController] set_mode called: switching from {self._mode} to {mode}")
+
         self._mode = mode
 
     @pyqtSlot(list)

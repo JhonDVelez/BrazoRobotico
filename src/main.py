@@ -11,11 +11,55 @@ import sys
 import ctypes
 import time
 import traceback
+
+
+def _setup_crash_log():
+    """
+    Abre el archivo de log de crash en la primera ubicación escribible
+    disponible. Debe llamarse ANTES de cualquier import pesado para que
+    incluso un fallo de importación quede registrado.
+
+    Cadena de fallbacks (dinámica por usuario):
+        ~/Documents/OpenBotVStudio/logs  ->  %LOCALAPPDATA%/OpenBotVStudio/logs
+        ->  %TEMP%/OpenBotVStudio
+    """
+    if not getattr(sys, 'frozen', False):
+        return None  # En desarrollo la consola ya es el "log".
+
+    candidates = []
+    try:
+        from PyQt6.QtCore import QStandardPaths
+        docs = QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.DocumentsLocation)
+        if docs:
+            candidates.append(os.path.join(docs, 'OpenBotVStudio', 'logs'))
+    except Exception:
+        pass
+    candidates.append(os.path.expanduser('~/Documents/OpenBotVStudio/logs'))
+    local = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
+    candidates.append(os.path.join(local, 'OpenBotVStudio', 'logs'))
+    candidates.append(os.path.join(os.environ.get('TEMP', '.'), 'OpenBotVStudio'))
+
+    for d in candidates:
+        try:
+            os.makedirs(d, exist_ok=True)
+            return open(os.path.join(d, 'openbotv_studio.log'),
+                        'w', encoding='utf-8', buffering=1)
+        except OSError:
+            continue
+    return None
+
+
+_log_file = _setup_crash_log()
+if _log_file:
+    sys.stdout = _log_file
+    sys.stderr = _log_file
+
 import cv2
 import darkdetect
 import pybullet as p
 import pybullet_data
-from PyQt6.QtCore import QUrl, Qt, QDir
+from PyQt6.QtCore import QUrl, Qt, QDir, QTimer
 from PyQt6.QtGui import QGuiApplication, QPixmap, QFont, QIcon, QSurfaceFormat
 from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtQuick import QQuickView
@@ -267,6 +311,9 @@ class CompletePreloader:
 
 def _excepthook(exc_type, exc_value, exc_tb):
     traceback.print_exception(exc_type, exc_value, exc_tb)
+    if _log_file and not _log_file.closed:
+        traceback.print_exception(exc_type, exc_value, exc_tb, file=_log_file)
+        _log_file.flush()
     try:
         from PyQt6.QtWidgets import QMessageBox
         QMessageBox.critical(None, "Error", f"{exc_type.__name__}: {exc_value}")
@@ -274,6 +321,20 @@ def _excepthook(exc_type, exc_value, exc_tb):
         pass
 
 sys.excepthook = _excepthook
+
+
+def resource_base() -> str:
+    """
+    Devuelve la carpeta base de recursos según el entorno de ejecución.
+
+    En un ejecutable PyInstaller el código vive dentro de `sys._MEIPASS`
+    (la carpeta `_internal` del bundle), conservando la estructura `src/...`,
+    por lo que se resuelve desde ahí; en desarrollo, desde `__file__`.
+    """
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, 'src')
+    return os.path.dirname(__file__)
+
 
 if __name__ == '__main__':
     if sys.platform == "win32":
@@ -298,7 +359,7 @@ if __name__ == '__main__':
     app.setStyle('fusion')
     from src.services.data.utils.widget_inspector import WidgetInspector
     WidgetInspector.install(app)
-    src_path = os.path.dirname(__file__)
+    src_path = resource_base()
 
     QDir.addSearchPath(
         "tabla", f"{src_path}/resources/tabla_compensacion")
@@ -309,8 +370,28 @@ if __name__ == '__main__':
 
     laser_icon_w = QIcon("img:laser_w.png")
     laser_icon_b = QIcon("img:laser_b.png")
-    app.setWindowIcon(laser_icon_w if darkdetect.theme()
-                      == "Dark" else laser_icon_b)
+
+    # El color del icono depende del tema de WINDOWS (darkdetect), no del
+    # tema interno de la app. Se sincroniza en tiempo real por polling.
+    _last_windows_theme = darkdetect.theme()
+    if _last_windows_theme:
+        app.setWindowIcon(
+            laser_icon_w if _last_windows_theme == "Dark" else laser_icon_b)
+
+    def _sync_window_icon_with_windows_theme():
+        """Actualiza el icono de ventana si cambia el tema de Windows."""
+        global _last_windows_theme
+        theme = darkdetect.theme()
+        if theme and theme != _last_windows_theme:
+            _last_windows_theme = theme
+            app.setWindowIcon(
+                laser_icon_w if theme == "Dark" else laser_icon_b)
+
+    icon_timer = QTimer()
+    icon_timer.setInterval(2000)
+    icon_timer.timeout.connect(_sync_window_icon_with_windows_theme)
+    icon_timer.start()
+
     app.setApplicationName("OpenBotv Studio")
     app.setDesktopFileName("OpenBotv Studio")
 

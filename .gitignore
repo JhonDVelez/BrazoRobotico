@@ -12,3 +12,5 @@ graphify-out/
 AGENTS.md
 CLAUDE.md
 .env
+**/build
+**/dist

@@ -41,14 +41,14 @@ def get_config_dir() -> Path:
 
     Usa QStandardPaths para obtener la carpeta Documents localizada
     del sistema operativo (~/Documents en ingles, ~/Documentos en espanol, etc.).
-    El directorio final es: ~/Documents/OpenBotVControlLab/config/
+    El directorio final es: ~/Documents/OpenBotVStudio/config/
 
     Returns:
         Path: Ruta absoluta al directorio de configuración.
     """
     docs = QStandardPaths.writableLocation(
         QStandardPaths.StandardLocation.DocumentsLocation)
-    return Path(docs) / "OpenBotVControlLab" / "config"
+    return Path(docs) / "OpenBotVStudio" / "config"
 
 
 CONFIG_DIR = get_config_dir()
